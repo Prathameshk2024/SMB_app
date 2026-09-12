@@ -431,7 +431,11 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
   font-size: var(--t-base);
   color: var(--ink);
 }
-.textarea { min-height: 96px; resize: vertical; }
+/* No drag handle: there is no corner to drag on a phone, and every stretch it
+   produced left a box the wrong shape. The height follows the text instead -
+   VoiceInput sets it from scrollHeight, and `overflow: hidden` keeps a scroll
+   bar from appearing inside a box that is about to grow anyway. */
+.textarea { min-height: 96px; resize: none; overflow: hidden; }
 .input:focus, .select:focus, .textarea:focus { border-color: var(--maroon); outline: none; }
 .input--err, .textarea--err { border-color: var(--danger); }
 .input:disabled { background: var(--surface-2); color: var(--ink-3); }

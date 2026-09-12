@@ -32,3 +32,26 @@ export function purgeExpiredRejections(products: Product[], now = Date.now()): n
   }
   return doomed.size
 }
+
+/**
+ * Clear out rows left behind by the old "archive" delete.
+ *
+ * Deleting a product used to stamp it `ARCHIVED` and keep it. Nothing has
+ * ever read one since - every list, count and slot calculation filtered them
+ * straight back out - so they are tombstones, and a database that only grows
+ * is what made the Firebase console unreadable. Swept on read, like an expired
+ * rejection, because there is no other moment that reliably arrives.
+ *
+ * In place, for the same reason `purgeExpiredRejections` is: `db.products` is
+ * the live array every route holds a reference to.
+ */
+export function purgeArchived(products: Product[]): number {
+  let removed = 0
+  for (let i = products.length - 1; i >= 0; i--) {
+    if (products[i]!.status === 'ARCHIVED') {
+      products.splice(i, 1)
+      removed++
+    }
+  }
+  return removed
+}

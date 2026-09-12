@@ -262,11 +262,37 @@ export function VoiceInput({
     lang: langOverride ?? (lang === 'en' ? 'en-IN' : 'mr-IN'),
   })
 
+  /**
+   * The box grows with what is in it.
+   *
+   * A drag handle in the corner is a desktop idea: there is no corner to drag
+   * on a phone, and the handle only ever produced a box stretched out of
+   * shape. So the height follows the text - `resize: none` in the stylesheet,
+   * and the height set from `scrollHeight` on every change and whenever the
+   * value arrives from outside, which is what an edit screen loading her
+   * saved words does.
+   */
+  const boxRef = useRef<HTMLTextAreaElement | null>(null)
+  const grow = useCallback((el: HTMLTextAreaElement | null) => {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [])
+
+  useEffect(() => {
+    if (multiline) grow(boxRef.current)
+  }, [value, multiline, grow])
+
   const field = multiline ? (
     <textarea
+      ref={boxRef}
       className={`textarea ${error ? 'textarea--err' : ''}`}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      rows={3}
+      onChange={(e) => {
+        onChange(e.target.value)
+        grow(e.currentTarget)
+      }}
       {...(rest as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
     />
   ) : (

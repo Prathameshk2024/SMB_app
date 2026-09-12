@@ -13,6 +13,7 @@ import { usePincode } from '../../store/PincodeContext.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
+import { PayButton } from '../../components/PayButton.js'
 import { Avatar } from '../../components/Avatar.js'
 import { AddressForm } from '../../components/AddressForm.js'
 import {
@@ -506,6 +507,20 @@ export function TrackOrder() {
   const [data, loading, setData] = useAsync(() => api.order(orderId!), [orderId])
   const [utr, setUtr] = useState('')
   const [payErr, setPayErr] = useState('')
+
+
+  /**
+   * Back from her UPI app. The reference number is the only thing tying a
+   * payment to this order, and the tap after paying is Back - so the box gets
+   * scrolled to and focused rather than waiting to be found.
+   */
+  const [backFromUpi, setBackFromUpi] = useState(false)
+  function askForUtr() {
+    setBackFromUpi(true)
+    const box = document.getElementById('orderUtr')
+    box?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    box?.focus({ preventScroll: true })
+  }
   const [paying, setPaying] = useState(false)
 
   if (loading) return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><Loading /></div></>
@@ -603,6 +618,22 @@ export function TrackOrder() {
               )}
               {seller?.upiId ? (
                 <>
+                  {/* One phone cannot scan its own screen. This opens whichever
+                      UPI app she has, with the shop, the amount and the order
+                      id already in it; the QR below is for a second handset. */}
+                  <PayButton
+                    link={buildUpiLink({
+                      upiId: seller.upiId,
+                      name: seller.shopName,
+                      amount: order.total,
+                      note: `Shantai Mahila Bazar ${order.id}`,
+                      ref: order.id,
+                    })}
+                    amount={order.total}
+                    onReturn={askForUtr}
+                  />
+                  <div className="small dim center">{t('pay.orScan')}</div>
+
                   <QrCode
                     value={buildUpiLink({
                       upiId: seller.upiId,
@@ -623,6 +654,8 @@ export function TrackOrder() {
               ) : (
                 <Notice tone="warn">{t('qrpay.notSetUp')}</Notice>
               )}
+
+              {backFromUpi && <Notice tone="warn">{t('pay.backAskUtr')}</Notice>}
 
               <Field label={t('cus.enterUtr')} hint={t('pay.utrHint')} error={payErr} required htmlFor="orderUtr">
                 <TextInput

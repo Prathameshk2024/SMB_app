@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { isValidUtr, normalizeUtr, utrProblem } from '@shared/payment.js'
+import { buildUpiLink } from '@shared/seller.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
 import PhotoPicker from '../../components/PhotoPicker.js'
+import { PayButton } from '../../components/PayButton.js'
 import {
-  AppBar, Button, Card, EmptyState, Field, Loading, Notice,
+  AppBar, Button, Card, CopyValue, EmptyState, Field, Loading, Notice,
   Rupees, TextInput, useAsync,
 } from '../../components/ui.js'
 import {
@@ -20,6 +22,9 @@ import {
 /* then types the reference number back in. No gateway.                 */
 /* ================================================================== */
 
+/** What the ₹50 is for, in the UPI note her bank statement keeps. */
+const PLAN_NOTE = 'subscription'
+
 export function Subscription() {
   const t = useT()
   const { toast } = useToast()
@@ -30,6 +35,16 @@ export function Subscription() {
   const [shot, setShot] = useState<{ url: string; publicId: string } | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  /**
+   * Set when she comes back from her UPI app.
+   *
+   * Up here with the others, and not beside the handler that uses it, because
+   * three of the returns below this line are early ones: a hook after them
+   * runs on some renders and not others, and React counts hooks rather than
+   * naming them - "Rendered more hooks than during the previous render", every
+   * time the screen went from loading to loaded.
+   */
+  const [backFromUpi, setBackFromUpi] = useState(false)
 
   if (loading) {
     return <><AppBar title={t('pay.title')} backTo="/seller" /><div className="screen"><Loading /></div></>
@@ -94,9 +109,26 @@ export function Subscription() {
     }
   }
 
-  const upiLink =
-    `upi://pay?pa=${account.upiId}&pn=${encodeURIComponent(account.label)}` +
-    `&am=${plan.price}.00&cu=INR&tn=${encodeURIComponent('Shantai Mahila Bazar')}`
+  /**
+   * She has been to her UPI app and come back. Scroll the reference box into
+   * view and put the cursor in it: a woman who has just paid ₹50 should not
+   * have to work out what this screen wants next.
+   */
+  function askForUtr() {
+    setBackFromUpi(true)
+    const box = document.getElementById('utr')
+    box?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    box?.focus({ preventScroll: true })
+  }
+
+  // The same builder the buyer's payment uses: hand-rolling the query string
+  // here meant two places deciding how an amount is formatted.
+  const upiLink = buildUpiLink({
+    upiId: account.upiId,
+    name: account.label,
+    amount: plan.price,
+    note: `Shantai Mahila Bazar ${PLAN_NOTE}`,
+  })
 
   return (
     <>
@@ -110,18 +142,31 @@ export function Subscription() {
         <Card>
           <div className="section-title">{t('pay.payTo')}</div>
           <div className="stack-sm">
+            {/* First, because it is the one that works on one phone. The QR
+                below it is for the case where somebody else is scanning. */}
+            <PayButton link={upiLink} amount={plan.price} onReturn={askForUtr} />
+            <div className="small dim center">{t('pay.orScan')}</div>
+
             <QrCode value={upiLink} size={200} label={t('pay.scanQr')} />
+            {/* The name as PRINTED on the poster, so she can check it against
+                the payee her own UPI app shows after scanning. Two names that
+                do not match is the one signal she has that something is
+                wrong, and it is worth more than any warning we could write. */}
+            <div className="center">
+              <div className="small dim">{t('pay.payeeName')}</div>
+              <strong>{account.label}</strong>
+            </div>
+            {/* Copyable, not just printed: a phone with one screen cannot scan
+                its own QR, so the ID gets retyped into the bank app - and a
+                UPI ID wrong by one character pays a stranger. */}
             <div className="center">
               <div className="small dim">{t('pay.upiId')}</div>
-              <strong className="num">{account.upiId}</strong>
+              <CopyValue value={account.upiId} />
             </div>
-            {/* No "pay now" link. It handed ₹50 to a UPI app in one tap, and
-                the tap most likely to follow a successful payment is the back
-                button - which returns here with no reference number captured
-                and no record that anything was sent. Scanning the code above
-                keeps her in the app that shows her the UTR she has to type. */}
             <div className="small dim center">
-              {account.bankName} · A/C {account.accountNo} · {account.ifsc}
+              {[account.bankName, account.accountNo && `A/C ${account.accountNo}`, account.ifsc]
+                .filter(Boolean)
+                .join(' · ')}
             </div>
           </div>
         </Card>
@@ -129,6 +174,11 @@ export function Subscription() {
         <Card>
           <div className="section-title">{t('pay.afterPaying')}</div>
           <div className="stack">
+            {/* Put in front of her the moment she comes back from her UPI
+                app. The reference is the whole reason this form exists, and
+                the tap after a payment is Back. */}
+            {backFromUpi && <Notice tone="warn">{t('pay.backAskUtr')}</Notice>}
+
             <Field label={t('pay.utr')} hint={t('pay.utrHint')} error={err} required htmlFor="utr">
               <TextInput
                 id="utr"

@@ -1,6 +1,8 @@
 node_modules
 dist
+admin/.env
 backend/.env
+frontend/.env
 .env
 .env.local
 android/

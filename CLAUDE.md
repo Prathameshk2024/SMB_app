@@ -27,7 +27,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (227) + frontend (94) + admin (28) tests
+npm test               # backend (239) + frontend (94) + admin (28) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -307,6 +307,14 @@ A half-filled product is written to `localStorage` so that leaving the screen �
 
 The key is `wb.draft.product.<sellerId>` and the seller id is **also stored inside the payload**. The first version used one shared key, and on a field coordinator's phone, where seller after seller registers on the same handset, the next woman opened "New product" and found a stranger's photo on step 1. Nothing is written until `hasStarted()` is true, so opening the wizard and walking away leaves no trace, and `readDraft` deletes the old unkeyed `wb.draft.product` on sight.
 
+### Categories
+
+`CATEGORIES` in `backend/src/db/seed.ts`, served by `GET /api/catalog/categories`. It is a constant in code, not a collection: a product stores only `categoryId`, and the label, icon and photograph are all derived from it.
+
+**`other` is the escape hatch, and it carries no `food` flag.** `Category.food` absent means *both halves*, because both wizard screens filter the list by the food question the seller has already answered — flag it either way and half the sellers lose their escape hatch. Twelve categories cannot name everything a village makes, and a woman whose product is not listed otherwise has two choices: file it under something it is not, which poisons the filter for every buyer, or stop. It sorts last and has no entry in `categoryPhoto.ts`, because there is no honest picture of "everything else". `backend/tests/categories.test.ts` holds all of that.
+
+Known gap: **the server never checks `categoryId` against this list** — `products.routes.ts` only requires it to be non-empty, so a junk id is stored and the product then falls out of every category filter. There is at least one such row in production (`pickles`, plural).
+
 ### Product photos
 
 `PhotoPicker` takes **one photo, from the gallery, and nothing else**. The camera button and the emoji fallback grid are both gone, so a photo is now required unless Cloudinary is off — the picker reports that upward through `onUnavailable` and the step stops being a wall the seller cannot pass. Once a photo is in, "choose from gallery" is disabled rather than silently replacing it; the ✕ on the thumbnail is the way to change it. The file input resets its own `value`, or removing a photo and picking the same file again fires no `change` event at all.
@@ -325,9 +333,27 @@ A listing that still has no picture — an old one, or Cloudinary off — falls 
 
 ### Slots and subscription
 
-`shared/src/seller.ts`. ₹50 = one pack = 5 product slots, no payment gateway — the seller pays the admin's UPI and admin approves by hand. `SLOT_CONSUMING` deliberately excludes `DRAFT` (so a seller can experiment before paying) and `ARCHIVED` (so archiving frees a slot immediately). Validation functions here run on **both** sides: the client for a fast friendly message, the server because the client can lie.
+`shared/src/seller.ts`. ₹50 = one pack = 5 product slots, no payment gateway — the seller pays the admin's UPI and admin approves by hand. `SLOT_CONSUMING` deliberately excludes `DRAFT`, so a seller can experiment before paying. Validation functions here run on **both** sides: the client for a fast friendly message, the server because the client can lie.
 
-The subscription screen offers a QR, a UPI id and a UTR box, and **no "pay now" link** — the same reason checkout has none. One tap handed ₹50 to a UPI app, and the tap most likely to follow a successful payment is Back, which returns to a form with no reference number captured and no record that anything was sent. Scanning keeps her in the app that shows her the UTR she then has to type. The optional screenshot beside it is a real `PhotoPicker` upload (`kind: 'payment'`, its own signed Cloudinary folder) that reaches `SubscriptionPayment.screenshotUrl` and is linked from the admin queue: the UTR is typed by hand and can be mistyped or invented, the bank's own receipt cannot, and that is what settles a disputed ₹50.
+**Deleting a product deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
+
+This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity and price from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the next time a seller tidies her shop. The slot frees immediately, as before, and `listingsPublished` is untouched, so deleting is still not a way round the replacement ceiling.
+
+**Where the ₹50 goes is `ADMIN_PAYMENT_ACCOUNT` in `config.ts`**, env-readable
+(`ADMIN_UPI_ID`, `ADMIN_UPI_NAME`, `ADMIN_BANK_NAME`), defaulting to the
+college's own account. It used to sit in `db/seed.ts` beside three invented
+sellers — the last place a real payee belongs. It is the one string in the app
+that moves real money and nothing downstream can catch it being wrong: the QR
+is generated FROM it, so a typo makes a perfectly scannable code that pays a
+stranger and leaves the seller holding a valid UTR for a payment the programme
+never saw. `backend/tests/payment-account.test.ts` asserts it is payable and
+is not the old placeholder. No account number or IFSC — she pays by UPI, and a
+wrong A/C under a QR is worse than none; the payee NAME is stored exactly as
+printed on the poster so she can check it against what her UPI app shows.
+
+The subscription screen offers a **pay button**, a QR, a UPI id and a UTR box, in that order. The button is `PayButton` on `buildUpiLink()`'s `upi://pay` — one link every Indian payment app registers, so Android offers whichever ones she has rather than us naming three and opening nothing on a phone without them.
+
+It was removed once, on the argument that the tap after a successful payment is Back and she lands on a form with no reference captured. That is real, and it is not an argument for the QR: **a phone cannot scan its own screen.** Both payment screens show the code on the same handset the payer is holding, so the QR only ever worked with a second phone, a screenshot fed to PhonePe's gallery scanner, or a UPI ID retyped by someone who cannot proofread it. The fix for Back is `onReturn` — on `visibilitychange`/`focus`, both screens scroll the UTR box into view and focus it, once per launch. The QR stays for the case where somebody else really is scanning. The optional screenshot beside it is a real `PhotoPicker` upload (`kind: 'payment'`, its own signed Cloudinary folder) that reaches `SubscriptionPayment.screenshotUrl` and is linked from the admin queue: the UTR is typed by hand and can be mistyped or invented, the bank's own receipt cannot, and that is what settles a disputed ₹50.
 
 Because approval is by hand, **how long she has been waiting is the number that makes somebody act on it**, and the console owns it: `waited()` in `admin/src/lib/format.ts` computes it from `submittedAt` — minutes under the hour, hours to two days, then days — and `Payments.tsx` re-reads the clock every 30 minutes so a console left open on a desk stops showing the age it had at page load. `/admin/payments` deliberately sends no `waitingHours`: a number computed on the server is frozen at the moment of the response, and two sources for one figure is how an admin stops trusting either.
 
@@ -382,7 +408,11 @@ Both landing photo strips are one component, `PhotoRotator`, cross-fading every 
 
 ## Deployment shape
 
-One Render web service (the API, **one instance**) and two Vercel projects from this same repo, distinguished only by Root Directory (`frontend` and `admin`). `VITE_API_URL` is read at **build** time, so changing it means redeploying. `frontend/vite.config.ts` sets `base: './'` for the Capacitor WebView; `admin` deliberately does not.
+One Render web service (the API, **one instance**) and two Vercel projects from this same repo, distinguished only by Root Directory (`frontend` and `admin`). `VITE_API_URL` is read at **build** time, so changing it means redeploying.
+
+**Both apps route in the browser, so both need `vercel.json`** — one catch-all rewrite to `index.html`, already committed in each folder. Without it every URL but the home page 404s on reload, which is the first thing anyone does with a link they were sent.
+
+**`base` is per build, not per app.** `frontend/vite.config.ts` emits `'./'` only under `--mode capacitor`, which `npm run cap:sync` passes; every other build is `'/'`. The WebView loads from the filesystem and needs relative paths; the web needs absolute ones, because a relative path under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. Mode rather than an environment variable so the flag needs no cross-platform shim and nobody has to remember it. `admin` sets no `base` and is unaffected either way.
 
 Do not use Firebase Dynamic Links — it shut down on 25 August 2025. Deferred deep linking uses Android App Links plus the Play Install Referrer API.
 

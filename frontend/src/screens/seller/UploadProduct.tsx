@@ -135,7 +135,11 @@ export default function UploadProduct() {
   }
 
   const categories: Category[] = catData?.categories ?? []
-  const visibleCats = categories.filter((c) => (d.isFood === null ? true : c.food === d.isFood))
+  // A category with no `food` flag belongs to both halves - that is `other`,
+  // and it has to be reachable whichever answer she gave on the food step.
+  const visibleCats = categories.filter(
+    (c) => d.isFood === null || c.food === undefined || c.food === d.isFood,
+  )
 
   function validate(which: (typeof STEPS)[number]): boolean {
     const e: Record<string, string> = {}

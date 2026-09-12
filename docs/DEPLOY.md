@@ -90,7 +90,29 @@ the Root Directory.
 | Environment variables | `VITE_API_URL=https://<your-api>.onrender.com`<br>`VITE_MSG91_WIDGET_ID=...`<br>`VITE_MSG91_TOKEN_AUTH=...` | `VITE_API_URL` only |
 
 Vercel detects the npm workspaces and installs from the repo root, so `shared/`
-resolves normally. No extra configuration is needed.
+resolves normally.
+
+### Both projects need their `vercel.json` — it is already in the repo
+
+`frontend/vercel.json` and `admin/vercel.json` each hold one rewrite:
+
+```json
+{ "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }] }
+```
+
+Both apps route in the browser. Vercel knows nothing about `/seller/orders` or
+`/payments`, so without this, **reloading any page other than the home page
+returns 404** — the first thing anyone does after being sent a link. Static
+files are matched before rewrites, so `/assets/…` still serves the real bundle.
+
+The seller app needed a second half to that fix. It builds with `base: './'`
+for Capacitor, and on the web a relative path is resolved against the current
+directory: reloading `/seller/orders` asks for `/seller/assets/index-xxx.js`,
+the rewrite answers with `index.html`, and a script tag receiving HTML is a
+blank screen. `frontend/vite.config.ts` now picks `'/'` unless the build is
+`--mode capacitor`, so the web build is absolute and the APK build is
+relative. Nothing to configure in Vercel; the default `npm run build` is the
+web build.
 
 Every `VITE_*` value is read at **build** time, not run time — changing one
 means redeploying, not just restarting. The admin console has no login OTP, so
@@ -189,6 +211,15 @@ cd frontend
 VITE_API_URL=https://<your-api>.onrender.com npm run cap:sync
 npm run cap:open
 ```
+
+`cap:sync` builds with `--mode capacitor`, which is what switches `base` to
+`'./'`. Building the APK with a plain `npm run build` produces absolute
+`/assets/…` paths, and the WebView — which loads from the filesystem, with no
+server root — finds nothing at all: a white screen on launch, with no error
+that names the cause. Always go through `cap:sync`.
+
+On Windows the `VITE_API_URL=… ` prefix is a POSIX shell form; use Git Bash, or
+put the value in `frontend/.env` and run `npm run cap:sync` on its own.
 
 A WebView origin is not an `https://` site, so CORS applies differently there —
 if requests from the APK are blocked, that is the thing to look at first.

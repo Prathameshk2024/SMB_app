@@ -107,7 +107,10 @@ export default function EditProduct() {
   }
 
   const categories: Category[] = catData?.categories ?? []
-  const visibleCats = categories.filter((c) => c.food === p.isFood)
+  // `other` carries no `food` flag and so belongs to both halves. Without this
+  // a listing already filed under it had no category to sit in on its own edit
+  // screen, and the select opened blank.
+  const visibleCats = categories.filter((c) => c.food === undefined || c.food === p.isFood)
 
   function validate(): boolean {
     const e: Record<string, string> = {}

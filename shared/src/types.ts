@@ -301,7 +301,13 @@ export interface Category {
   icon: string
   mr: string
   en: string
-  food: boolean
+  /**
+   * Which half of the wizard this category belongs to. **Absent means both** -
+   * `other` is the only one, and it has to be offered to a woman selling food
+   * and to one selling cloth alike, because what it is for is everything the
+   * list forgot.
+   */
+  food?: boolean
 }
 
 /* ------------------------------------------------------------------ */
@@ -333,8 +339,12 @@ export interface AdminPaymentAccount {
   label: string
   upiId: string
   bankName: string
-  accountNo: string
-  ifsc: string
+  /**
+   * Optional, and absent in practice: she pays by UPI, and a wrong account
+   * number printed under a QR code is worse than no account number.
+   */
+  accountNo?: string
+  ifsc?: string
 }
 
 /* ------------------------------------------------------------------ */

@@ -9,7 +9,7 @@ import { makeShopSlug, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import { computeReadiness, readinessBand, recomputeForSeller } from '@shared/readiness.js'
 import { getDb, newId, save } from '../db/store.js'
 import { buyersForSeller } from '../db/customers.js'
-import { ADMIN_PAYMENT_ACCOUNT } from '../db/seed.js'
+import { ADMIN_PAYMENT_ACCOUNT } from '../config.js'
 import { callerIp, requireRole } from '../middleware/auth.js'
 import { signToken } from '../auth/tokens.js'
 import { createSession, describeClient } from '../auth/sessions.js'
@@ -247,7 +247,7 @@ sellersRouter.get('/me', requireRole('seller'), (req, res) => {
     res.status(404).json({ error: 'Seller not found' })
     return
   }
-  const products = db.products.filter((p) => p.sellerId === seller.id && p.status !== 'ARCHIVED')
+  const products = db.products.filter((p) => p.sellerId === seller.id)
   res.json({ seller, slots: slotInfo(seller, products) })
 })
 
@@ -309,7 +309,7 @@ sellersRouter.patch('/me', requireRole('seller'), (req, res) => {
   const next = { ...current, ...patch }
 
   // Keep the readiness index in step with what she actually has now.
-  const products = db.products.filter((p) => p.sellerId === next.id && p.status !== 'ARCHIVED')
+  const products = db.products.filter((p) => p.sellerId === next.id)
   const completed = db.orders.filter((o) => o.sellerId === next.id && o.status === 'DELIVERED')
   const { score, band } = recomputeForSeller(next, {
     productCount: products.length,
@@ -359,7 +359,7 @@ sellersRouter.get('/me/subscription', requireRole('seller'), (req, res) => {
     res.status(404).json({ error: 'Seller not found' })
     return
   }
-  const products = db.products.filter((p) => p.sellerId === sellerId && p.status !== 'ARCHIVED')
+  const products = db.products.filter((p) => p.sellerId === sellerId)
   res.json({
     plan: PLAN,
     account: ADMIN_PAYMENT_ACCOUNT,
@@ -409,7 +409,7 @@ sellersRouter.post('/me/subscription/payment', requireRole('seller'), (req, res)
    * app only offers the button when the meter is full.
    */
   const products = db.products.filter(
-    (p) => p.sellerId === sellerId && p.status !== 'ARCHIVED',
+    (p) => p.sellerId === sellerId,
   )
   const slots = slotInfo(seller, products)
   if (slots.left > 0) {

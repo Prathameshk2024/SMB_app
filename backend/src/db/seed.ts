@@ -1,5 +1,5 @@
 import type {
-  AdminPaymentAccount, Category, Customer, Order, Product, Seller, SubscriptionPayment,
+  Category, Customer, Order, Product, Seller, SubscriptionPayment,
 } from '@shared/types.js'
 import { computeReadiness, readinessBand } from '@shared/readiness.js'
 import type { DigitalProfile } from '@shared/types.js'
@@ -69,15 +69,20 @@ export const CATEGORIES: Category[] = [
   { id: 'beauty',     icon: '🌿', mr: 'सौंदर्य व आरोग्य',   en: 'Beauty & Wellness', food: false },
   { id: 'decor',      icon: '🪔', mr: 'घर सजावट',           en: 'Home Decor',        food: false },
   { id: 'farm',       icon: '🌾', mr: 'शेतीपूरक उत्पादने',  en: 'Farm Produce',      food: true },
+  /**
+   * Last, and in both halves of the wizard on purpose.
+   *
+   * Twelve categories cannot name everything a village makes, and a woman
+   * whose product is not on the list had two ways out: file it under something
+   * it is not, or stop. The first poisons the category filter for every buyer,
+   * the second loses the seller. `food` is absent so this shows whether she
+   * said food or handmade - it is the answer for both.
+   *
+   * It carries no photograph in `categoryPhoto.ts`, deliberately: there is no
+   * honest picture of "everything else".
+   */
+  { id: 'other',      icon: '📦', mr: 'इतर',                en: 'Other' },
 ]
-
-export const ADMIN_PAYMENT_ACCOUNT: AdminPaymentAccount = {
-  label: 'Shantai Mahila Bazar',
-  upiId: 'shantabazar@okaxis',
-  bankName: 'Bank of Maharashtra',
-  accountNo: 'XXXXXXXX4471',
-  ifsc: 'MAHB0000123',
-}
 
 const digital = (
   s: boolean, i: boolean, u: boolean, w: boolean, sm: boolean, dm: boolean,

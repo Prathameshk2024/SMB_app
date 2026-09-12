@@ -373,15 +373,15 @@ export function OtpScreen() {
             <Button onClick={verify} disabled={code.length < OTP_LENGTH || busy}>
               {busy ? t('common.loading') : t('onb.otpVerify')}
             </Button>
+            {/* "New here? Register" used to sit below this, and it was a third
+                offer on a screen with one question on it - a woman halfway
+                through typing six digits does not need a way out of doing so.
+                A number with no seller record behind it reaches registration
+                by itself: the OTP is checked first, and the branch above is
+                what she lands on. */}
             <Button variant="quiet" onClick={resend}>
               {t('onb.otpResend')}
             </Button>
-
-            {mode === 'login' && role === 'seller' && (
-              <Button variant="ghost" onClick={() => nav('/join/seller')}>
-                {t('onb.newHere')}
-              </Button>
-            )}
           </>
         )}
       </div>

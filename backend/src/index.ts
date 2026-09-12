@@ -19,7 +19,7 @@ import {
   ALLOW_DEV_RESET, CORS_ORIGIN, describeConfig, PORT as CONFIG_PORT,
 } from './config.js'
 import { sellerWeek } from './db/analytics.js'
-import { purgeExpiredRejections } from './db/moderation.js'
+import { purgeArchived, purgeExpiredRejections } from './db/moderation.js'
 
 const app = express()
 const PORT = CONFIG_PORT
@@ -184,8 +184,11 @@ function startHousekeeping(): void {
 async function main() {
   await initStore()
   // Anything whose 48 hours ran out while the server was off goes now, before
-  // the first request can be served a listing that should not exist.
-  if (purgeExpiredRejections(getDb().products) > 0) save()
+  // the first request can be served a listing that should not exist. The
+  // archived rows are tombstones from when deleting a product only stamped it:
+  // nothing has read one since, and a collection that only grows is what makes
+  // the database unreadable to the people who have to audit it.
+  if (purgeExpiredRejections(getDb().products) + purgeArchived(getDb().products) > 0) save()
   startHousekeeping()
 
   app.listen(PORT, () => {

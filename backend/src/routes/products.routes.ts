@@ -6,7 +6,8 @@ import {
 } from '@shared/seller.js'
 import { getDb, newId, save } from '../db/store.js'
 import { requireRole } from '../middleware/auth.js'
-import { purgeExpiredRejections } from '../db/moderation.js'
+import { purgeArchived, purgeExpiredRejections } from '../db/moderation.js'
+import { destroyImage } from './uploads.routes.js'
 
 export const productsRouter: Router = Router()
 
@@ -37,9 +38,10 @@ productsRouter.get('/mine', requireRole('seller'), (req, res) => {
   const db = getDb()
   // A rejection she has already had 48 hours to read is gone by now. Swept on
   // read as well as on the timer, so her list and the server never disagree.
-  if (purgeExpiredRejections(db.products)) save()
+  // `purgeArchived` clears tombstones from before deleting meant deleting.
+  if (purgeExpiredRejections(db.products) + purgeArchived(db.products)) save()
   const sellerId = req.auth!.sellerId!
-  const products = db.products.filter((p) => p.sellerId === sellerId && p.status !== 'ARCHIVED')
+  const products = db.products.filter((p) => p.sellerId === sellerId)
   const seller = db.sellers.find((s) => s.id === sellerId)!
   res.json({ products, slots: slotInfo(seller, products) })
 })
@@ -69,7 +71,7 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
 
   // THE SLOT GATE. Enforced here, not just by the disabled button in the UI -
   // the button is a courtesy, this is the rule.
-  const existing = db.products.filter((p) => p.sellerId === sellerId && p.status !== 'ARCHIVED')
+  const existing = db.products.filter((p) => p.sellerId === sellerId)
   const slots = slotInfo(seller, existing)
   if (!asDraft && slots.isFull) {
     res.status(402).json({
@@ -187,7 +189,7 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
     }
 
     const others = db.products.filter(
-      (p) => p.sellerId === seller.id && p.id !== current.id && p.status !== 'ARCHIVED',
+      (p) => p.sellerId === seller.id && p.id !== current.id,
     )
     const slots = slotInfo(seller, others)
     if (slots.isFull) {
@@ -247,7 +249,23 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
   res.json({ product: db.products[i] })
 })
 
-/** Archiving frees a slot immediately - that is the whole point of it. */
+/**
+ * DELETE MEANS DELETE.
+ *
+ * This used to stamp the row `ARCHIVED` and leave it in place. Nothing ever
+ * read those rows again - every list, every count and every slot calculation
+ * filtered them straight back out - so the only thing the tombstone achieved
+ * was a database that grew for ever and a console an admin could not read.
+ *
+ * Her ORDERS are unaffected, which is what makes this safe: `OrderItem` copies
+ * the name, the emoji, the quantity and the price onto the order when it is
+ * placed, so a delivered order still prints what was in it years after the
+ * listing is gone. Nothing dereferences `productId` to draw an order.
+ *
+ * The slot frees immediately - that was always the point of archiving - and
+ * `listingsPublished` is untouched, so deleting is still not a way to publish
+ * a sixteenth listing on one pack.
+ */
 productsRouter.delete('/:id', requireRole('seller'), (req, res) => {
   const db = getDb()
   const i = db.products.findIndex(
@@ -257,12 +275,17 @@ productsRouter.delete('/:id', requireRole('seller'), (req, res) => {
     res.status(404).json({ error: 'Product not found' })
     return
   }
-  db.products[i]!.status = 'ARCHIVED'
+
+  const [gone] = db.products.splice(i, 1)
   save()
 
+  // Best effort, and deliberately not awaited: the record is already gone, the
+  // seller is waiting on a phone, and an image left behind is a smaller
+  // problem than a delete that appears to hang. This is the only moment we
+  // still know the public id, so it is now or never.
+  void destroyImage(gone?.imagePublicId)
+
   const seller = db.sellers.find((s) => s.id === req.auth!.sellerId)!
-  const remaining = db.products.filter(
-    (p) => p.sellerId === seller.id && p.status !== 'ARCHIVED',
-  )
+  const remaining = db.products.filter((p) => p.sellerId === seller.id)
   res.json({ ok: true, slots: slotInfo(seller, remaining) })
 })

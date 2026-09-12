@@ -93,6 +93,40 @@ uploadsRouter.post('/signature', requireUploader, (req, res) => {
  * Delete an image. Used when a seller replaces a product photo, so the old one
  * does not sit in the account forever.
  */
+/**
+ * Remove one image from the account.
+ *
+ * Exported because deleting a product has to do this too, and the moment its
+ * record goes so does the only copy of its `imagePublicId` - an image nobody
+ * can name again is an image nobody can ever clear.
+ *
+ * Returns whether Cloudinary took it, and throws for nothing: a failed
+ * cleanup must never stop the delete the seller actually asked for.
+ */
+export async function destroyImage(publicId: string | undefined): Promise<boolean> {
+  if (!usingCloudinary || !cloudinary || !publicId) return false
+  // Never let a caller name an arbitrary asset in the account.
+  if (!publicId.startsWith(`${cloudinary.folder}/`)) return false
+
+  const timestamp = Math.floor(Date.now() / 1000)
+  const body = new URLSearchParams({
+    public_id: publicId,
+    timestamp: String(timestamp),
+    api_key: cloudinary.apiKey,
+    signature: sign({ public_id: publicId, timestamp }, cloudinary.apiSecret),
+  })
+
+  try {
+    const resp = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudinary.cloudName}/image/destroy`,
+      { method: 'POST', body },
+    )
+    return resp.ok
+  } catch {
+    return false
+  }
+}
+
 uploadsRouter.post('/delete', requireRole('seller', 'admin'), async (req, res) => {
   if (!usingCloudinary || !cloudinary) {
     res.status(503).json({ error: 'Image uploads are not configured' })
@@ -100,24 +134,9 @@ uploadsRouter.post('/delete', requireRole('seller', 'admin'), async (req, res) =
   }
   const publicId = String(req.body?.publicId ?? '')
   if (!publicId.startsWith(`${cloudinary.folder}/`)) {
-    // Never let a caller name an arbitrary asset in the account.
     res.status(400).json({ error: 'Not an image of this app' })
     return
   }
 
-  const timestamp = Math.floor(Date.now() / 1000)
-  const signature = sign({ public_id: publicId, timestamp }, cloudinary.apiSecret)
-
-  const body = new URLSearchParams({
-    public_id: publicId,
-    timestamp: String(timestamp),
-    api_key: cloudinary.apiKey,
-    signature,
-  })
-
-  const resp = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudinary.cloudName}/image/destroy`,
-    { method: 'POST', body },
-  )
-  res.status(resp.ok ? 200 : 502).json(await resp.json())
+  res.status(await destroyImage(publicId) ? 200 : 502).json({ ok: true })
 })
