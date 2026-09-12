@@ -3,18 +3,30 @@ import {
   type ReactNode,
 } from 'react'
 import type { CartItem, Product, Seller, SellerGroup } from '@shared/types.js'
+import { canAddFrom, cartSeller, cartSellerName } from './cartRules.js'
 
 /**
  * The cart is GROUPED BY SELLER, and that is not a display detail - it is the
  * data model. Delivery is arranged directly with each seller and payment goes
- * into each seller's own UPI, so a cart holding items from three sellers must
- * become three orders. Everything downstream depends on this.
+ * into each seller's own UPI, so a cart holding items from two sellers would
+ * have to become two orders.
+ *
+ * It never does any more: ONE SELLER OWNS THE CART until it is emptied or
+ * ordered - see cartRules.ts for why. The grouping stays because checkout,
+ * the order API and every delivery rule are built on it, and because one
+ * group is the honest shape of "one seller" rather than a special case.
  */
 
 interface CartValue {
   items: CartItem[]
   count: number
-  add: (p: Product, qty?: number) => void
+  /** The shop that owns the cart, or null when it is empty. */
+  sellerId: string | null
+  sellerName?: string
+  /** False when the cart already belongs to a different shop. */
+  canAdd: (sellerId: string) => boolean
+  /** Refuses, and says so, when the cart belongs to another shop. */
+  add: (p: Product, qty?: number, sellerName?: string) => boolean
   setQty: (productId: string, qty: number) => void
   remove: (productId: string) => void
   clear: () => void
@@ -43,8 +55,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [items])
 
-  const add = useCallback((product: Product, qty = 1) => {
+  /**
+   * Returns false when the cart belongs to another shop, so the screen can
+   * explain rather than silently doing nothing. The check is repeated inside
+   * the updater because `items` in this closure can be a render behind a
+   * double tap.
+   */
+  const add = useCallback((product: Product, qty = 1, sellerName?: string) => {
+    let ok = true
     setItems((cur) => {
+      if (!canAddFrom(cur, product.sellerId)) {
+        ok = false
+        return cur
+      }
       const found = cur.find((i) => i.productId === product.id)
       if (found) {
         return cur.map((i) => (i.productId === product.id ? { ...i, qty: i.qty + qty } : i))
@@ -54,6 +77,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         {
           productId: product.id,
           sellerId: product.sellerId,
+          sellerName,
           name: product.name,
           emoji: product.emoji,
           price: product.price,
@@ -62,6 +86,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         },
       ]
     })
+    return ok
   }, [])
 
   const setQty = useCallback((productId: string, qty: number) => {
@@ -114,9 +139,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     [items],
   )
 
+  const sellerId = cartSeller(items)
+  const sellerName = cartSellerName(items)
+  const canAdd = useCallback((id: string) => canAddFrom(items, id), [items])
+
   const value = useMemo(
-    () => ({ items, count, add, setQty, remove, clear, has, groupBySeller }),
-    [items, count, add, setQty, remove, clear, has, groupBySeller],
+    () => ({
+      items, count, sellerId, sellerName, canAdd,
+      add, setQty, remove, clear, has, groupBySeller,
+    }),
+    [items, count, sellerId, sellerName, canAdd, add, setQty, remove, clear, has, groupBySeller],
   )
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }

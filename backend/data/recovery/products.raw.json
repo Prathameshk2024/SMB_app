@@ -1,0 +1,779 @@
+{
+  "documents": [
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtn0rhfd6mk",
+      "fields": {
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/wxydlagcqijeoro9iolq"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788530248/shanta-mahila-bazar/product/wxydlagcqijeoro9iolq.webp"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-04T13:58:22.201Z"
+        },
+        "mrp": {
+          "integerValue": "500"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "price": {
+          "integerValue": "350"
+        },
+        "name": {
+          "stringValue": "जॅकेट"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "sellerId": {
+          "stringValue": "smtn0o8bi34b"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "material": {
+          "stringValue": "कापूस"
+        },
+        "categoryId": {
+          "stringValue": "textile"
+        },
+        "id": {
+          "stringValue": "pmtn0rhfd6mk"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "status": {
+          "stringValue": "LIVE"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        }
+      },
+      "createTime": "2026-09-04T13:58:22.827864Z",
+      "updateTime": "2026-09-04T14:24:49.612405Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtn3d46j6yq",
+      "fields": {
+        "mrp": {
+          "integerValue": "122"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-04T15:11:10.699Z"
+        },
+        "material": {
+          "stringValue": "dahi"
+        },
+        "id": {
+          "stringValue": "pmtn3d46j6yq"
+        },
+        "categoryId": {
+          "stringValue": "agarbatti"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "name": {
+          "stringValue": "dahi"
+        },
+        "unit": {
+          "stringValue": "g"
+        },
+        "sellerId": {
+          "stringValue": "smtmp55op3lt"
+        },
+        "price": {
+          "integerValue": "45"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/sawjurbccixrndfndt5j"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788534387/shanta-mahila-bazar/product/sawjurbccixrndfndt5j.jpg"
+        },
+        "status": {
+          "stringValue": "LIVE"
+        }
+      },
+      "createTime": "2026-09-04T15:11:13.309393Z",
+      "updateTime": "2026-09-06T07:56:31.092090Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtogepo81it",
+      "fields": {
+        "categoryId": {
+          "stringValue": "food"
+        },
+        "isFood": {
+          "booleanValue": true
+        },
+        "vegType": {
+          "stringValue": "veg"
+        },
+        "fssaiExpiry": {
+          "stringValue": "2026-10-02"
+        },
+        "price": {
+          "integerValue": "450"
+        },
+        "id": {
+          "stringValue": "pmtogepo81it"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "ingredients": {
+          "stringValue": "Sagar ka hi victo"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "name": {
+          "stringValue": "mango pickle"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/u69kv9qgmhpdmjsdzk7v"
+        },
+        "sellerId": {
+          "stringValue": "smtmp55op3lt"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-05T14:04:06.392Z"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788616681/shanta-mahila-bazar/product/u69kv9qgmhpdmjsdzk7v.jpg"
+        },
+        "fssai": {
+          "stringValue": "12345678978923"
+        },
+        "status": {
+          "stringValue": "DRAFT"
+        },
+        "mrp": {
+          "integerValue": "400"
+        }
+      },
+      "createTime": "2026-09-05T14:04:07.738395Z",
+      "updateTime": "2026-09-05T14:04:07.738395Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtpi5u933ry",
+      "fields": {
+        "categoryId": {
+          "stringValue": "jewellery"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/qp4qyq56binxvpsfndkl"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-06T07:40:57.831Z"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "mrp": {
+          "integerValue": "1000"
+        },
+        "material": {
+          "stringValue": "लोकर"
+        },
+        "id": {
+          "stringValue": "pmtpi5u933ry"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "sellerId": {
+          "stringValue": "smtmp55op3lt"
+        },
+        "name": {
+          "stringValue": "tickle"
+        },
+        "status": {
+          "stringValue": "ARCHIVED"
+        },
+        "price": {
+          "integerValue": "552"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788680388/shanta-mahila-bazar/product/qp4qyq56binxvpsfndkl.jpg"
+        }
+      },
+      "createTime": "2026-09-06T07:40:58.404005Z",
+      "updateTime": "2026-09-06T07:53:58.368057Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtpw533xde",
+      "fields": {
+        "status": {
+          "stringValue": "LIVE"
+        },
+        "id": {
+          "stringValue": "pmtpw533xde"
+        },
+        "unit": {
+          "stringValue": "kg"
+        },
+        "ingredients": {
+          "stringValue": "oily"
+        },
+        "price": {
+          "integerValue": "100"
+        },
+        "vegType": {
+          "stringValue": "veg"
+        },
+        "name": {
+          "stringValue": "pickle"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-06T14:12:17.277Z"
+        },
+        "sellerId": {
+          "stringValue": "smtpw1dts3f5"
+        },
+        "mrp": {
+          "integerValue": "150"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/ggb02mderwvfhxohxdic"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "isFood": {
+          "booleanValue": true
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "categoryId": {
+          "stringValue": "pickle"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788703856/shanta-mahila-bazar/product/ggb02mderwvfhxohxdic.jpg"
+        }
+      },
+      "createTime": "2026-09-06T14:12:17.797756Z",
+      "updateTime": "2026-09-06T14:12:17.797756Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtsgfvyf5hs",
+      "fields": {
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788858908/shanta-mahila-bazar/product/pl1la4dgauveezeakjaz.jpg"
+        },
+        "name": {
+          "stringValue": "मूर्ती"
+        },
+        "price": {
+          "integerValue": "220"
+        },
+        "id": {
+          "stringValue": "pmtsgfvyf5hs"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T09:16:05.895Z"
+        },
+        "status": {
+          "stringValue": "LIVE"
+        },
+        "sellerId": {
+          "stringValue": "smtmp55op3lt"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "material": {
+          "stringValue": "ही मूर्ती काळी आहे"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/pl1la4dgauveezeakjaz"
+        },
+        "categoryId": {
+          "stringValue": "handicraft"
+        },
+        "mrp": {
+          "integerValue": "56"
+        }
+      },
+      "createTime": "2026-09-08T09:16:07.820701Z",
+      "updateTime": "2026-09-08T09:16:07.820701Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtsh18wcqd",
+      "fields": {
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "categoryId": {
+          "stringValue": "beauty"
+        },
+        "price": {
+          "integerValue": "50"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T09:32:42.444Z"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "material": {
+          "stringValue": "glass"
+        },
+        "name": {
+          "stringValue": "goggle"
+        },
+        "id": {
+          "stringValue": "pmtsh18wcqd"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "mrp": {
+          "integerValue": "80"
+        },
+        "status": {
+          "stringValue": "LIVE"
+        },
+        "sellerId": {
+          "stringValue": "smtmp55op3lt"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/mhuon4lsiexwmweomqp5"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788859888/shanta-mahila-bazar/product/mhuon4lsiexwmweomqp5.webp"
+        }
+      },
+      "createTime": "2026-09-08T09:32:42.859597Z",
+      "updateTime": "2026-09-08T09:32:42.859597Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtsnc7cq52y",
+      "fields": {
+        "stock": {
+          "integerValue": "0"
+        },
+        "id": {
+          "stringValue": "pmtsnc7cq52y"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T12:29:11.355Z"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "material": {
+          "stringValue": "रेशीम"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788870480/shanta-mahila-bazar/product/tn68flazwblgo21zxbn3.jpg"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "name": {
+          "stringValue": "जीन्स"
+        },
+        "status": {
+          "stringValue": "LIVE"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "price": {
+          "integerValue": "150"
+        },
+        "categoryId": {
+          "stringValue": "textile"
+        },
+        "sellerId": {
+          "stringValue": "smtsmrvjf2rb"
+        },
+        "mrp": {
+          "integerValue": "200"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/tn68flazwblgo21zxbn3"
+        }
+      },
+      "createTime": "2026-09-08T12:29:13.600812Z",
+      "updateTime": "2026-09-08T12:29:13.600812Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtsne10l4ym",
+      "fields": {
+        "price": {
+          "integerValue": "250"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T12:30:36.453Z"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "mrp": {
+          "integerValue": "300"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/w2jpzlhox3rnga5mqlkp"
+        },
+        "material": {
+          "stringValue": "रेशीम"
+        },
+        "name": {
+          "stringValue": "जॅकेट"
+        },
+        "sellerId": {
+          "stringValue": "smtsmrvjf2rb"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "status": {
+          "stringValue": "LIVE"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "categoryId": {
+          "stringValue": "textile"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788870560/shanta-mahila-bazar/product/w2jpzlhox3rnga5mqlkp.jpg"
+        },
+        "id": {
+          "stringValue": "pmtsne10l4ym"
+        }
+      },
+      "createTime": "2026-09-08T12:30:37.084278Z",
+      "updateTime": "2026-09-08T12:30:37.084278Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtsnf3ha503",
+      "fields": {
+        "mrp": {
+          "integerValue": "300"
+        },
+        "sellerId": {
+          "stringValue": "smtsmrvjf2rb"
+        },
+        "price": {
+          "integerValue": "250"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "id": {
+          "stringValue": "pmtsnf3ha503"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788870645/shanta-mahila-bazar/product/d1r4qg80hujfmygprk0p.jpg"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/d1r4qg80hujfmygprk0p"
+        },
+        "status": {
+          "stringValue": "PAUSED"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T12:31:26.302Z"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "categoryId": {
+          "stringValue": "textile"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "material": {
+          "stringValue": "ज्यूट"
+        },
+        "name": {
+          "stringValue": "आजी आजा"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "stock": {
+          "integerValue": "0"
+        }
+      },
+      "createTime": "2026-09-08T12:31:26.935230Z",
+      "updateTime": "2026-09-08T12:40:31.994763Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtsnhhsq2cf",
+      "fields": {
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/m6tz1cq0zwmaoppoebcc"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "material": {
+          "stringValue": "रेशीम"
+        },
+        "categoryId": {
+          "stringValue": "handicraft"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T12:33:18.170Z"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788870746/shanta-mahila-bazar/product/m6tz1cq0zwmaoppoebcc.jpg"
+        },
+        "sellerId": {
+          "stringValue": "smtsmrvjf2rb"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "mrp": {
+          "integerValue": "250"
+        },
+        "status": {
+          "stringValue": "PAUSED"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "price": {
+          "integerValue": "200"
+        },
+        "id": {
+          "stringValue": "pmtsnhhsq2cf"
+        },
+        "name": {
+          "stringValue": "मम्मा"
+        },
+        "emoji": {
+          "stringValue": "📦"
+        }
+      },
+      "createTime": "2026-09-08T12:33:18.806275Z",
+      "updateTime": "2026-09-08T12:43:46.240161Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtsnj1wj3bg",
+      "fields": {
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/io3qddzkghi5sjfnfpys"
+        },
+        "id": {
+          "stringValue": "pmtsnj1wj3bg"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T12:34:30.883Z"
+        },
+        "price": {
+          "integerValue": "350"
+        },
+        "rejectedAt": {
+          "stringValue": "2026-09-08T16:35:50.199Z"
+        },
+        "material": {
+          "stringValue": "रेशीम"
+        },
+        "status": {
+          "stringValue": "REJECTED"
+        },
+        "name": {
+          "stringValue": "shoes"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788870840/shanta-mahila-bazar/product/io3qddzkghi5sjfnfpys.jpg"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "isFood": {
+          "booleanValue": false
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "mrp": {
+          "integerValue": "400"
+        },
+        "unit": {
+          "stringValue": "piece"
+        },
+        "rejectReason": {
+          "stringValue": "these are fake ones , you sell fake products ajyaa."
+        },
+        "sellerId": {
+          "stringValue": "smtsmrvjf2rb"
+        },
+        "categoryId": {
+          "stringValue": "textile"
+        }
+      },
+      "createTime": "2026-09-08T12:34:31.517584Z",
+      "updateTime": "2026-09-08T16:35:50.823557Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/products/pmtu8e2d76cn",
+      "fields": {
+        "name": {
+          "stringValue": "Abyache lonache"
+        },
+        "imagePublicId": {
+          "stringValue": "shanta-mahila-bazar/product/skim3p6suwuqfczsltc4"
+        },
+        "madeToOrder": {
+          "booleanValue": true
+        },
+        "ingredients": {
+          "stringValue": "Pan card ahe"
+        },
+        "unit": {
+          "stringValue": "kg"
+        },
+        "isFood": {
+          "booleanValue": true
+        },
+        "emoji": {
+          "stringValue": "📦"
+        },
+        "vegType": {
+          "stringValue": "veg"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-09T15:06:16.315Z"
+        },
+        "price": {
+          "integerValue": "444444"
+        },
+        "id": {
+          "stringValue": "pmtu8e2d76cn"
+        },
+        "mrp": {
+          "integerValue": "6666666"
+        },
+        "imageUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788966294/shanta-mahila-bazar/product/skim3p6suwuqfczsltc4.jpg"
+        },
+        "status": {
+          "stringValue": "LIVE"
+        },
+        "stock": {
+          "integerValue": "0"
+        },
+        "views": {
+          "integerValue": "0"
+        },
+        "sellerId": {
+          "stringValue": "smtu88ael3z7"
+        },
+        "categoryId": {
+          "stringValue": "food"
+        }
+      },
+      "createTime": "2026-09-09T15:06:16.888408Z",
+      "updateTime": "2026-09-09T15:07:54.269679Z"
+    }
+  ]
+}

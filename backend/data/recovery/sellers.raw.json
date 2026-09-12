@@ -1,0 +1,1051 @@
+{
+  "documents": [
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/sellers/smtmp55op3lt",
+      "fields": {
+        "digital": {
+          "mapValue": {
+            "fields": {
+              "whatsappBusiness": {
+                "booleanValue": true
+              },
+              "digitalMarketing": {
+                "booleanValue": true
+              },
+              "upi": {
+                "booleanValue": true
+              },
+              "internet": {
+                "booleanValue": true
+              },
+              "socialMedia": {
+                "booleanValue": true
+              },
+              "smartphone": {
+                "booleanValue": true
+              }
+            }
+          }
+        },
+        "phone": {
+          "stringValue": "8625981133"
+        },
+        "notices": {
+          "arrayValue": {
+            "values": [
+              {
+                "mapValue": {
+                  "fields": {
+                    "id": {
+                      "stringValue": "SLOTS_REVOKED:2026-09-08T10:25:53.962Z"
+                    },
+                    "at": {
+                      "stringValue": "2026-09-08T10:25:53.962Z"
+                    },
+                    "kind": {
+                      "stringValue": "SLOTS_REVOKED"
+                    },
+                    "n": {
+                      "integerValue": "10"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "upiQrReady": {
+          "booleanValue": true
+        },
+        "upiVerified": {
+          "booleanValue": false
+        },
+        "isOpen": {
+          "booleanValue": true
+        },
+        "dispatch": {
+          "stringValue": "1"
+        },
+        "village": {
+          "stringValue": "चिवरी"
+        },
+        "education": {
+          "stringValue": "graduate"
+        },
+        "photo": {
+          "stringValue": "👩"
+        },
+        "deliveryFee": {
+          "integerValue": "0"
+        },
+        "rating": {
+          "integerValue": "0"
+        },
+        "id": {
+          "stringValue": "smtmp55op3lt"
+        },
+        "sellsFood": {
+          "booleanValue": true
+        },
+        "about": {
+          "stringValue": "मी घरी बसल्या बसल्या सगळे काम करतो."
+        },
+        "ratingCount": {
+          "integerValue": "0"
+        },
+        "fssai": {
+          "stringValue": "12345678978923"
+        },
+        "qrOrders": {
+          "integerValue": "0"
+        },
+        "status": {
+          "stringValue": "ACTIVE"
+        },
+        "age": {
+          "integerValue": "35"
+        },
+        "monthlyCapacity": {
+          "integerValue": "10"
+        },
+        "qrScans": {
+          "integerValue": "0"
+        },
+        "district": {
+          "stringValue": "धाराशिव"
+        },
+        "shopName": {
+          "stringValue": "कुंभार गृहउद्योग"
+        },
+        "whatsapp": {
+          "stringValue": "8625981133"
+        },
+        "packsApproved": {
+          "integerValue": "1"
+        },
+        "minOrder": {
+          "integerValue": "0"
+        },
+        "shopSlug": {
+          "stringValue": "kunbharagruhaudyog-wb-chivari-001"
+        },
+        "womenBizId": {
+          "stringValue": "WB-CHIVARI-001"
+        },
+        "yearsInBusiness": {
+          "integerValue": "5"
+        },
+        "readinessBand": {
+          "stringValue": "digital"
+        },
+        "upiId": {
+          "stringValue": "9579325696@ybl"
+        },
+        "villageCode": {
+          "stringValue": "CHIVARI"
+        },
+        "taluka": {
+          "stringValue": "तुळजापूर"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-04T08:33:04.778Z"
+        },
+        "freeDeliveryAbove": {
+          "integerValue": "0"
+        },
+        "pincode": {
+          "stringValue": "413002"
+        },
+        "businessType": {
+          "stringValue": "individual"
+        },
+        "readinessScore": {
+          "integerValue": "80"
+        },
+        "name": {
+          "stringValue": "अर्पिता"
+        },
+        "pincodes": {
+          "arrayValue": {
+            "values": [
+              {
+                "stringValue": "413002"
+              }
+            ]
+          }
+        },
+        "fssaiExpiry": {
+          "stringValue": "2026-10-02"
+        }
+      },
+      "createTime": "2026-09-04T08:33:06.997808Z",
+      "updateTime": "2026-09-08T10:25:54.555834Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/sellers/smtn0o8bi34b",
+      "fields": {
+        "village": {
+          "stringValue": "आणदुर"
+        },
+        "upiId": {
+          "stringValue": "sunita9579325696@ybl"
+        },
+        "pincodes": {
+          "arrayValue": {
+            "values": [
+              {
+                "stringValue": "413601"
+              }
+            ]
+          }
+        },
+        "rating": {
+          "integerValue": "0"
+        },
+        "villageCode": {
+          "stringValue": "ANADUR"
+        },
+        "readinessScore": {
+          "integerValue": "60"
+        },
+        "womenBizId": {
+          "stringValue": "WB-ANADUR-001"
+        },
+        "digital": {
+          "mapValue": {
+            "fields": {
+              "internet": {
+                "booleanValue": true
+              },
+              "whatsappBusiness": {
+                "booleanValue": true
+              },
+              "smartphone": {
+                "booleanValue": true
+              },
+              "digitalMarketing": {
+                "booleanValue": true
+              },
+              "socialMedia": {
+                "booleanValue": true
+              },
+              "upi": {
+                "booleanValue": true
+              }
+            }
+          }
+        },
+        "education": {
+          "stringValue": "higher"
+        },
+        "status": {
+          "stringValue": "ACTIVE"
+        },
+        "age": {
+          "integerValue": "35"
+        },
+        "isOpen": {
+          "booleanValue": true
+        },
+        "businessType": {
+          "stringValue": "individual"
+        },
+        "shopSlug": {
+          "stringValue": "hanjagigruhaudyog-wb-anadur-001"
+        },
+        "minOrder": {
+          "integerValue": "0"
+        },
+        "district": {
+          "stringValue": "धाराशिव"
+        },
+        "shopName": {
+          "stringValue": "हंजगी गृह उद्योग"
+        },
+        "whatsapp": {
+          "stringValue": "9423390984"
+        },
+        "sellsFood": {
+          "booleanValue": false
+        },
+        "qrOrders": {
+          "integerValue": "0"
+        },
+        "photo": {
+          "stringValue": "👩"
+        },
+        "name": {
+          "stringValue": "अर्पिता"
+        },
+        "taluka": {
+          "stringValue": "तुळजापूर"
+        },
+        "qrScans": {
+          "integerValue": "0"
+        },
+        "upiVerified": {
+          "booleanValue": false
+        },
+        "phone": {
+          "stringValue": "9420488874"
+        },
+        "freeDeliveryAbove": {
+          "integerValue": "0"
+        },
+        "packsApproved": {
+          "integerValue": "1"
+        },
+        "yearsInBusiness": {
+          "integerValue": "5"
+        },
+        "dispatch": {
+          "stringValue": "1"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-04T13:55:50.430Z"
+        },
+        "id": {
+          "stringValue": "smtn0o8bi34b"
+        },
+        "ratingCount": {
+          "integerValue": "0"
+        },
+        "about": {
+          "stringValue": "null"
+        },
+        "deliveryFee": {
+          "integerValue": "0"
+        },
+        "readinessBand": {
+          "stringValue": "advanced"
+        },
+        "monthlyCapacity": {
+          "integerValue": "10"
+        },
+        "pincode": {
+          "stringValue": "413601"
+        }
+      },
+      "createTime": "2026-09-04T13:55:51.427871Z",
+      "updateTime": "2026-09-04T13:57:03.068528Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/sellers/smtpu4l3w4pg",
+      "fields": {
+        "about": {
+          "stringValue": "गेली 10 वर्षे मी हे काम करत आहे"
+        },
+        "deliveryFee": {
+          "integerValue": "0"
+        },
+        "minOrder": {
+          "integerValue": "0"
+        },
+        "shopSlug": {
+          "stringValue": "sunitagruhaudyog-smb-rudrawadi-001"
+        },
+        "whatsapp": {
+          "stringValue": "8788235964"
+        },
+        "village": {
+          "stringValue": "रुद्रवाडी"
+        },
+        "shopName": {
+          "stringValue": "सुनिता गृह उद्योग"
+        },
+        "district": {
+          "stringValue": "धाराशिव"
+        },
+        "education": {
+          "stringValue": "graduate"
+        },
+        "businessType": {
+          "stringValue": "shg"
+        },
+        "upiQrReady": {
+          "booleanValue": false
+        },
+        "ratingCount": {
+          "integerValue": "0"
+        },
+        "digital": {
+          "mapValue": {
+            "fields": {
+              "socialMedia": {
+                "booleanValue": true
+              },
+              "upi": {
+                "booleanValue": true
+              },
+              "digitalMarketing": {
+                "booleanValue": true
+              },
+              "whatsappBusiness": {
+                "booleanValue": true
+              },
+              "internet": {
+                "booleanValue": true
+              },
+              "smartphone": {
+                "booleanValue": true
+              }
+            }
+          }
+        },
+        "sellsFood": {
+          "booleanValue": true
+        },
+        "photo": {
+          "stringValue": "👩"
+        },
+        "upiVerified": {
+          "booleanValue": false
+        },
+        "pincodes": {
+          "arrayValue": {
+            "values": [
+              {
+                "stringValue": "413601"
+              }
+            ]
+          }
+        },
+        "readinessScore": {
+          "integerValue": "60"
+        },
+        "phone": {
+          "stringValue": "8788235964"
+        },
+        "taluka": {
+          "stringValue": "तुळजापूर"
+        },
+        "shgName": {
+          "stringValue": "शाहू महिला बचत गट"
+        },
+        "freeDeliveryAbove": {
+          "integerValue": "0"
+        },
+        "monthlyCapacity": {
+          "integerValue": "80"
+        },
+        "age": {
+          "integerValue": "40"
+        },
+        "isOpen": {
+          "booleanValue": true
+        },
+        "yearsInBusiness": {
+          "integerValue": "5"
+        },
+        "womenBizId": {
+          "stringValue": "SMB-RUDRAWADI-001"
+        },
+        "qrScans": {
+          "integerValue": "0"
+        },
+        "dispatch": {
+          "stringValue": "same"
+        },
+        "status": {
+          "stringValue": "ACTIVE"
+        },
+        "id": {
+          "stringValue": "smtpu4l3w4pg"
+        },
+        "readinessBand": {
+          "stringValue": "advanced"
+        },
+        "upiId": {
+          "stringValue": "sunita8788235964@ybl"
+        },
+        "rating": {
+          "integerValue": "0"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-06T13:15:54.717Z"
+        },
+        "pincode": {
+          "stringValue": "413601"
+        },
+        "qrOrders": {
+          "integerValue": "0"
+        },
+        "name": {
+          "stringValue": "सुनिता हंजगी"
+        },
+        "packsApproved": {
+          "integerValue": "1"
+        },
+        "villageCode": {
+          "stringValue": "RUDRAWADI"
+        }
+      },
+      "createTime": "2026-09-06T13:15:56.919286Z",
+      "updateTime": "2026-09-06T13:25:03.538178Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/sellers/smtpw1dts3f5",
+      "fields": {
+        "digital": {
+          "mapValue": {
+            "fields": {
+              "internet": {
+                "booleanValue": true
+              },
+              "smartphone": {
+                "booleanValue": true
+              },
+              "socialMedia": {
+                "booleanValue": true
+              },
+              "whatsappBusiness": {
+                "booleanValue": true
+              },
+              "digitalMarketing": {
+                "booleanValue": true
+              },
+              "upi": {
+                "booleanValue": true
+              }
+            }
+          }
+        },
+        "qrOrders": {
+          "integerValue": "0"
+        },
+        "about": {
+          "stringValue": "i make good and tasty producs and also sell the hadicarfts"
+        },
+        "taluka": {
+          "stringValue": "तुळजापूर"
+        },
+        "yearsInBusiness": {
+          "integerValue": "4"
+        },
+        "businessType": {
+          "stringValue": "individual"
+        },
+        "village": {
+          "stringValue": "चिवरी"
+        },
+        "villageCode": {
+          "stringValue": "CHIVARI"
+        },
+        "monthlyCapacity": {
+          "integerValue": "10"
+        },
+        "sellsFood": {
+          "booleanValue": true
+        },
+        "dispatch": {
+          "stringValue": "23"
+        },
+        "photo": {
+          "stringValue": "👩"
+        },
+        "education": {
+          "stringValue": "primary"
+        },
+        "id": {
+          "stringValue": "smtpw1dts3f5"
+        },
+        "upiQrPublicId": {
+          "stringValue": "shanta-mahila-bazar/product/a8gzki3nyx8ktaih7zx3"
+        },
+        "womenBizId": {
+          "stringValue": "SMB-CHIVARI-001"
+        },
+        "phone": {
+          "stringValue": "9579602050"
+        },
+        "upiQrUrl": {
+          "stringValue": "https://res.cloudinary.com/wvd4cteq/image/upload/v1788703727/shanta-mahila-bazar/product/a8gzki3nyx8ktaih7zx3.png"
+        },
+        "rating": {
+          "integerValue": "0"
+        },
+        "upiVerified": {
+          "booleanValue": false
+        },
+        "qrScans": {
+          "integerValue": "0"
+        },
+        "packsApproved": {
+          "integerValue": "1"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-06T14:09:24.545Z"
+        },
+        "pincodes": {
+          "arrayValue": {
+            "values": [
+              {
+                "stringValue": "413601"
+              }
+            ]
+          }
+        },
+        "status": {
+          "stringValue": "ACTIVE"
+        },
+        "readinessBand": {
+          "stringValue": "advanced"
+        },
+        "isOpen": {
+          "booleanValue": true
+        },
+        "name": {
+          "stringValue": "sakshi"
+        },
+        "upiId": {
+          "stringValue": "9579322050@ybl"
+        },
+        "deliveryFee": {
+          "integerValue": "0"
+        },
+        "readinessScore": {
+          "integerValue": "60"
+        },
+        "pincode": {
+          "stringValue": "413601"
+        },
+        "shopName": {
+          "stringValue": "chavan business"
+        },
+        "district": {
+          "stringValue": "धाराशिव"
+        },
+        "whatsapp": {
+          "stringValue": "9579602050"
+        },
+        "upiQrReady": {
+          "booleanValue": true
+        },
+        "ratingCount": {
+          "integerValue": "0"
+        },
+        "minOrder": {
+          "integerValue": "0"
+        },
+        "shopSlug": {
+          "stringValue": "chavanbusiness-smb-chivari-001"
+        },
+        "age": {
+          "integerValue": "35"
+        },
+        "freeDeliveryAbove": {
+          "integerValue": "0"
+        }
+      },
+      "createTime": "2026-09-06T14:09:25.265258Z",
+      "updateTime": "2026-09-06T14:10:23.967497Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/sellers/smtsmrvjf2rb",
+      "fields": {
+        "status": {
+          "stringValue": "ACTIVE"
+        },
+        "education": {
+          "stringValue": "middle"
+        },
+        "businessType": {
+          "stringValue": "individual"
+        },
+        "photo": {
+          "stringValue": "👩"
+        },
+        "monthlyCapacity": {
+          "integerValue": "10"
+        },
+        "rating": {
+          "integerValue": "0"
+        },
+        "phone": {
+          "stringValue": "9579325696"
+        },
+        "whatsapp": {
+          "stringValue": "9579325696"
+        },
+        "shopName": {
+          "stringValue": "अजेंडा उद्योग"
+        },
+        "district": {
+          "stringValue": "धाराशिव"
+        },
+        "yearsInBusiness": {
+          "integerValue": "10"
+        },
+        "minOrder": {
+          "integerValue": "0"
+        },
+        "shopSlug": {
+          "stringValue": "ajendaudyog-smb-anadur-01"
+        },
+        "about": {
+          "stringValue": "मी खूप फालतू वेबसाईट तयार करतो"
+        },
+        "notices": {
+          "arrayValue": {
+            "values": [
+              {
+                "mapValue": {
+                  "fields": {
+                    "id": {
+                      "stringValue": "PAYMENT_APPROVED:2026-09-08T12:24:56.830Z"
+                    },
+                    "at": {
+                      "stringValue": "2026-09-08T12:24:56.830Z"
+                    },
+                    "kind": {
+                      "stringValue": "PAYMENT_APPROVED"
+                    },
+                    "n": {
+                      "integerValue": "5"
+                    }
+                  }
+                }
+              },
+              {
+                "mapValue": {
+                  "fields": {
+                    "id": {
+                      "stringValue": "PRODUCT_REJECTED:2026-09-08T16:35:50.199Z"
+                    },
+                    "at": {
+                      "stringValue": "2026-09-08T16:35:50.199Z"
+                    },
+                    "kind": {
+                      "stringValue": "PRODUCT_REJECTED"
+                    },
+                    "note": {
+                      "stringValue": "shoes - these are fake ones , you sell fake products ajyaa."
+                    },
+                    "n": {
+                      "integerValue": "48"
+                    }
+                  }
+                }
+              },
+              {
+                "mapValue": {
+                  "fields": {
+                    "id": {
+                      "stringValue": "PAYMENT_APPROVED:2026-09-08T17:30:02.651Z"
+                    },
+                    "at": {
+                      "stringValue": "2026-09-08T17:30:02.651Z"
+                    },
+                    "kind": {
+                      "stringValue": "PAYMENT_APPROVED"
+                    },
+                    "n": {
+                      "integerValue": "5"
+                    }
+                  }
+                }
+              },
+              {
+                "mapValue": {
+                  "fields": {
+                    "id": {
+                      "stringValue": "SLOTS_REVOKED:2026-09-08T17:31:51.166Z"
+                    },
+                    "at": {
+                      "stringValue": "2026-09-08T17:31:51.166Z"
+                    },
+                    "kind": {
+                      "stringValue": "SLOTS_REVOKED"
+                    },
+                    "n": {
+                      "integerValue": "5"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "pincodes": {
+          "arrayValue": {
+            "values": [
+              {
+                "stringValue": "413061"
+              }
+            ]
+          }
+        },
+        "sellsFood": {
+          "booleanValue": true
+        },
+        "digital": {
+          "mapValue": {
+            "fields": {
+              "digitalMarketing": {
+                "booleanValue": false
+              },
+              "whatsappBusiness": {
+                "booleanValue": true
+              },
+              "smartphone": {
+                "booleanValue": true
+              },
+              "socialMedia": {
+                "booleanValue": false
+              },
+              "upi": {
+                "booleanValue": true
+              },
+              "internet": {
+                "booleanValue": true
+              }
+            }
+          }
+        },
+        "womenBizId": {
+          "stringValue": "SMB-ANADUR-01"
+        },
+        "name": {
+          "stringValue": "अजय राठोड"
+        },
+        "isOpen": {
+          "booleanValue": true
+        },
+        "village": {
+          "stringValue": "आणदुर"
+        },
+        "villageCode": {
+          "stringValue": "ANADUR"
+        },
+        "dispatch": {
+          "stringValue": "same"
+        },
+        "pincode": {
+          "stringValue": "413061"
+        },
+        "deliveryFee": {
+          "integerValue": "0"
+        },
+        "upiId": {
+          "stringValue": "9322125840@ybl"
+        },
+        "taluka": {
+          "stringValue": "तुळजापूर"
+        },
+        "age": {
+          "integerValue": "35"
+        },
+        "ratingCount": {
+          "integerValue": "0"
+        },
+        "freeDeliveryAbove": {
+          "integerValue": "0"
+        },
+        "readinessBand": {
+          "stringValue": "advanced"
+        },
+        "readinessScore": {
+          "integerValue": "60"
+        },
+        "qrScans": {
+          "integerValue": "0"
+        },
+        "qrOrders": {
+          "integerValue": "0"
+        },
+        "upiVerified": {
+          "booleanValue": false
+        },
+        "packsApproved": {
+          "integerValue": "1"
+        },
+        "upiQrReady": {
+          "booleanValue": true
+        },
+        "id": {
+          "stringValue": "smtsmrvjf2rb"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-08T12:13:22.924Z"
+        }
+      },
+      "createTime": "2026-09-08T12:13:23.720177Z",
+      "updateTime": "2026-09-10T10:01:18.685153Z"
+    },
+    {
+      "name": "projects/shantaimahilabajar/databases/(default)/documents/sellers/smtu88ael3z7",
+      "fields": {
+        "monthlyCapacity": {
+          "integerValue": "5"
+        },
+        "id": {
+          "stringValue": "smtu88ael3z7"
+        },
+        "qrOrders": {
+          "integerValue": "0"
+        },
+        "sellsFood": {
+          "booleanValue": true
+        },
+        "qrScans": {
+          "integerValue": "0"
+        },
+        "yearsInBusiness": {
+          "integerValue": "5"
+        },
+        "villageCode": {
+          "stringValue": "ANADUR"
+        },
+        "taluka": {
+          "stringValue": "तुळजापूर"
+        },
+        "upiId": {
+          "stringValue": "ajay@ybl"
+        },
+        "womenBizId": {
+          "stringValue": "SMB-ANADUR-02"
+        },
+        "dispatch": {
+          "stringValue": "same"
+        },
+        "education": {
+          "stringValue": "graduate"
+        },
+        "pincode": {
+          "stringValue": "413006"
+        },
+        "village": {
+          "stringValue": "आणदुर"
+        },
+        "createdAt": {
+          "stringValue": "2026-09-09T15:01:46.798Z"
+        },
+        "about": {
+          "stringValue": "Geli char varshaasun chalu ahe"
+        },
+        "packsApproved": {
+          "integerValue": "1"
+        },
+        "isOpen": {
+          "booleanValue": true
+        },
+        "ratingCount": {
+          "integerValue": "0"
+        },
+        "readinessBand": {
+          "stringValue": "advanced"
+        },
+        "pincodes": {
+          "arrayValue": {
+            "values": [
+              {
+                "stringValue": "413006"
+              }
+            ]
+          }
+        },
+        "digital": {
+          "mapValue": {
+            "fields": {
+              "internet": {
+                "booleanValue": true
+              },
+              "digitalMarketing": {
+                "booleanValue": true
+              },
+              "whatsappBusiness": {
+                "booleanValue": true
+              },
+              "upi": {
+                "booleanValue": true
+              },
+              "socialMedia": {
+                "booleanValue": true
+              },
+              "smartphone": {
+                "booleanValue": true
+              }
+            }
+          }
+        },
+        "age": {
+          "integerValue": "44"
+        },
+        "readinessScore": {
+          "integerValue": "60"
+        },
+        "notices": {
+          "arrayValue": {
+            "values": [
+              {
+                "mapValue": {
+                  "fields": {
+                    "id": {
+                      "stringValue": "PAYMENT_APPROVED:2026-09-09T15:03:26.771Z"
+                    },
+                    "at": {
+                      "stringValue": "2026-09-09T15:03:26.771Z"
+                    },
+                    "kind": {
+                      "stringValue": "PAYMENT_APPROVED"
+                    },
+                    "n": {
+                      "integerValue": "5"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "deliveryFee": {
+          "integerValue": "0"
+        },
+        "shopSlug": {
+          "stringValue": "nippergruhaudoyg-smb-anadur-02"
+        },
+        "minOrder": {
+          "integerValue": "0"
+        },
+        "rating": {
+          "integerValue": "0"
+        },
+        "businessType": {
+          "stringValue": "individual"
+        },
+        "district": {
+          "stringValue": "धाराशिव"
+        },
+        "shopName": {
+          "stringValue": "Nipper gruhaudoyg"
+        },
+        "photo": {
+          "stringValue": "👩"
+        },
+        "whatsapp": {
+          "stringValue": "9322125840"
+        },
+        "freeDeliveryAbove": {
+          "integerValue": "0"
+        },
+        "upiQrReady": {
+          "booleanValue": false
+        },
+        "phone": {
+          "stringValue": "9322125840"
+        },
+        "status": {
+          "stringValue": "ACTIVE"
+        },
+        "name": {
+          "stringValue": "Akshata patil"
+        },
+        "upiVerified": {
+          "booleanValue": false
+        }
+      },
+      "createTime": "2026-09-09T15:01:47.427058Z",
+      "updateTime": "2026-09-09T15:03:27.338820Z"
+    }
+  ]
+}

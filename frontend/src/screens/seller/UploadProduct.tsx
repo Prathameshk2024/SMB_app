@@ -1,24 +1,34 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Category, Unit } from '@shared/types.js'
-import { isValidFssai, slotInfo } from '@shared/seller.js'
+import { slotInfo } from '@shared/seller.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
+import { useAuth } from '../../store/AuthContext.js'
 import { api, ApiError } from '../../lib/api.js'
+import { useToast } from '../../store/ToastContext.js'
+import PhotoPicker from '../../components/PhotoPicker.js'
 import {
-  AppBar, AudioHelpButton, Button, Card, Choice, Dots, EmptyState, Field,
+  BLANK, clearDraft, readDraft, writeDraft, type Draft,
+} from './productDraft.js'
+import ProductImage from '../../components/ProductImage.js'
+import {
+  AppBar, Button, Card, Choice, Dots, EmptyState, Field,
   Loading, Notice, Rupees, TextInput, VoiceInput, useAsync,
 } from '../../components/ui.js'
+import {
+  IconBack, IconFood, IconLock, IconNext, IconProduct, IconWaiting,
+} from '../../components/icons.js'
+import { PageTour } from '../../components/Walkthrough.js'
 
-const EMOJIS = ['🫙', '🌶️', '🥟', '🍯', '🍪', '🍬', '🥮', '🧺', '🧵', '🥻', '🪡', '📿', '🪔', '🕯️', '🌿', '📦']
 const UNITS: Unit[] = ['kg', 'g', 'piece', 'dozen', 'litre', 'ml', 'set']
 const STEPS = ['photo', 'basics', 'food', 'details', 'price', 'stock', 'preview'] as const
 
 /**
- * The upload wizard. One question per screen, camera-first.
+ * The upload wizard. One question per screen, one photo from her gallery.
  *
- * Step 3 is the branch everything depends on: food asks four things (FSSAI
- * number, FSSAI expiry, ingredients, veg/non-veg), non-food asks one
- * (material). Every extra field is a place a first-time seller abandons.
+ * Step 3 is the branch everything depends on: food asks for the ingredients
+ * and veg/non-veg, non-food asks what it is made of. Every extra field is a
+ * place a first-time seller abandons.
  *
  * The product NAME uses voice input, because a seller who speaks Marathi
  * fluently may still be unable to type it on a phone keyboard.
@@ -27,32 +37,40 @@ export default function UploadProduct() {
   const t = useT()
   const { lang } = useI18n()
   const nav = useNavigate()
+  const { toast } = useToast()
+  const { session } = useAuth()
 
   const [me, loadingMe] = useAsync(() => api.me(), [])
   const [productData, loadingProducts] = useAsync(() => api.myProducts(), [])
   const [catData] = useAsync(() => api.categories(), [])
 
-  const [step, setStep] = useState(0)
+  /* The draft belongs to ONE seller. Read it from the session rather than
+     from api.me(), which has not answered yet at first render - and a draft
+     keyed on nothing is how a stranger's photo reached the next woman to
+     register on the same phone. */
+  const sellerId = session?.sellerId
+
+  const restored = useState(() => readDraft(localStorage, sellerId))[0]
+  const [step, setStep] = useState(restored?.step ?? 0)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [serverError, setServerError] = useState('')
 
-  const [d, setD] = useState({
-    emoji: '',
-    name: '',
-    categoryId: '',
-    isFood: null as boolean | null,
-    fssai: '',
-    fssaiExpiry: '',
-    ingredients: '',
-    vegType: '' as '' | 'veg' | 'nonveg',
-    material: '',
-    price: '',
-    mrp: '',
-    unit: 'piece' as Unit,
-    stock: '',
-    madeToOrder: false,
-  })
+  /* Set when Cloudinary is off. There is nothing else to ask for then, so the
+     photo step stops being a wall she cannot get past. */
+  const [photoOff, setPhotoOff] = useState(false)
+
+  const [d, setD] = useState<Draft>(restored?.d ?? BLANK)
+
+  useEffect(() => {
+    writeDraft(localStorage, sellerId, step, d)
+  }, [sellerId, step, d])
+
+  /* One route, seven screens. A step change is not a navigation, so nothing
+     moves the scroll on its own and the next question opened at whatever
+     height the last answer left - usually its own foot. */
+  useEffect(() => { window.scrollTo(0, 0) }, [step])
+
 
   type Key = keyof typeof d
   const set = <K extends Key>(k: K, v: (typeof d)[K]) => {
@@ -79,7 +97,7 @@ export default function UploadProduct() {
         <div className="screen">
           <Card>
             <EmptyState
-              icon="⏳"
+              icon={IconWaiting}
               title={t('wait.sub')}
               body={t('wait.canDoMeanwhile')}
               action={<Button onClick={() => nav('/seller/subscription')}>{t('pay.title')}</Button>}
@@ -98,7 +116,7 @@ export default function UploadProduct() {
         <div className="screen">
           <Card>
             <EmptyState
-              icon="🔒"
+              icon={IconLock}
               title={t('prod.slotsFullTitle')}
               body={t('prod.slotsFullBody')}
               action={
@@ -121,14 +139,12 @@ export default function UploadProduct() {
 
   function validate(which: (typeof STEPS)[number]): boolean {
     const e: Record<string, string> = {}
-    if (which === 'photo' && !d.emoji) e.emoji = t('common.required')
+    if (which === 'photo' && !photoOff && !d.imageUrl) e.photo = t('common.required')
     if (which === 'basics' && !d.name.trim()) e.name = t('common.required')
     if (which === 'food' && d.isFood === null) e.isFood = t('common.required')
     if (which === 'details') {
       if (!d.categoryId) e.categoryId = t('common.required')
       if (d.isFood) {
-        if (!isValidFssai(d.fssai)) e.fssai = t('prod.fssaiInvalid')
-        if (!d.fssaiExpiry) e.fssaiExpiry = t('common.required')
         if (!d.ingredients.trim()) e.ingredients = t('common.required')
         if (!d.vegType) e.vegType = t('common.required')
       } else if (!d.material.trim()) {
@@ -136,6 +152,8 @@ export default function UploadProduct() {
       }
     }
     if (which === 'price' && (!d.price || Number(d.price) <= 0)) e.price = t('common.required')
+    // Made-to-order is an answer, so it satisfies the question. A woman who
+    // cooks each order fresh has no shelf to count.
     if (which === 'stock' && !d.madeToOrder && d.stock === '') e.stock = t('common.required')
     setErrors(e)
     return Object.keys(e).length === 0
@@ -146,17 +164,34 @@ export default function UploadProduct() {
     setStep((s) => Math.min(STEPS.length - 1, s + 1))
   }
 
+  /**
+   * Backwards never validates and never clears a field - `d` is one object
+   * that outlives every step - so she can go back from the preview, change the
+   * price, and come forward to find everything else exactly as she left it.
+   * The error markers are cleared, because a red box on a screen she is only
+   * revisiting reads as a new mistake.
+   */
+  function goToStep(target: number) {
+    setErrors({})
+    setStep(Math.max(0, Math.min(STEPS.length - 1, target)))
+  }
+
+  function back() {
+    if (step === 0) nav('/seller')
+    else goToStep(step - 1)
+  }
+
   async function publish(asDraft: boolean) {
     setBusy(true)
     setServerError('')
     try {
       await api.createProduct({
-        emoji: d.emoji,
+        emoji: '📦',
+        imageUrl: d.imageUrl || undefined,
+        imagePublicId: d.imagePublicId || undefined,
         name: d.name.trim(),
         categoryId: d.categoryId,
         isFood: !!d.isFood,
-        fssai: d.isFood ? d.fssai : undefined,
-        fssaiExpiry: d.isFood ? d.fssaiExpiry : undefined,
         ingredients: d.isFood ? d.ingredients : undefined,
         vegType: d.isFood && d.vegType ? d.vegType : undefined,
         material: d.isFood ? undefined : d.material,
@@ -167,6 +202,8 @@ export default function UploadProduct() {
         madeToOrder: d.madeToOrder,
         asDraft,
       })
+      clearDraft(localStorage, sellerId)
+      toast(t(asDraft ? 'ok.productDraft' : 'ok.productPublished'))
       nav('/seller/products', { replace: true })
     } catch (err) {
       if (err instanceof ApiError) {
@@ -185,35 +222,31 @@ export default function UploadProduct() {
       <AppBar
         title={t('prod.add')}
         sub={`${t('reg.step')} ${step + 1} ${t('reg.of')} ${STEPS.length}`}
-        onBack={() => (step === 0 ? nav('/seller') : setStep((s) => s - 1))}
-        right={<AudioHelpButton text={t('prod.add')} />}
+        onBack={back}
       />
 
-      <div style={{ padding: '0 var(--s4)' }}>
+      <div style={{ padding: '0 var(--s4)' }} data-wt="up-dots">
         <Dots step={step} total={STEPS.length} />
       </div>
 
-      <div className="screen stack">
+      <div className="screen stack" data-wt="up-body">
         {/* ---------- 1. photo ---------------------------------- */}
         {STEPS[step] === 'photo' && (
-          <Field label={t('prod.photos')} hint={t('prod.photosHint')} error={errors.emoji} required>
-            <Notice tone="info">
-              Skeleton build: pick a picture below. Wire this to the camera with
-              the Capacitor Camera plugin when you build the APK.
-            </Notice>
-            <div className="pgrid" style={{ gridTemplateColumns: 'repeat(4,1fr)', marginTop: 'var(--s3)' }}>
-              {EMOJIS.map((e) => (
-                <button
-                  key={e}
-                  className={`card card--tap ${d.emoji === e ? 'choice--on' : ''}`}
-                  style={{ fontSize: '2rem', padding: 'var(--s3)', textAlign: 'center' }}
-                  onClick={() => set('emoji', e)}
-                  aria-pressed={d.emoji === e}
-                >
-                  {e}
-                </button>
-              ))}
-            </div>
+          <Field
+            label={t('prod.photos')}
+            hint={t('prod.photosHint')}
+            error={errors.photo}
+            required={!photoOff}
+          >
+            <PhotoPicker
+              imageUrl={d.imageUrl || undefined}
+              onUploaded={(img) => {
+                setD((cur) => ({ ...cur, imageUrl: img.url, imagePublicId: img.publicId }))
+                setErrors((e) => ({ ...e, photo: '' }))
+              }}
+              onCleared={() => setD((cur) => ({ ...cur, imageUrl: '', imagePublicId: '' }))}
+              onUnavailable={() => setPhotoOff(true)}
+            />
           </Field>
         )}
 
@@ -236,14 +269,14 @@ export default function UploadProduct() {
               <Choice
                 selected={d.isFood === true}
                 onSelect={() => { set('isFood', true); set('categoryId', '') }}
-                icon="🍪"
+                icon={<IconFood />}
                 title={t('prod.isFoodYes')}
                 sub={t('reg.sellsFoodHint')}
               />
               <Choice
                 selected={d.isFood === false}
                 onSelect={() => { set('isFood', false); set('categoryId', '') }}
-                icon="🧺"
+                icon={<IconProduct />}
                 title={t('prod.isFoodNo')}
               />
             </div>
@@ -269,29 +302,6 @@ export default function UploadProduct() {
 
             {d.isFood ? (
               <>
-                <Notice tone="warn" title={t('prod.fssai')}>{t('prod.fssaiWhy')}</Notice>
-
-                <Field label={t('prod.fssai')} hint={t('prod.fssaiHint')} error={errors.fssai} required htmlFor="fssai">
-                  <TextInput
-                    id="fssai"
-                    inputMode="numeric"
-                    maxLength={14}
-                    value={d.fssai}
-                    error={!!errors.fssai}
-                    onChange={(e) => set('fssai', e.target.value.replace(/\D/g, ''))}
-                    placeholder="21522004000123"
-                  />
-                </Field>
-
-                <Field label={t('prod.fssaiExpiry')} hint={t('prod.fssaiExpiryHint')} error={errors.fssaiExpiry} required htmlFor="fx">
-                  <TextInput
-                    id="fx"
-                    type="date"
-                    value={d.fssaiExpiry}
-                    error={!!errors.fssaiExpiry}
-                    onChange={(e) => set('fssaiExpiry', e.target.value)}
-                  />
-                </Field>
 
                 <Field label={t('prod.ingredients')} hint={t('prod.ingredientsHint')} error={errors.ingredients} required>
                   <VoiceInput
@@ -299,7 +309,7 @@ export default function UploadProduct() {
                     onChange={(v) => set('ingredients', v)}
                     error={!!errors.ingredients}
                     multiline
-                    placeholder="गहू, गूळ, तूप, वेलची"
+                    placeholder={t('ph.ingredients')}
                   />
                 </Field>
 
@@ -317,11 +327,19 @@ export default function UploadProduct() {
                   onChange={(v) => set('material', v)}
                   error={!!errors.material}
                   multiline
-                  placeholder="कापूस, रेशीम, माती..."
+                  placeholder={t('ph.material')}
                 />
                 <div className="wrap-row" style={{ marginTop: 'var(--s2)' }}>
-                  {['कापूस', 'रेशीम', 'लोकर', 'माती', 'लाकूड', 'पितळ', 'बांबू', 'ज्यूट'].map((m) => (
-                    <button key={m} className="chip" onClick={() => set('material', m)}>{m}</button>
+                  {/* The word she taps is the word that gets stored, so it
+                      follows the language she is reading in. */}
+                  {['cotton', 'silk', 'wool', 'clay', 'wood', 'brass', 'bamboo', 'jute'].map((m) => (
+                    <button
+                      key={m}
+                      className="chip"
+                      onClick={() => set('material', t(`mat.${m}`))}
+                    >
+                      {t(`mat.${m}`)}
+                    </button>
                   ))}
                 </div>
               </Field>
@@ -367,25 +385,28 @@ export default function UploadProduct() {
           </>
         )}
 
-        {/* ---------- 6. stock ---------------------------------- */}
+        {/* ---------- 6. how many ------------------------------- */}
         {STEPS[step] === 'stock' && (
           <>
-            <Field label={t('prod.stock')} error={errors.stock} required htmlFor="stock">
+            <Field label={t('prod.stock')} hint={t('prod.stockHint')} error={errors.stock} required htmlFor="stock">
               <TextInput
                 id="stock"
                 inputMode="numeric"
                 value={d.stock}
                 error={!!errors.stock}
                 disabled={d.madeToOrder}
-                onChange={(e) => set('stock', e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => set('stock', e.target.value.replace(/[^0-9]/g, ''))}
                 placeholder="10"
               />
             </Field>
+
+            {/* The other honest answer: she makes it when the order comes. */}
             <Choice
               selected={d.madeToOrder}
               onSelect={() => set('madeToOrder', !d.madeToOrder)}
-              icon="👩‍🍳"
+              icon={<IconWaiting />}
               title={t('prod.madeToOrder')}
+              sub={t('prod.madeToOrderHint')}
             />
           </>
         )}
@@ -394,11 +415,38 @@ export default function UploadProduct() {
         {STEPS[step] === 'preview' && (
           <>
             <div className="section-title">{t('prod.preview')}</div>
+            <p className="small muted" style={{ margin: 0 }}>{t('reg.reviewHint')}</p>
+
+            {/* Straight back to the screen that asked, with everything she has
+                already typed still in place. */}
+            <div className="wrap-row">
+              {([
+                ['photo', t('prod.photos')],
+                ['basics', t('prod.name')],
+                ['details', t('prod.category')],
+                ['price', t('prod.price')],
+                ['stock', t('prod.stock')],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="chip"
+                  onClick={() => goToStep(STEPS.indexOf(key))}
+                >
+                  {label} · {t('common.edit')}
+                </button>
+              ))}
+            </div>
+
             <Card>
               <div className="row" style={{ alignItems: 'flex-start' }}>
-                <div className="tile__img" style={{ width: 80, height: 80, fontSize: '2.25rem' }}>
-                  {d.emoji}
-                </div>
+                <ProductImage
+                  src={d.imageUrl || undefined}
+                  emoji="📦"
+                  categoryId={d.categoryId}
+                  size={80}
+                  className="tile__img"
+                />
                 <div className="stack-sm grow" style={{ gap: 4 }}>
                   <strong style={{ fontSize: 'var(--t-md)' }}>{d.name}</strong>
                   <div className="row" style={{ gap: 8 }}>
@@ -418,7 +466,6 @@ export default function UploadProduct() {
 
               {d.isFood ? (
                 <div className="stack-sm small">
-                  <div><span className="dim">{t('cus.fssaiNo')}: </span><span className="num">{d.fssai}</span></div>
                   <div><span className="dim">{t('cus.ingredients')}: </span>{d.ingredients}</div>
                 </div>
               ) : (
@@ -426,29 +473,51 @@ export default function UploadProduct() {
               )}
             </Card>
 
-            <Notice tone="warn">
+            <Notice tone="ok" title={t('prod.liveNow')}>
               {t('prod.willUseSlot', { used: slots.used + 1, total: slots.total })}
             </Notice>
+
+            {/* Said at the moment she commits, not buried in a policy page.
+                Publishing is hers now; this is the other half of that. */}
+            <Notice tone="warn">{t('prod.responsibility')}</Notice>
 
             {serverError && <Notice tone="danger">{serverError}</Notice>}
           </>
         )}
       </div>
 
-      <div className="actionbar">
+      <div className="actionbar" data-wt="up-next">
         {step < STEPS.length - 1 ? (
-          <Button onClick={next}>{t('common.next')} →</Button>
+          <div className="btn-row">
+            <Button variant="quiet" onClick={back}>
+              <IconBack aria-hidden="true" /> {t('common.back')}
+            </Button>
+            <Button onClick={next}>
+              {t('common.next')} <IconNext aria-hidden="true" />
+            </Button>
+          </div>
         ) : (
           <>
+            {/* An admin publishes it, not this button. Saying so here stops
+                her refreshing the shop looking for a listing nobody has
+                approved yet. */}
+            <div className="small dim" style={{ textAlign: 'center' }}>{t('prod.reviewNote')}</div>
             <Button onClick={() => void publish(false)} disabled={busy}>
               {busy ? t('common.loading') : t('prod.publish')}
             </Button>
-            <Button variant="quiet" onClick={() => void publish(true)} disabled={busy}>
-              {t('prod.saveDraft')}
-            </Button>
+            <div className="btn-row">
+              <Button variant="quiet" onClick={back}>
+                <IconBack aria-hidden="true" /> {t('common.back')}
+              </Button>
+              <Button variant="quiet" onClick={() => void publish(true)} disabled={busy}>
+                {t('prod.saveDraft')}
+              </Button>
+            </div>
           </>
         )}
       </div>
+
+      <PageTour id="seller.upload" />
     </>
   )
 }

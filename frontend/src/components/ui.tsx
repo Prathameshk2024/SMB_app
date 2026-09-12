@@ -1,10 +1,18 @@
 import {
-  useEffect, useRef, useState,
+  useCallback, useEffect, useRef, useState,
   type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode,
 } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useT } from '../i18n/I18nProvider.js'
+import { useI18n, useT } from '../i18n/I18nProvider.js'
 import { useVoiceInput } from '../lib/useVoiceInput.js'
+import NotificationBell from './NotificationBell.js'
+import logo from '../assets/logo.png'
+import { useToast } from '../store/ToastContext.js'
+import {
+  IconBack, IconCheck, IconCopy, IconEmpty, IconMic,
+  IconMicStop, IconMinus, IconNo, IconPlus, IconWaiting, IconWarn, IconYes,
+  type IconType,
+} from './icons.js'
 
 /* ================================================================== */
 /* Buttons                                                             */
@@ -31,35 +39,55 @@ export function Button({
 }
 
 /* ================================================================== */
-/* App bar + audio help                                                */
+/* App bar                                                             */
 /* ================================================================== */
 
 export function AppBar({
-  title, sub, onBack, right, backTo,
+  title, sub, onBack, right, backTo, bell = true, brand = false,
 }: {
   title: ReactNode
   sub?: ReactNode
   onBack?: () => void
   right?: ReactNode
   backTo?: string
+  /**
+   * शांताबाई's portrait beside the title. On the screens she arrives at - the
+   * four tabs and the phone/OTP doors - and nowhere deeper, because a detail
+   * screen already told her where she is and the header space belongs to the
+   * back button and the title. The mark carries its own gold ring; never add
+   * a border or a background here or it prints a second one.
+   */
+  brand?: boolean
+  /**
+   * The notification bell, on by default.
+   *
+   * In the bar rather than floated over it, so it takes its own space beside
+   * the audio-help button instead of covering it. Off on the screens that have
+   * no session behind them - the OTP screens - where it would render nothing
+   * anyway but would still cost a render.
+   */
+  bell?: boolean
 }) {
+  const t = useT()
   const nav = useNavigate()
   return (
     <header className="appbar">
       {(onBack || backTo) && (
         <button
           className="appbar__btn"
-          aria-label="Back"
+          aria-label={t('common.back')}
           onClick={() => (onBack ? onBack() : nav(backTo!))}
         >
-          ←
+          <IconBack aria-hidden="true" />
         </button>
       )}
+      {brand && <img className="appbar__mark" src={logo} alt="" aria-hidden="true" />}
       <h1 className="appbar__title">
         {title}
         {sub && <span className="appbar__sub">{sub}</span>}
       </h1>
       {right}
+      {bell && <NotificationBell />}
     </header>
   )
 }
@@ -69,35 +97,6 @@ export function AppBar({
  * a seller who reads slowly. Speech synthesis is the stand-in; ship
  * pre-recorded clips, because synthesised Marathi is poor on most phones.
  */
-export function AudioHelpButton({ text }: { text: string }) {
-  const t = useT()
-  const [on, setOn] = useState(false)
-
-  function speak() {
-    if (!('speechSynthesis' in window)) return
-    if (on) {
-      window.speechSynthesis.cancel()
-      setOn(false)
-      return
-    }
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'mr-IN'
-    u.rate = 0.9
-    u.onend = () => setOn(false)
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(u)
-    setOn(true)
-  }
-
-  useEffect(() => () => window.speechSynthesis?.cancel(), [])
-
-  return (
-    <button className="appbar__btn" onClick={speak} aria-label={t('common.listen')}>
-      {on ? '⏸' : '🔊'}
-    </button>
-  )
-}
-
 /* ================================================================== */
 /* Surfaces                                                            */
 /* ================================================================== */
@@ -152,16 +151,16 @@ export function Pill({
 }
 
 export function EmptyState({
-  icon = '📭', title, body, action,
+  icon: Icon = IconEmpty, title, body, action,
 }: {
-  icon?: string
+  icon?: IconType
   title: ReactNode
   body?: ReactNode
   action?: ReactNode
 }) {
   return (
     <div className="empty">
-      <div className="empty__icon" aria-hidden="true">{icon}</div>
+      <div className="empty__icon" aria-hidden="true"><Icon /></div>
       <div className="empty__title">{title}</div>
       {body && <div className="empty__body">{body}</div>}
       {action}
@@ -173,7 +172,7 @@ export function Loading() {
   const t = useT()
   return (
     <div className="empty">
-      <div className="empty__icon" aria-hidden="true">⏳</div>
+      <div className="empty__icon empty__icon--spin" aria-hidden="true"><IconWaiting /></div>
       <div className="empty__body">{t('common.loading')}</div>
     </div>
   )
@@ -203,7 +202,11 @@ export function Field({
       )}
       {hint && <div className="field__hint">{hint}</div>}
       {children}
-      {error && <div className="field__err" role="alert">⚠ {error}</div>}
+      {error && (
+        <div className="field__err" role="alert">
+          <IconWarn aria-hidden="true" /> {error}
+        </div>
+      )}
     </div>
   )
 }
@@ -215,14 +218,24 @@ export function TextInput({
 }
 
 /**
- * A text input with a microphone beside it.
+ * A text field with its OWN microphone.
  *
- * This is what lets a seller enter a product name she cannot type. The keyboard
- * is never removed - voice is an addition, and on a phone with no speech
- * support the mic simply is not rendered.
+ * Each field owns one recogniser and dictates into itself and nothing else.
+ * The alternative - a single mic in the header that types into whichever field
+ * was last touched - was tidier on screen and worse in the hand: a woman who
+ * pressed it after scrolling had no way to tell where the words would land,
+ * and there was nothing on the field itself to say it could be spoken.
+ *
+ * The keyboard is never taken away. The mic is an addition, so a phone with no
+ * speech engine (iOS Safari) simply renders the plain box - the field still
+ * works, and nothing is missing except the shortcut.
+ *
+ * Speech APPENDS rather than replaces. She says a name, sees it wrong, and
+ * fixes the last word by hand; overwriting what is already there would throw
+ * away the correction she just made.
  */
 export function VoiceInput({
-  value, onChange, error, multiline, lang = 'mr-IN', ...rest
+  value, onChange, error, multiline, lang: langOverride, ...rest
 }: {
   value: string
   onChange: (v: string) => void
@@ -231,58 +244,112 @@ export function VoiceInput({
   lang?: string
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
   const t = useT()
+  const { lang } = useI18n()
 
-  const { supported, listening, error: voiceError, interim, toggle } = useVoiceInput(
-    (said) => onChange(value ? `${value} ${said}` : said),
-    { lang },
+  // The latest value without re-creating the recogniser on every keystroke.
+  const valueRef = useRef(value)
+  valueRef.current = value
+
+  const append = useCallback(
+    (text: string) => {
+      const current = valueRef.current
+      onChange(current ? `${current} ${text}` : text)
+    },
+    [onChange],
   )
 
-  const errorText =
-    voiceError === 'denied'
-      ? t('common.voiceUnsupported')
-      : voiceError === 'no-speech'
-        ? t('common.speak')
-        : null
+  const voice = useVoiceInput(append, {
+    lang: langOverride ?? (lang === 'en' ? 'en-IN' : 'mr-IN'),
+  })
+
+  const field = multiline ? (
+    <textarea
+      className={`textarea ${error ? 'textarea--err' : ''}`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      {...(rest as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
+    />
+  ) : (
+    <input
+      className={`input ${error ? 'input--err' : ''}`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      {...rest}
+    />
+  )
+
+  // A locked field keeps no microphone. Dictating into a box that cannot
+  // accept the words is worse than having no mic at all.
+  if (!voice.supported || rest.disabled) return field
+
+  const problem =
+    voice.error === 'denied'
+      ? t('voice.denied')
+      : voice.error === 'no-speech'
+        ? t('voice.noSpeech')
+        : voice.error
+          ? t('voice.failed')
+          : ''
 
   return (
-    <div className="stack-sm">
+    <>
       <div className="input-voice">
-        {multiline ? (
-          <textarea
-            className={`textarea ${error ? 'textarea--err' : ''}`}
-            value={listening && interim ? `${value} ${interim}`.trim() : value}
-            onChange={(e) => onChange(e.target.value)}
-            {...(rest as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
-          />
-        ) : (
-          <input
-            className={`input ${error ? 'input--err' : ''}`}
-            value={listening && interim ? `${value} ${interim}`.trim() : value}
-            onChange={(e) => onChange(e.target.value)}
-            {...rest}
-          />
-        )}
-
-        {supported && (
-          <button
-            type="button"
-            className={`mic ${listening ? 'mic--on' : ''}`}
-            onClick={toggle}
-            aria-label={listening ? t('common.listening') : t('common.voiceHint')}
-            aria-pressed={listening}
-          >
-            {listening ? '⏹' : '🎤'}
-          </button>
-        )}
+        {field}
+        <button
+          type="button"
+          className={`mic ${voice.listening ? 'mic--on' : ''}`}
+          onClick={voice.toggle}
+          aria-pressed={voice.listening}
+          aria-label={voice.listening ? t('common.listening') : t('voice.tapToSpeak')}
+          title={t('voice.tapToSpeak')}
+        >
+          {voice.listening ? <IconMicStop aria-hidden="true" /> : <IconMic aria-hidden="true" />}
+        </button>
       </div>
 
-      {supported && (
-        <div className="tiny dim">
-          {listening ? `🔴 ${t('common.listening')}` : `🎤 ${t('common.voiceHint')}`}
+      {/* Live text under the field she is speaking into, so it is obvious
+          which box the words are going to. */}
+      {voice.listening && (
+        <div className="field__hint" role="status">
+          {voice.interim || t('common.listening')}
         </div>
       )}
-      {errorText && <div className="field__err">⚠ {errorText}</div>}
-    </div>
+
+      {problem && <div className="field__hint">{problem}</div>}
+    </>
+  )
+}
+
+/**
+ * Language, as one row that opens.
+ *
+ * It used to be every language laid out permanently on the profile screen -
+ * two big rows taking a third of the card to express a setting that is changed
+ * once, if ever. Now it shows what is CURRENTLY set, and the list only appears
+ * when she asks for it.
+ *
+ * A native <select> on purpose. Android renders it as a full-screen list with
+ * system-sized rows, which is a better picker than anything drawn here would
+ * be, it is reachable by every assistive technology without extra work, and it
+ * costs no state. The only styling is the row it sits in.
+ */
+export function LanguagePicker() {
+  const t = useT()
+  const { lang, setLang, langs } = useI18n()
+
+  return (
+    <label className="langrow">
+      <span className="langrow__l">{t('prof.language')}</span>
+      <select
+        className="select langrow__s"
+        value={lang}
+        onChange={(e) => setLang(e.target.value as typeof lang)}
+      >
+        {langs.map((l) => (
+          <option key={l.code} value={l.code}>{l.label}</option>
+        ))}
+      </select>
+    </label>
   )
 }
 
@@ -305,7 +372,7 @@ export function Choice({
       disabled={disabled}
       aria-pressed={selected}
     >
-      <span className="choice__mark" aria-hidden="true">{selected ? '✓' : ''}</span>
+      <span className="choice__mark" aria-hidden="true">{selected ? <IconCheck /> : null}</span>
       <span className="choice__body">
         {icon && <span aria-hidden="true" style={{ marginRight: 8 }}>{icon}</span>}
         {title}
@@ -325,8 +392,8 @@ export function YesNo({
   const t = useT()
   return (
     <div className="yesno">
-      <Choice selected={value === true} onSelect={() => onChange(true)} icon="👍" title={t('common.yes')} />
-      <Choice selected={value === false} onSelect={() => onChange(false)} icon="👎" title={t('common.no')} />
+      <Choice selected={value === true} onSelect={() => onChange(true)} icon={<IconYes />} title={t('common.yes')} />
+      <Choice selected={value === false} onSelect={() => onChange(false)} icon={<IconNo />} title={t('common.no')} />
     </div>
   )
 }
@@ -341,9 +408,13 @@ export function Stepper({
 }) {
   return (
     <div className="stepper">
-      <button onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label="−">−</button>
+      <button onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label="−">
+        <IconMinus aria-hidden="true" />
+      </button>
       <span className="stepper__v">{value}</span>
-      <button onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label="+">+</button>
+      <button onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label="+">
+        <IconPlus aria-hidden="true" />
+      </button>
     </div>
   )
 }
@@ -473,7 +544,18 @@ export function useAsync<T>(
 
   useEffect(() => {
     let alive = true
-    setState((s) => ({ ...s, loading: true }))
+    /**
+     * Loading means "there is nothing to show yet", not "something is in
+     * flight".
+     *
+     * Screens render a spinner INSTEAD of their content while this is true, so
+     * flipping it on a refetch replaced a tall list with one short spinner -
+     * and the browser, with nowhere left to scroll, clamped her to the top.
+     * From the outside that is "the page jumped up when I did something at the
+     * bottom". Keeping the old data on screen until the new data lands has no
+     * such effect, and is what she expects anyway.
+     */
+    setState((s) => ({ ...s, loading: s.data === null }))
     fn()
       .then((data) => alive && setState({ loading: false, data }))
       .catch(() => alive && setState({ loading: false, data: null }))
@@ -484,4 +566,42 @@ export function useAsync<T>(
   }, deps)
 
   return [state.data, state.loading, (d: T) => setState({ loading: false, data: d })]
+}
+
+/**
+ * A value she copies rather than retypes - her UPI ID.
+ *
+ * She reads this one out over the phone and types it into a bank app, and a
+ * UPI ID wrong by one character pays a stranger with no way back. The toast is
+ * the whole point: the clipboard is invisible, so without it a copy the
+ * browser refused looks exactly like one that worked.
+ */
+export function CopyValue({ value }: { value: string }) {
+  const t = useT()
+  const { toast } = useToast()
+  if (!value) return null
+  return (
+    <div className="copyrow">
+      <strong className="num" style={{ wordBreak: 'break-all' }}>{value}</strong>
+      {/* The icon alone. A button wearing the word "Copy" was three times the
+          width of the ID it belonged to, which read as the important thing on
+          the screen - and the important thing is the address the money goes
+          to. The name lives in aria-label, where it costs no width. */}
+      <Button
+        className="copybtn"
+        variant="quiet"
+        size="sm"
+        aria-label={t('common.copy')}
+        title={t('common.copy')}
+        onClick={() => {
+          navigator.clipboard
+            .writeText(value)
+            .then(() => toast(t('ok.upiCopied')))
+            .catch(() => toast(t('err.copyFailed')))
+        }}
+      >
+        <IconCopy aria-hidden="true" />
+      </Button>
+    </div>
+  )
 }

@@ -1,22 +1,33 @@
 /**
- * SHANTA MAHILA BAZAR ID
+ * SHANTAI MAHILA BAZAR ID
  * ===========
- * Format: WB-<VILLAGE>-<NNN>   e.g.  WB-ANADUR-001
+ * Format: SMB-<VILLAGE>-<NN>   e.g.  SMB-CHIVARI-03
  *
  * The ID goes on her packaging, her QR poster and her product labels, so it has
  * to be readable aloud over a phone and typed by someone who does not read
  * Devanagari. That means a Latin village code, and a serial that is per-village
- * rather than global - WB-ANADUR-007 tells a field coordinator which village to
- * visit; a global WB-000431 tells them nothing.
+ * rather than global - SMB-CHIVARI-03 says she is the THIRD woman from Chivri,
+ * which tells a field coordinator where to go; a global SMB-000431 tells them
+ * nothing.
+ *
+ * Two digits. Ninety-nine women from one village is far beyond what this
+ * programme plans for, and `padStart` does not truncate - a hundredth would
+ * simply be SMB-CHIVARI-100 rather than a collision.
  */
 
-/** The five survey villages named in the project plan, with fixed codes. */
+/**
+ * The survey villages named in the project plan, with fixed codes.
+ *
+ * Adding one here is all it takes: the serial is counted per prefix, so a new
+ * village starts at 001 without touching anybody else's number.
+ */
 export const VILLAGES: { mr: string; code: string; taluka: string; district: string }[] = [
   { mr: 'आणदुर', code: 'ANADUR', taluka: 'तुळजापूर', district: 'धाराशिव' },
   { mr: 'जेवळी', code: 'JEVALI', taluka: 'तुळजापूर', district: 'धाराशिव' },
   { mr: 'भोसगा', code: 'BHOSGA', taluka: 'तुळजापूर', district: 'धाराशिव' },
   { mr: 'चिवरी', code: 'CHIVARI', taluka: 'तुळजापूर', district: 'धाराशिव' },
   { mr: 'रुद्रवाडी', code: 'RUDRAWADI', taluka: 'तुळजापूर', district: 'धाराशिव' },
+  { mr: 'येळी', code: 'YELI', taluka: 'तुळजापूर', district: 'धाराशिव' },
 ]
 
 /* Devanagari -> Latin. Deliberately lossy: this produces a readable code, not
@@ -106,17 +117,18 @@ export function villageCode(villageMr: string): string {
  */
 export function makeWomenBizId(villageMr: string, existingIds: string[]): string {
   const code = villageCode(villageMr)
-  const prefix = `WB-${code}-`
+  const prefix = `SMB-${code}-`
   const used = existingIds
     .filter((id) => id.startsWith(prefix))
     .map((id) => parseInt(id.slice(prefix.length), 10))
     .filter((n) => !Number.isNaN(n))
   const next = (used.length ? Math.max(...used) : 0) + 1
-  return `${prefix}${String(next).padStart(3, '0')}`
+  return `${prefix}${String(next).padStart(2, '0')}`
 }
 
 export function parseWomenBizId(id: string): { village: string; serial: number } | null {
-  const m = /^WB-([A-Z]+)-(\d{3,})$/.exec(id || '')
+  // 2 or more digits: the old three-digit ids stay parseable.
+  const m = /^SMB-([A-Z]+)-(\d{2,})$/.exec(id || '')
   if (!m) return null
   return { village: m[1], serial: parseInt(m[2], 10) }
 }

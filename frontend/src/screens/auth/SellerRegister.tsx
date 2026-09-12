@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import type { BusinessType, DigitalProfile, DispatchTime, Seller } from '@shared/types.js'
-import { EDUCATION_LEVELS, isValidFssai, isValidPincode, isValidUpi } from '@shared/seller.js'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import type { Seller } from '@shared/types.js'
+import { EDUCATION_LEVELS, isValidPincode, isValidUpi } from '@shared/seller.js'
+import { upiProblem } from '@shared/payment.js'
 import { VILLAGES, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import {
   BAND_LABEL, computeReadiness, readinessBand, SELF_REPORTED_FACTORS,
@@ -9,76 +10,85 @@ import {
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { useAuth } from '../../store/AuthContext.js'
 import { api, ApiError } from '../../lib/api.js'
+import { useToast } from '../../store/ToastContext.js'
+import { clearRegisterTicket, takeRegisterTicket } from './Auth.js'
+import { liveTicket } from '../../lib/registerTicket.js'
 import {
-  AppBar, AudioHelpButton, Button, Card, Choice, Dots, Field, Notice,
-  Rupees, TextInput, VoiceInput, YesNo,
+  clearDraft, EMPTY, readDraft, sessionStore, writeDraft, type Draft,
+} from './sellerDraft.js'
+import PhotoPicker from '../../components/PhotoPicker.js'
+import {
+  AppBar, Button, Card, Choice, Dots, Field, Notice,
+  TextInput, VoiceInput, YesNo,
 } from '../../components/ui.js'
+import {
+  IconBack, IconCheck, IconGroup, IconIndividual, IconNext, IconWarn,
+} from '../../components/icons.js'
 
 /**
  * SELLER REGISTRATION WIZARD
  * ==========================
  * Six steps, one topic per screen, with progress dots so she can see the end
- * coming. Everything she is asked here comes from the Shanta Mahila Bazar survey design:
+ * coming. Everything she is asked here comes from the Shantai Mahila Bazar survey design:
  * personal details, village (which becomes her ID), business, digital usage,
  * and where her money arrives.
  *
  * Nothing optional blocks a step. The only hard gates are the fields that are
- * either legally required (FSSAI for food) or unrecoverable if wrong (UPI,
- * pincode).
+ * unrecoverable if wrong: the UPI id and the pincode.
+ *
+ * GOING BACK IS FREE. Every answer lives in one `Draft` that is never cleared
+ * between steps, so stepping back, changing one word and coming forward again
+ * costs nothing - and the review step links to the screen each answer came
+ * from, so a mistake spotted at the end is one tap from being fixed rather
+ * than a reason to start over. For a woman filling in six screens on a phone,
+ * "I have to do it all again" is where the form gets abandoned.
  */
 
-interface Draft {
-  name: string
-  age: string
-  education: string
-  whatsapp: string
-  villagePreset: string
-  villageOther: string
-  taluka: string
-  district: string
-  pincode: string
-  shopName: string
-  businessType: BusinessType
-  shgName: string
-  yearsInBusiness: string
-  monthlyCapacity: string
-  about: string
-  sellsFood: boolean | null
-  fssai: string
-  fssaiExpiry: string
-  upiId: string
-  deliveryFee: string
-  minOrder: string
-  dispatch: DispatchTime
-  digital: Partial<DigitalProfile>
-}
-
-const EMPTY: Draft = {
-  name: '', age: '', education: '', whatsapp: '',
-  villagePreset: '', villageOther: '', taluka: '', district: '', pincode: '',
-  shopName: '', businessType: 'individual', shgName: '',
-  yearsInBusiness: '', monthlyCapacity: '', about: '',
-  sellsFood: null, fssai: '', fssaiExpiry: '',
-  upiId: '', deliveryFee: '0', minOrder: '0', dispatch: 'same',
-  digital: {},
-}
-
 const STEP_KEYS = ['reg.s1', 'reg.s2', 'reg.s3', 'reg.s4', 'reg.s5', 'reg.s6']
+
 
 export default function SellerRegister() {
   const t = useT()
   const { lang } = useI18n()
   const nav = useNavigate()
-  const { signIn } = useAuth()
+  const { signIn, session } = useAuth()
+  const { toast } = useToast()
   const [params] = useSearchParams()
   const phone = params.get('phone') ?? ''
 
-  const [step, setStep] = useState(0)
-  const [d, setD] = useState<Draft>(EMPTY)
+  // Keyed by HER phone, so a field coordinator registering woman after woman
+  // on one handset never shows the next one what the last one typed.
+  const store = useState(sessionStore)[0]
+  const restored = useState(() => readDraft(store, phone))[0]
+
+  const [step, setStep] = useState(restored?.step ?? 0)
+  const [d, setD] = useState<Draft>(restored?.d ?? EMPTY)
+
+  useEffect(() => {
+    writeDraft(store, phone, step, d)
+  }, [store, phone, step, d])
+
+  /* One route, seven screens. A step change is not a navigation, so nothing
+     moves the scroll on its own and the next question opened at whatever
+     height the last answer left - usually its own foot. */
+  useEffect(() => { window.scrollTo(0, 0) }, [step])
+
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [serverError, setServerError] = useState('')
   const [created, setCreated] = useState<Seller | null>(null)
+
+  /**
+   * A woman who is already registered cannot register again.
+   *
+   * The server refuses it - her number is taken - but she should never see six
+   * screens of form before being told. Read once, at mount: the last thing
+   * this wizard does is sign her in, and re-reading it after that would pull
+   * the screen showing her new SMB ID out from under her.
+   */
+  const alreadyRegistered = useState(
+    () => session?.role === 'seller' && !liveTicket(),
+  )[0]
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => {
     setD((cur) => ({ ...cur, [k]: v }))
@@ -119,15 +129,16 @@ export default function SellerRegister() {
     if (which === 2) {
       if (!d.shopName.trim()) e.shopName = t('common.required')
       if (d.sellsFood === null) e.sellsFood = t('common.required')
-      if (d.sellsFood) {
-        if (!isValidFssai(d.fssai)) e.fssai = t('reg.fssaiInvalid')
-        if (!d.fssaiExpiry) e.fssaiExpiry = t('common.required')
-      }
     }
     if (which === 3 && answered < SELF_REPORTED_FACTORS.length) {
       e.digital = t('common.required')
     }
-    if (which === 4 && !isValidUpi(d.upiId)) e.upiId = t('reg.upiPlaceholder')
+    // The reason, not the example again. "उदा. sunita@ybl" under a box she
+    // has already filled in tells her nothing about what she got wrong.
+    if (which === 4) {
+      const upiFault = upiProblem(d.upiId)
+      if (upiFault) e.upiId = upiFault
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -137,12 +148,33 @@ export default function SellerRegister() {
     setStep((s) => Math.min(STEP_KEYS.length - 1, s + 1))
   }
 
+  /**
+   * Going back never validates and never clears an answer. It does clear the
+   * error markers, because a red box on a screen she is only revisiting reads
+   * as a new problem she has just caused.
+   */
+  function goToStep(target: number) {
+    setErrors({})
+    setStep(Math.max(0, Math.min(STEP_KEYS.length - 1, target)))
+  }
+
+  function back() {
+    // Step 0 goes HOME, not to the phone screen. She is holding a live ticket
+    // that already proves this number; the phone screen's only button spends
+    // another OTP, which is precisely the waste back was causing.
+    if (step === 0) nav('/')
+    else goToStep(step - 1)
+  }
+
   async function submit() {
     setBusy(true)
     setServerError('')
     try {
       const res = await api.registerSeller({
-        phone,
+        // The server reads her phone number out of this and ignores anything
+        // the body claims, so registration cannot be aimed at a number whose
+        // OTP was never passed.
+        ticket: takeRegisterTicket(),
         name: d.name.trim(),
         age: d.age ? Number(d.age) : undefined,
         education: d.education || undefined,
@@ -158,11 +190,9 @@ export default function SellerRegister() {
         yearsInBusiness: d.yearsInBusiness ? Number(d.yearsInBusiness) : undefined,
         monthlyCapacity: d.monthlyCapacity ? Number(d.monthlyCapacity) : undefined,
         sellsFood: !!d.sellsFood,
-        fssai: d.sellsFood ? d.fssai : undefined,
-        fssaiExpiry: d.sellsFood ? d.fssaiExpiry : undefined,
         upiId: d.upiId.trim(),
-        deliveryFee: Number(d.deliveryFee || 0),
-        minOrder: Number(d.minOrder || 0),
+        upiQrUrl: d.upiQrUrl || undefined,
+        upiQrPublicId: d.upiQrPublicId || undefined,
         dispatch: d.dispatch,
         digital: {
           smartphone: !!d.digital.smartphone,
@@ -173,7 +203,11 @@ export default function SellerRegister() {
           digitalMarketing: !!d.digital.digitalMarketing,
         },
       })
+      // Spent, and single-use on the server anyway. Not worth leaving behind.
+      clearRegisterTicket()
+      clearDraft(store, phone)
       signIn(res.session)
+      toast(t('ok.registered'))
       setCreated(res.seller)
     } catch (err) {
       if (err instanceof ApiError) {
@@ -190,6 +224,9 @@ export default function SellerRegister() {
   /* ------------------------------------------------------------ */
   /* Done - show her the ID and the score, then send her to pay    */
   /* ------------------------------------------------------------ */
+  // Registered already, and not mid-wizard: her shop is where she belongs.
+  if (alreadyRegistered && !created) return <Navigate to="/seller" replace />
+
   if (created) {
     return (
       <div className="app-shell">
@@ -244,8 +281,8 @@ export default function SellerRegister() {
       <AppBar
         title={t(STEP_KEYS[step]!)}
         sub={`${t('reg.step')} ${step + 1} ${t('reg.of')} ${STEP_KEYS.length}`}
-        onBack={() => (step === 0 ? nav('/join/seller') : setStep((s) => s - 1))}
-        right={<AudioHelpButton text={t(STEP_KEYS[step]!)} />}
+        onBack={back}
+        bell={false}
       />
 
       <div style={{ padding: '0 var(--s4)' }}>
@@ -262,7 +299,7 @@ export default function SellerRegister() {
                 value={d.name}
                 onChange={(v) => set('name', v)}
                 error={!!errors.name}
-                placeholder="सुनीता पाटील"
+                placeholder={t('ph.fullName')}
               />
             </Field>
 
@@ -305,7 +342,7 @@ export default function SellerRegister() {
           </>
         )}
 
-        {/* ---------- 2. village -> her Shanta Mahila Bazar ID --------------- */}
+        {/* ---------- 2. village -> her Shantai Mahila Bazar ID --------------- */}
         {step === 1 && (
           <>
             <Field label={t('reg.village')} error={errors.villagePreset} required>
@@ -336,7 +373,7 @@ export default function SellerRegister() {
                 <VoiceInput
                   value={d.villageOther}
                   onChange={(v) => set('villageOther', v)}
-                  placeholder="गावाचे नाव"
+                  placeholder={t('ph.village')}
                 />
               </Field>
             )}
@@ -385,21 +422,20 @@ export default function SellerRegister() {
                 value={d.shopName}
                 onChange={(v) => set('shopName', v)}
                 error={!!errors.shopName}
-                placeholder="सुनीता गृहउद्योग"
+                placeholder={t('ph.shopName')}
               />
             </Field>
 
             <Field label={t('reg.businessType')} required>
               <div className="stack-sm">
-                <Choice selected={d.businessType === 'individual'} onSelect={() => set('businessType', 'individual')} icon="👤" title={t('reg.bizIndividual')} />
-                <Choice selected={d.businessType === 'shg'} onSelect={() => set('businessType', 'shg')} icon="👭" title={t('reg.bizShg')} />
-                <Choice selected={d.businessType === 'udyam'} onSelect={() => set('businessType', 'udyam')} icon="📄" title={t('reg.bizUdyam')} />
+                <Choice selected={d.businessType === 'individual'} onSelect={() => set('businessType', 'individual')} icon={<IconIndividual />} title={t('reg.bizIndividual')} />
+                <Choice selected={d.businessType === 'shg'} onSelect={() => set('businessType', 'shg')} icon={<IconGroup />} title={t('reg.bizShg')} />
               </div>
             </Field>
 
             {d.businessType === 'shg' && (
               <Field label={t('reg.shgName')}>
-                <VoiceInput value={d.shgName} onChange={(v) => set('shgName', v)} placeholder="जिजाऊ महिला बचत गट" />
+                <VoiceInput value={d.shgName} onChange={(v) => set('shgName', v)} placeholder={t('ph.shgName')} />
               </Field>
             )}
 
@@ -430,7 +466,7 @@ export default function SellerRegister() {
                 value={d.about}
                 onChange={(v) => set('about', v)}
                 multiline
-                placeholder="गेली 12 वर्षे मी घरी लोणची बनवते..."
+                placeholder={t('ph.about')}
               />
             </Field>
 
@@ -438,31 +474,6 @@ export default function SellerRegister() {
               <YesNo value={d.sellsFood} onChange={(v) => set('sellsFood', v)} />
             </Field>
 
-            {d.sellsFood && (
-              <>
-                <Notice tone="warn">{t('prod.fssaiWhy')}</Notice>
-                <Field label={t('reg.fssai')} hint={t('reg.fssaiHint')} error={errors.fssai} required htmlFor="fssai">
-                  <TextInput
-                    id="fssai"
-                    inputMode="numeric"
-                    maxLength={14}
-                    value={d.fssai}
-                    error={!!errors.fssai}
-                    onChange={(e) => set('fssai', e.target.value.replace(/\D/g, ''))}
-                    placeholder="21522004000123"
-                  />
-                </Field>
-                <Field label={t('reg.fssaiExpiry')} error={errors.fssaiExpiry} required htmlFor="fx">
-                  <TextInput
-                    id="fx"
-                    type="date"
-                    value={d.fssaiExpiry}
-                    error={!!errors.fssaiExpiry}
-                    onChange={(e) => set('fssaiExpiry', e.target.value)}
-                  />
-                </Field>
-              </>
-            )}
           </>
         )}
 
@@ -483,7 +494,11 @@ export default function SellerRegister() {
               </Field>
             ))}
 
-            {errors.digital && <div className="field__err">⚠ {errors.digital}</div>}
+            {errors.digital && (
+              <div className="field__err">
+                <IconWarn aria-hidden="true" /> {errors.digital}
+              </div>
+            )}
 
             {answered === SELF_REPORTED_FACTORS.length && (
               <Card>
@@ -533,28 +548,24 @@ export default function SellerRegister() {
 
             {isValidUpi(d.upiId) && (
               <Notice tone="ok">
-                ✓ <strong className="num">{d.upiId}</strong>
+                <IconCheck aria-hidden="true" /> <strong className="num">{d.upiId}</strong>
               </Notice>
             )}
 
-            <div className="row" style={{ gap: 'var(--s3)', alignItems: 'flex-start' }}>
-              <Field label={t('reg.deliveryFee')} hint={t('reg.deliveryFeeHint')} htmlFor="df">
-                <TextInput
-                  id="df"
-                  inputMode="numeric"
-                  value={d.deliveryFee}
-                  onChange={(e) => set('deliveryFee', e.target.value.replace(/\D/g, ''))}
-                />
-              </Field>
-              <Field label={t('reg.minOrder')} htmlFor="mo">
-                <TextInput
-                  id="mo"
-                  inputMode="numeric"
-                  value={d.minOrder}
-                  onChange={(e) => set('minOrder', e.target.value.replace(/\D/g, ''))}
-                />
-              </Field>
-            </div>
+            {/* Her bank's own QR, photographed. Optional: a working QR can be
+                drawn from the UPI id above, and making this a hard gate would
+                stop a woman whose phone will not open her bank app right now.
+                When she does upload one, the buyer scans HER code. */}
+            <Field label={t('reg.upiQr')} hint={t('reg.upiQrHint')}>
+              <PhotoPicker
+                imageUrl={d.upiQrUrl || undefined}
+                onUploaded={(img) => {
+                  set('upiQrUrl', img.url)
+                  set('upiQrPublicId', img.publicId)
+                }}
+                onCleared={() => { set('upiQrUrl', ''); set('upiQrPublicId', '') }}
+              />
+            </Field>
 
             <Field label={t('reg.dispatch')} required>
               <div className="stack-sm">
@@ -570,6 +581,7 @@ export default function SellerRegister() {
         {step === 5 && (
           <>
             <h2 className="h2">{t('reg.reviewTitle')}</h2>
+            <p className="small muted" style={{ margin: 0 }}>{t('reg.reviewHint')}</p>
 
             {previewId && (
               <Card style={{ textAlign: 'center', borderColor: 'var(--accent)', borderWidth: 2 }}>
@@ -581,26 +593,30 @@ export default function SellerRegister() {
 
             <Card>
               <div className="stack-sm small">
-                <Row label={t('reg.name')} value={d.name} />
-                <Row label={t('reg.age')} value={d.age} />
-                <Row label={t('reg.village')} value={village} />
-                <Row label={t('reg.pincode')} value={d.pincode} />
-                <Row label={t('reg.shopName')} value={d.shopName} />
-                <Row label={t('reg.businessType')} value={t(`reg.biz${d.businessType === 'shg' ? 'Shg' : d.businessType === 'udyam' ? 'Udyam' : 'Individual'}`)} />
-                {d.shgName && <Row label={t('reg.shgName')} value={d.shgName} />}
-                {d.yearsInBusiness && <Row label={t('reg.years')} value={`${d.yearsInBusiness} ${t('reg.yearsUnit')}`} />}
-                {d.monthlyCapacity && <Row label={t('reg.capacity')} value={d.monthlyCapacity} />}
-                <Row label={t('reg.sellsFood')} value={d.sellsFood ? t('common.yes') : t('common.no')} />
-                {d.sellsFood && <Row label={t('reg.fssai')} value={d.fssai} />}
-                <Row label={t('reg.upiLabel')} value={d.upiId} />
-                <Row label={t('reg.deliveryFee')} value={<Rupees value={Number(d.deliveryFee || 0)} />} />
+                {/* The step each answer belongs to, so "बदला" lands on the
+                    screen that asked the question rather than at the start. */}
+                <Row label={t('reg.name')} value={d.name} onEdit={() => goToStep(0)} editLabel={t('common.edit')} />
+                <Row label={t('reg.age')} value={d.age} onEdit={() => goToStep(0)} editLabel={t('common.edit')} />
+                <Row label={t('reg.village')} value={village} onEdit={() => goToStep(1)} editLabel={t('common.edit')} />
+                <Row label={t('reg.pincode')} value={d.pincode} onEdit={() => goToStep(1)} editLabel={t('common.edit')} />
+                <Row label={t('reg.shopName')} value={d.shopName} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />
+                <Row label={t('reg.businessType')} value={t(d.businessType === 'shg' ? 'reg.bizShg' : 'reg.bizIndividual')} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />
+                {d.shgName && <Row label={t('reg.shgName')} value={d.shgName} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />}
+                {d.yearsInBusiness && <Row label={t('reg.years')} value={`${d.yearsInBusiness} ${t('reg.yearsUnit')}`} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />}
+                {d.monthlyCapacity && <Row label={t('reg.capacity')} value={d.monthlyCapacity} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />}
+                <Row label={t('reg.sellsFood')} value={d.sellsFood ? t('common.yes') : t('common.no')} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />
+                <Row label={t('reg.upiLabel')} value={d.upiId} onEdit={() => goToStep(4)} editLabel={t('common.edit')} />
               </div>
             </Card>
 
             <Card>
-              <div className="row-between">
-                <span className="small dim">{t('reg.readinessTitle')}</span>
-                <strong>{score} / 100 · {lang === 'mr' ? BAND_LABEL[readinessBand(score)].mr : BAND_LABEL[readinessBand(score)].en}</strong>
+              <div className="stack-sm small">
+                <Row
+                  label={t('reg.readinessTitle')}
+                  value={`${score} / 100 · ${lang === 'mr' ? BAND_LABEL[readinessBand(score)].mr : BAND_LABEL[readinessBand(score)].en}`}
+                  onEdit={() => goToStep(3)}
+                  editLabel={t('common.edit')}
+                />
               </div>
             </Card>
 
@@ -609,24 +625,52 @@ export default function SellerRegister() {
         )}
       </div>
 
+      {/* Back sits beside Next, not only as an arrow in the bar. The arrow is
+          easy to miss and easy to read as "leave", which is the difference
+          between correcting one answer and abandoning the form. */}
       <div className="actionbar">
-        {step < STEP_KEYS.length - 1 ? (
-          <Button onClick={next}>{t('common.next')} →</Button>
-        ) : (
-          <Button onClick={submit} disabled={busy}>
-            {busy ? t('common.loading') : t('reg.submit')}
+        <div className="btn-row">
+          <Button variant="quiet" onClick={back}>
+            <IconBack aria-hidden="true" /> {t('common.back')}
           </Button>
-        )}
+          {step < STEP_KEYS.length - 1 ? (
+            <Button onClick={next}>
+              {t('common.next')} <IconNext aria-hidden="true" />
+            </Button>
+          ) : (
+            <Button onClick={submit} disabled={busy}>
+              {busy ? t('common.loading') : t('reg.submit')}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
+/**
+ * One line of the review card. `onEdit` turns it into the way back to the
+ * screen the answer came from, with everything she typed still in place.
+ */
+function Row({
+  label, value, onEdit, editLabel,
+}: {
+  label: string
+  value: React.ReactNode
+  onEdit?: () => void
+  editLabel?: string
+}) {
   return (
     <div className="row-between">
       <span className="dim">{label}</span>
-      <span style={{ fontWeight: 600, textAlign: 'right' }}>{value || '—'}</span>
+      <span className="row" style={{ gap: 'var(--s2)', justifyContent: 'flex-end' }}>
+        <span style={{ fontWeight: 600, textAlign: 'right' }}>{value || '—'}</span>
+        {onEdit && (
+          <button type="button" className="linkbtn" onClick={onEdit}>
+            {editLabel}
+          </button>
+        )}
+      </span>
     </div>
   )
 }

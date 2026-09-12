@@ -2,22 +2,25 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Order, OrderStatus } from '@shared/types.js'
 import {
-  HAPPY_PATH, SELLER_ACTIONS, STATUS_STYLE, statusLabelKey, stepIndex,
-  type SellerAction,
+  HAPPY_PATH, SELLER_ACTIONS, STATUS_STYLE, awaitingPaymentConfirmation,
+  statusLabelKey, stepIndex, type SellerAction,
 } from '@shared/orderFlow.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
+import { useToast } from '../../store/ToastContext.js'
 import {
-  AppBar, AudioHelpButton, Button, Card, Choice, ConfirmSheet, EmptyState,
-  Loading, Notice, OtpInput, Pill, Rupees, useAsync,
+  AppBar, Button, Card, Choice, ConfirmSheet, EmptyState,
+  Loading, Notice, Pill, Rupees, useAsync,
 } from '../../components/ui.js'
+import { IconCall, IconCheck, IconMap, IconOrders } from '../../components/icons.js'
 
 const TABS: { id: string; labelKey: string; statuses?: OrderStatus[] }[] = [
   { id: 'action', labelKey: 'biz.needsAction' },
-  { id: 'new', labelKey: 'ord.new', statuses: ['PLACED'] },
-  { id: 'accepted', labelKey: 'ord.accepted', statuses: ['ACCEPTED', 'PACKED'] },
-  { id: 'out', labelKey: 'ord.outForDelivery', statuses: ['OUT_FOR_DELIVERY'] },
-  { id: 'done', labelKey: 'ord.delivered', statuses: ['DELIVERED', 'COMPLETED'] },
+  // ACCEPTED, PACKED and OUT_FOR_DELIVERY are one tab: from her side they are
+  // the same order, in hand and not yet delivered. Splitting them gave three
+  // tabs that were each empty most of the time.
+  { id: 'accepted', labelKey: 'ord.accepted', statuses: ['ACCEPTED', 'PACKED', 'OUT_FOR_DELIVERY'] },
+  { id: 'done', labelKey: 'ord.delivered', statuses: ['DELIVERED'] },
   { id: 'cancelled', labelKey: 'ord.cancelled', statuses: ['REJECTED', 'CANCELLED'] },
 ]
 
@@ -57,7 +60,7 @@ export function SellerOrders() {
         {loading ? (
           <Loading />
         ) : list.length === 0 ? (
-          <Card><EmptyState icon="🧾" title={t('ord.noOrders')} body={t('ord.noOrdersSub')} /></Card>
+          <Card><EmptyState icon={IconOrders} title={t('ord.noOrders')} body={t('ord.noOrdersSub')} /></Card>
         ) : (
           list.map((o) => (
             <button key={o.id} className="tile" onClick={() => nav(`/seller/orders/${o.id}`)}>
@@ -87,12 +90,11 @@ export function SellerOrders() {
 export function SellerOrderDetail() {
   const { orderId } = useParams()
   const t = useT()
+  const { toast } = useToast()
   const [data, loading, setData] = useAsync(() => api.order(orderId!), [orderId])
 
   const [confirm, setConfirm] = useState<SellerAction | null>(null)
-  const [otpOpen, setOtpOpen] = useState(false)
-  const [otp, setOtp] = useState('')
-  const [otpErr, setOtpErr] = useState('')
+  const [actionErr, setActionErr] = useState('')
   const [rejectOpen, setRejectOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -104,22 +106,30 @@ export function SellerOrderDetail() {
   }
 
   const order = data.order
-  const actions = SELLER_ACTIONS[order.status]
+  /**
+   * The seller may ACCEPT an order they have not been paid for - that is the
+   * point of paying after acceptance - but they do not PACK one. The server
+   * refuses it too; hiding the button is what stops their finding that out by
+   * being told no.
+   */
+  const unpaid = awaitingPaymentConfirmation(order)
+  const actions = SELLER_ACTIONS[order.status].filter((a) => !(a.to === 'PACKED' && unpaid))
   const awaitingUpi = order.paymentMode === 'UPI' && order.paymentStatus === 'UPI_SUBMITTED'
+  const waitingForBuyer = order.paymentMode === 'UPI' && order.paymentStatus === 'UPI_PENDING'
   const style = STATUS_STYLE[order.status]
 
-  async function run(action: SellerAction, extra?: { otp?: string; reason?: string }) {
+  async function run(action: SellerAction, extra?: { reason?: string }) {
     setBusy(true)
+    setActionErr('')
     try {
       const res = await api.advanceOrder(order.id, action.to, extra)
       setData({ ...data!, order: res.order })
-      setOtpOpen(false)
       setRejectOpen(false)
-      setOtp('')
-      setOtpErr('')
+      // Names the state she just moved it to, not a generic "saved" - the
+      // whole doubt on this screen is which step the order is on now.
+      toast(`${t('ok.orderUpdated')}: ${t(statusLabelKey(res.order.status))}`)
     } catch (e) {
-      // The OTP check lives on the server, so a wrong code comes back as an error.
-      if (e instanceof ApiError) setOtpErr(e.messageMr ?? e.message)
+      if (e instanceof ApiError) setActionErr(e.messageMr ?? e.message)
     } finally {
       setBusy(false)
     }
@@ -129,6 +139,7 @@ export function SellerOrderDetail() {
     setBusy(true)
     const res = await api.confirmPayment(order.id)
     setData({ ...data!, order: res.order })
+    toast(t('ok.paymentConfirmed'))
     setBusy(false)
   }
 
@@ -137,7 +148,6 @@ export function SellerOrderDetail() {
       <AppBar
         title={`${t('ord.order')} ${order.id}`}
         backTo="/seller/orders"
-        right={<AudioHelpButton text={`${t(statusLabelKey(order.status))}. ${order.customerName}. ${order.total} ${t('common.rupees')}.`} />}
       />
 
       <div className="screen stack">
@@ -146,17 +156,35 @@ export function SellerOrderDetail() {
           <strong style={{ fontSize: 'var(--t-lg)' }}><Rupees value={order.total} /></strong>
         </div>
 
+        {/* The seller is being asked to deliver somewhere they have not listed, so the
+            question is put in front of them before Accept. */}
+        {order.outsideArea && (
+          <Notice tone="warn" title={t('ord.outsideArea')}>
+            {t('ord.outsideAreaSub', { pincode: order.pincode })}
+          </Notice>
+        )}
+
+        {/* Accepted, and the buyer has not paid yet. Nothing for the seller to do
+            but wait - and know that is what they are waiting for. */}
+        {waitingForBuyer && order.status === 'ACCEPTED' && (
+          <Notice tone="warn" title={t('ord.awaitingBuyer')}>{t('ord.awaitingBuyerSub')}</Notice>
+        )}
+
+        {waitingForBuyer && order.status === 'PLACED' && (
+          <Notice tone="info">{t('ord.payAfterAccept')}</Notice>
+        )}
+
         {awaitingUpi && (
           <Card className="notice--warn">
             <div className="stack-sm">
               <strong>{t('ord.paymentPending')}</strong>
               <div className="small muted">UTR: <span className="num">{order.paymentUtr}</span></div>
-              <Button onClick={confirmPayment} disabled={busy}>✓ {t('ord.paymentGot')}</Button>
+              <Button onClick={confirmPayment} disabled={busy}><IconCheck aria-hidden="true" /> {t('ord.paymentGot')}</Button>
             </div>
           </Card>
         )}
         {order.paymentStatus === 'UPI_CONFIRMED' && (
-          <Notice tone="ok">✓ {t('ord.paymentDone')} · UPI</Notice>
+          <Notice tone="ok"><IconCheck aria-hidden="true" /> {t('ord.paymentDone')} · UPI</Notice>
         )}
         {order.paymentMode === 'COD' && (
           <Notice tone="info">{t('ord.paymentCod')} · <Rupees value={order.total} /></Notice>
@@ -197,7 +225,7 @@ export function SellerOrderDetail() {
             <div className="small dim num">{order.pincode}</div>
             <div className="btn-row" style={{ marginTop: 'var(--s2)' }}>
               <a className="btn btn--ghost btn--sm" href={`tel:${order.customerPhone}`}>
-                📞 {t('ord.callCustomer')}
+                <IconCall aria-hidden="true" /> {t('ord.callCustomer')}
               </a>
               <a
                 className="btn btn--ghost btn--sm"
@@ -205,7 +233,7 @@ export function SellerOrderDetail() {
                 target="_blank"
                 rel="noreferrer"
               >
-                📍 {t('ord.openMap')}
+                <IconMap aria-hidden="true" /> {t('ord.openMap')}
               </a>
             </div>
           </div>
@@ -216,6 +244,8 @@ export function SellerOrderDetail() {
           <Timeline order={order} />
         </Card>
 
+        {actionErr && <Notice tone="danger">{actionErr}</Notice>}
+
         {actions.length > 0 && (
           <div className="actionbar">
             {actions.map((a) => (
@@ -224,8 +254,7 @@ export function SellerOrderDetail() {
                 variant={a.tone === 'ghost' ? 'ghost' : 'primary'}
                 disabled={busy}
                 onClick={() => {
-                  if (a.needsOtp) setOtpOpen(true)
-                  else if (a.needsReason) setRejectOpen(true)
+                  if (a.needsReason) setRejectOpen(true)
                   else if (a.confirmKey) setConfirm(a)
                   else void run(a)
                 }}
@@ -249,31 +278,6 @@ export function SellerOrderDetail() {
           void run(a)
         }}
       />
-
-      {/* The delivery OTP. Verified on the server - this dialog only collects it. */}
-      {otpOpen && (
-        <div className="sheet-backdrop" onClick={() => setOtpOpen(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="stack">
-              <div className="stack-sm">
-                <h2 className="h2">{t('ord.otpTitle')}</h2>
-                <p className="body muted">{t('ord.otpHint')}</p>
-              </div>
-              <OtpInput value={otp} onChange={(v) => { setOtp(v); setOtpErr('') }} />
-              {otpErr && <div className="field__err center" role="alert">⚠ {otpErr}</div>}
-              <div className="btn-row">
-                <Button variant="quiet" onClick={() => setOtpOpen(false)}>{t('common.cancel')}</Button>
-                <Button
-                  onClick={() => void run({ to: 'DELIVERED', labelKey: 'ord.markDelivered', tone: 'primary', needsOtp: true }, { otp })}
-                  disabled={otp.length < 4 || busy}
-                >
-                  {t('ord.markDelivered')}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {rejectOpen && (
         <div className="sheet-backdrop" onClick={() => setRejectOpen(false)}>
@@ -317,7 +321,7 @@ export function Timeline({ order }: { order: Order }) {
         return (
           <div key={s} className={`tl ${cls}`}>
             <div className="tl__dot" aria-hidden="true">
-              {i < current ? '✓' : i === current ? STATUS_STYLE[s].icon : ''}
+              {i < current ? <IconCheck aria-hidden="true" /> : i === current ? STATUS_STYLE[s].icon : ''}
             </div>
             <div>
               <div className="tl__label">{t(statusLabelKey(s))}</div>

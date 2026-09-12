@@ -1,6 +1,39 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import type { Role } from '@shared/types.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
-import HeroArt from './HeroArt.js'
+import { homeFor, useAuth } from '../../store/AuthContext.js'
+import { ConfirmSheet } from '../../components/ui.js'
+import {
+  IconBuy, IconBuyers, IconCheck, IconQr, IconSafe, IconSell, IconSeller,
+} from '../../components/icons.js'
+import { clearRegisterTicket, liveTicket } from '../../lib/registerTicket.js'
+import { clearDraft, sessionStore } from '../auth/sellerDraft.js'
+import CollegeCard from './CollegeCard.js'
+import PhotoRotator from './PhotoRotator.js'
+import logo from '../../assets/logo.png'
+import heroPapad from '../../assets/landing/papad.jpg'
+import heroPickle from '../../assets/landing/pickle-jar.jpg'
+import heroSpices from '../../assets/landing/spices.jpg'
+import heroWeaving from '../../assets/landing/weaving-loom.jpg'
+import phonePhoto from '../../assets/landing/phone-photo.jpg'
+import phoneVoice from '../../assets/landing/phone-voice.jpg'
+import phoneTogether from '../../assets/landing/phone-together.jpg'
+import phoneOrder from '../../assets/landing/phone-order.jpg'
+import catMasala from '../../assets/categories/masala.jpg'
+import catPickles from '../../assets/categories/pickles.jpg'
+import catPapad from '../../assets/categories/papad.jpg'
+import catSweets from '../../assets/categories/sweets.jpg'
+import catHandicrafts from '../../assets/categories/handicrafts.jpg'
+import catTextiles from '../../assets/categories/textiles.jpg'
+import catAgarbatti from '../../assets/categories/agarbatti.jpg'
+import catHomemade from '../../assets/categories/homemade.jpg'
+
+/* The hero shows what she makes. The "built for her" section shows her using
+   the app, because that is what the copy beside it actually claims. */
+/* Same order as the lede names them: पापड, लोणची, मसाले, हस्तकला. */
+const HERO_PHOTOS = [heroPapad, heroPickle, heroSpices, heroWeaving]
+const PHONE_PHOTOS = [phonePhoto, phoneVoice, phoneTogether, phoneOrder]
 
 /**
  * The public landing page — the only full-width surface in the app.
@@ -17,9 +50,52 @@ export default function Landing() {
   const t = useT()
   const { lang, setLang, langs } = useI18n()
   const nav = useNavigate()
+  const { session, signOut } = useAuth()
 
-  const goSell = () => nav('/join/seller')
-  const goBuy = () => nav('/join/customer')
+  /** Set when a door needs the "end this session first?" decision. */
+  const [switchTo, setSwitchTo] = useState<Role | null>(null)
+
+  /**
+   * BOTH DOORS GO THROUGH LOGIN. What differs is how much of it is left:
+   *
+   *  - no session          -> the phone + OTP screen for that role;
+   *  - a session, same role -> straight in. She has already logged in, and
+   *    asking again would be the app forgetting her, which is what a back
+   *    press out of /seller used to look like;
+   *  - a session, the OTHER role -> one account can only be in one section at
+   *    a time, so this genuinely needs the current session closed. That is a
+   *    consequence worth spelling out rather than doing silently, so it is a
+   *    confirmation with the consequence in the body and "लॉग आउट करा" on the
+   *    button - never a bare "are you sure?".
+   */
+  function go(role: Role) {
+    if (session) {
+      if (session.role === role) nav(homeFor(role))
+      else setSwitchTo(role)
+      return
+    }
+
+    /**
+     * HALF REGISTERED IS ALSO "IN THE SELLING SECTION", even though there is
+     * no session yet - she is holding a verified ticket and six screens of
+     * answers. Walking her silently into customer login would abandon both,
+     * and she would find out only when she came back to finish and was asked
+     * for a fresh OTP. So the buy door asks first, exactly like the
+     * session case, and only then ends the registration she had going.
+     */
+    if (role === 'customer' && liveTicket()) {
+      setSwitchTo('customer')
+      return
+    }
+
+    nav(`/login/${role}`)
+  }
+
+  /** The confirmation is about a pending registration, not a live session. */
+  const abandoning = switchTo !== null && !session
+
+  const goSell = () => go('seller')
+  const goBuy = () => go('customer')
 
   return (
     <div className="landing">
@@ -29,12 +105,14 @@ export default function Landing() {
       <header className="lnav">
         <div className="wrap lnav__in">
           <div className="brand">
-            <span className="brand__mark" aria-hidden="true">शां</span>
+            {/* शांताबाई herself. The app is named after her, so the mark is
+                her portrait rather than the first letter of her name. */}
+            <img className="brand__mark" src={logo} alt="" aria-hidden="true" />
             <span>
               <span className="brand__name">
-                शांता <em>महिला बाजार</em>
+                शांताई <em>महिला बाजार</em>
               </span>
-              <span className="brand__sub">Shanta Mahila Bazar</span>
+              <span className="brand__sub">Shantai Mahila Bazar</span>
             </span>
           </div>
 
@@ -52,10 +130,6 @@ export default function Landing() {
               </button>
             ))}
           </div>
-
-          <button className="lnav__login" onClick={() => nav('/login/seller')}>
-            {t('lp.loginShort')}
-          </button>
         </div>
       </header>
 
@@ -79,15 +153,20 @@ export default function Landing() {
 
             <div className="doors">
               <button className="door door--primary" onClick={goSell}>
-                <span className="door__icon" aria-hidden="true">🧺</span>
+                <span className="door__icon" aria-hidden="true"><IconSell /></span>
                 <span className="grow">
                   <span className="door__t">{t('lp.ctaSell')}</span>
-                  <span className="door__s">{t('lp.sellerDoorSub')}</span>
+                  {/* In Marathi the door and its sub-line are now the same
+                      sentence, so the second copy is dropped rather than
+                      printed twice. English still has two distinct lines. */}
+                  {t('lp.sellerDoorSub') !== t('lp.ctaSell') && (
+                    <span className="door__s">{t('lp.sellerDoorSub')}</span>
+                  )}
                 </span>
               </button>
 
               <button className="door" onClick={goBuy}>
-                <span className="door__icon" aria-hidden="true">🛍️</span>
+                <span className="door__icon" aria-hidden="true"><IconBuy /></span>
                 <span className="grow">
                   <span className="door__t">{t('lp.ctaBuy')}</span>
                   <span className="door__s">{t('lp.customerDoorSub')}</span>
@@ -97,7 +176,7 @@ export default function Landing() {
           </div>
 
           <figure className="hero__art">
-            <HeroArt />
+            <PhotoRotator photos={HERO_PHOTOS} />
             <figcaption>
               <strong>{t('lp.artName')}</strong>
               {t('lp.artCaption')}
@@ -119,7 +198,7 @@ export default function Landing() {
           <div className="lanes">
             <div className="lane">
               <h3 className="lane__t">
-                <span aria-hidden="true">👩</span> {t('lp.forSellers')}
+                <IconSeller aria-hidden="true" /> {t('lp.forSellers')}
               </h3>
               <ol className="steps">
                 {[t('lp.s1'), t('lp.s2'), t('lp.s3'), t('lp.s4')].map((step, i) => (
@@ -133,7 +212,7 @@ export default function Landing() {
 
             <div className="lane lane--buy">
               <h3 className="lane__t">
-                <span aria-hidden="true">🛍️</span> {t('lp.forCustomers')}
+                <IconBuy aria-hidden="true" /> {t('lp.forCustomers')}
               </h3>
               <ol className="steps">
                 {[t('lp.c1'), t('lp.c2'), t('lp.c3'), t('lp.c4')].map((step, i) => (
@@ -158,14 +237,14 @@ export default function Landing() {
           </div>
 
           <div className="whys">
-            {[
-              ['🏡', t('lp.w1'), t('lp.w1b')],
-              ['🔳', t('lp.w2'), t('lp.w2b')],
-              ['🗣️', t('lp.w3'), t('lp.w3b')],
-              ['🔒', t('lp.w4'), t('lp.w4b')],
-            ].map(([icon, title, body]) => (
+            {([
+              [IconBuyers, t('lp.w1'), t('lp.w1b')],
+              [IconQr, t('lp.w2'), t('lp.w2b')],
+              [IconSeller, t('lp.w3'), t('lp.w3b')],
+              [IconSafe, t('lp.w4'), t('lp.w4b')],
+            ] as const).map(([Icon, title, body]) => (
               <article className="why" key={title}>
-                <div className="why__icon" aria-hidden="true">{icon}</div>
+                <div className="why__icon" aria-hidden="true"><Icon /></div>
                 <h3>{title}</h3>
                 <p>{body}</p>
               </article>
@@ -186,17 +265,19 @@ export default function Landing() {
 
           <div className="cats">
             {[
-              ['🌶️', 'मसाले', 'Masala'],
-              ['🫙', 'लोणची', 'Pickles'],
-              ['🥟', 'पापड', 'Papad'],
-              ['🍬', 'मिठाई', 'Sweets'],
-              ['🧺', 'हस्तकला', 'Handicrafts'],
-              ['🧵', 'कापड', 'Textiles'],
-              ['🕯️', 'अगरबत्ती', 'Agarbatti'],
-              ['🍯', 'घरगुती पदार्थ', 'Homemade'],
-            ].map(([icon, mr, en]) => (
+              [catMasala, 'मसाले', 'Masala'],
+              [catPickles, 'लोणची', 'Pickles'],
+              [catPapad, 'पापड', 'Papad'],
+              [catSweets, 'मिठाई', 'Sweets'],
+              [catHandicrafts, 'हस्तकला', 'Handicrafts'],
+              [catTextiles, 'कापड', 'Textiles'],
+              [catAgarbatti, 'अगरबत्ती', 'Agarbatti'],
+              [catHomemade, 'घरगुती पदार्थ', 'Homemade'],
+            ].map(([photo, mr, en]) => (
               <button className="cat" key={en} onClick={goBuy}>
-                <div className="cat__i" aria-hidden="true">{icon}</div>
+                {/* The photo is decorative: the label under it names the
+                    category, so alt text would only repeat what is read next. */}
+                <img className="cat__i" src={photo} alt="" aria-hidden="true" />
                 <div className="cat__t">{lang === 'mr' ? mr : en}</div>
               </button>
             ))}
@@ -210,7 +291,7 @@ export default function Landing() {
       <section className="lsection">
         <div className="wrap women">
           <figure className="hero__art" style={{ margin: 0 }}>
-            <HeroArt />
+            <PhotoRotator photos={PHONE_PHOTOS} />
           </figure>
 
           <div className="women__copy">
@@ -219,7 +300,7 @@ export default function Landing() {
             <ul className="women__list">
               {[t('lp.wl1'), t('lp.wl2'), t('lp.wl3'), t('lp.wl4')].map((line) => (
                 <li key={line}>
-                  <span aria-hidden="true">✓</span>
+                  <span aria-hidden="true"><IconCheck /></span>
                   <span>{line}</span>
                 </li>
               ))}
@@ -229,7 +310,20 @@ export default function Landing() {
       </section>
 
       {/* ---------------------------------------------------------- */}
-      {/* 7. Final call — the doors again                              */}
+      {/* 7. The college behind the project                            */}
+      {/* ---------------------------------------------------------- */}
+      <section className="lsection lsection--tint">
+        <div className="wrap">
+          <div className="lsection__head">
+            <h2>{t('lp.collegeTitle')}</h2>
+            <p>{t('lp.collegeLede')}</p>
+          </div>
+          <CollegeCard />
+        </div>
+      </section>
+
+      {/* ---------------------------------------------------------- */}
+      {/* 8. Final call — the doors again                              */}
       {/* ---------------------------------------------------------- */}
       <section className="lsection">
         <div className="wrap">
@@ -238,10 +332,10 @@ export default function Landing() {
             <p>{t('lp.finalLede')}</p>
             <div className="cta__btns">
               <button className="btn" onClick={goSell}>
-                🧺 {t('lp.finalSell')}
+                <IconSell aria-hidden="true" /> {t('lp.finalSell')}
               </button>
               <button className="btn btn--ghost" onClick={goBuy}>
-                🛍️ {t('lp.finalBuy')}
+                <IconBuy aria-hidden="true" /> {t('lp.finalBuy')}
               </button>
             </div>
           </div>
@@ -249,18 +343,49 @@ export default function Landing() {
       </section>
 
       {/* ---------------------------------------------------------- */}
-      {/* 8. Footer                                                    */}
+      {/* 9. Footer                                                    */}
       {/* ---------------------------------------------------------- */}
       <footer className="lfoot">
         <div className="wrap lfoot__in">
           <div>
-            <strong style={{ color: 'var(--maroon)' }}>शांता महिला बाजार</strong>
+            <strong style={{ color: 'var(--maroon)' }}>शांताई महिला बाजार</strong>
             {' — '}
             {t('lp.footer')}
           </div>
-          <div>Shanta Mahila Bazar</div>
+          <div>Shantai Mahila Bazar</div>
         </div>
       </footer>
+
+      {/* One account, one section at a time. Switching means ending the
+          session she is holding, so the body says so and the button says what
+          it does - never a bare "are you sure?". */}
+      <ConfirmSheet
+        open={switchTo !== null}
+        title={abandoning ? t('lp.abandonTitle') : t('lp.switchTitle')}
+        body={
+          abandoning
+            ? t('lp.abandonBody')
+            : switchTo === 'customer' ? t('lp.switchBuyBody') : t('lp.switchBody')
+        }
+        confirmLabel={abandoning ? t('lp.abandonConfirm') : t('lp.switchConfirm')}
+        tone="danger"
+        onCancel={() => setSwitchTo(null)}
+        onConfirm={() => {
+          const role = switchTo
+          setSwitchTo(null)
+          if (abandoning) {
+            // Her ticket AND her answers, together. Leaving the draft behind
+            // would put her name and village on the handset with nothing left
+            // that could ever submit them.
+            const pending = liveTicket()
+            if (pending) clearDraft(sessionStore(), pending.phone)
+            clearRegisterTicket()
+          } else {
+            signOut()
+          }
+          if (role) nav(`/login/${role}`)
+        }}
+      />
     </div>
   )
 }

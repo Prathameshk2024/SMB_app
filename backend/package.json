@@ -4,14 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/backend/src/index.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "start": "node --env-file-if-exists=.env dist/backend/src/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test \"tests/**/*.test.ts\"",
+    "backfill:customers": "node --import tsx --env-file-if-exists=.env scripts/backfill-customers.ts",
+    "purge:demo": "node --import tsx --env-file-if-exists=.env scripts/purge-demo-data.ts",
+    "admin:users": "node --import tsx --env-file-if-exists=.env scripts/admins.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "firebase-admin": "^13.10.0",
+    "helmet": "^8.3.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

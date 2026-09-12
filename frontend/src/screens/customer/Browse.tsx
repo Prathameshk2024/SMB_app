@@ -1,34 +1,148 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { Product, Seller } from '@shared/types.js'
+import type { Category, Product, Seller } from '@shared/types.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { useCart } from '../../store/CartContext.js'
+import { useToast } from '../../store/ToastContext.js'
+import ProductImage from '../../components/ProductImage.js'
+import { Avatar } from '../../components/Avatar.js'
 import { api } from '../../lib/api.js'
+import { categoryPhoto } from '../../lib/categoryPhoto.js'
 import {
   AppBar, Button, Card, EmptyState, Loading, Notice, Pill,
   Rupees, SectionTitle, Stepper, TextInput, useAsync,
 } from '../../components/ui.js'
+import {
+  IconCart, IconCheck, IconMinus, IconNext, IconPlus, IconProduct, IconSearch,
+  IconStar,
+} from '../../components/icons.js'
+import { PageTour } from '../../components/Walkthrough.js'
 
-function ProductCard({ product, onOpen }: { product: Product; onOpen: () => void }) {
+/**
+ * The picture on a category tile: a photograph where we have one, the emoji
+ * where we do not. Both are the same height, so a mixed grid still lines up.
+ */
+function CategoryTileArt({ category }: { category: Category }) {
+  const photo = categoryPhoto(category.id)
+  if (!photo) {
+    return <div style={{ fontSize: '2.25rem', height: 72, lineHeight: '72px' }} aria-hidden="true">{category.icon}</div>
+  }
   return (
-    <button className="pcard" onClick={onOpen}>
-      <div className="pcard__img" aria-hidden="true">{product.emoji}</div>
-      <div className="pcard__body">
-        <div className="pcard__name">{product.name}</div>
-        <div className="pcard__price"><Rupees value={product.price} /></div>
+    <img
+      src={photo}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      style={{ width: '100%', height: 72, objectFit: 'cover', borderRadius: 'var(--r-sm)' }}
+    />
+  )
+}
+
+type CardProduct = Product & { seller?: Partial<Seller> }
+
+export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen: () => void }) {
+  return (
+    <div className="pcard">
+      {/* The card opens the product; the control below adds it. Two jobs, two
+          buttons - a tap on ADD that also navigated away would lose her the
+          list she was working down. */}
+      <button className="pcard__open" onClick={onOpen}>
+        <ProductImage
+          src={product.imageUrl}
+          emoji={product.emoji}
+          categoryId={product.categoryId}
+          className="pcard__img"
+          rounded="0"
+        />
+        <div className="pcard__body">
+          <div className="pcard__name">{product.name}</div>
+          <div className="pcard__price"><Rupees value={product.price} /></div>
+        </div>
+      </button>
+
+      <div className="pcard__add">
+        <AddControl product={product} />
       </div>
-    </button>
+    </div>
+  )
+}
+
+/**
+ * ADD, then how many she has.
+ *
+ * A count she can see is the difference between "did that work?" and knowing
+ * it did - the cart badge is at the bottom of the screen and the product she
+ * just tapped is under her thumb. Once there is one in the cart the button
+ * becomes the count, with a minus beside it, so a mis-tap is undone where it
+ * happened rather than two screens away.
+ *
+ * Bounded by the stock the seller entered, because the whole listing is a
+ * promise she has to keep.
+ */
+function AddControl({ product }: { product: CardProduct }) {
+  const t = useT()
+  const { toast } = useToast()
+  const { items, add, setQty, sellerName: cartShop } = useCart()
+
+  const qty = items.find((i) => i.productId === product.id)?.qty ?? 0
+  const outOfStock = !product.madeToOrder && product.stock === 0
+  const max = product.madeToOrder ? 20 : product.stock
+
+  if (outOfStock) {
+    return <span className="pill pill--danger">{t('prod.outOfStock')}</span>
+  }
+
+  if (qty === 0) {
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          // One seller owns the cart. A toast rather than a dialog: she is in
+          // the middle of a list, and the product screen says it in full.
+          if (!add(product, 1, product.seller?.shopName)) {
+            toast(t('cus.cartLocked', { shop: cartShop ?? '' }), 'warn')
+          }
+        }}
+      >
+        {t('cus.addToCart')} +
+      </Button>
+    )
+  }
+
+  return (
+    <div className="qtybar">
+      <button
+        className="qtybar__btn"
+        aria-label={qty > 1 ? t('cart.decrease') : t('cart.removeItem')}
+        onClick={() => setQty(product.id, qty - 1)}
+      >
+        <IconMinus aria-hidden="true" />
+      </button>
+      <span className="qtybar__n num" aria-live="polite">{qty}</span>
+      <button
+        className="qtybar__btn"
+        aria-label={t('cart.increase')}
+        disabled={qty >= max}
+        onClick={() => setQty(product.id, qty + 1)}
+      >
+        <IconPlus aria-hidden="true" />
+      </button>
+    </div>
   )
 }
 
 export function Explore() {
   const t = useT()
   const nav = useNavigate()
-  const { lang } = useI18n()
   const [q, setQ] = useState('')
 
+  // Deliberately NOT filtered by pincode. Browsing is for discovery, and a
+  // pincode filter here hid whole shops behind a setting most shoppers never
+  // touched. Serviceability is checked where it actually matters - at
+  // checkout, and per seller, where it can be explained rather than silently
+  // shortening the list.
   const [data, loading] = useAsync(() => api.catalog(), [])
-  const [catData] = useAsync(() => api.categories(), [])
 
   const products = data?.products ?? []
   const list = products.filter((p) =>
@@ -37,37 +151,29 @@ export function Explore() {
 
   return (
     <>
-      <AppBar title={t('app.name')} sub={t('app.tagline')} />
+      <AppBar brand title={t('app.name')} />
       <div className="screen stack">
         <TextInput
+          data-wt="ex-search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={`🔍 ${t('cus.searchPlaceholder')}`}
           aria-label={t('common.search')}
         />
 
-        <div className="hscroll">
-          {(catData?.categories ?? []).slice(0, 8).map((c) => (
-            <button
-              key={c.id}
-              className="card card--tap"
-              style={{ width: 96, textAlign: 'center', padding: 'var(--s3)' }}
-              onClick={() => nav(`/shop/c/${c.id}`)}
-            >
-              <div style={{ fontSize: '1.75rem' }} aria-hidden="true">{c.icon}</div>
-              <div className="tiny" style={{ fontWeight: 600, marginTop: 4 }}>
-                {lang === 'mr' ? c.mr : c.en}
-              </div>
-            </button>
-          ))}
-        </div>
+        {/* The category strip lived here and is gone: it duplicated the
+            Categories tab a thumb's width below it, and cost the products the
+            top half of the screen to do it. */}
 
-        <div>
-          <SectionTitle>{q ? t('common.search') : t('cus.homemade')}</SectionTitle>
+        <div data-wt="ex-grid">
+          {/* Only search results get a heading. The default grid is the whole
+              point of the screen, so a label above it named the obvious and
+              pushed the first row of products further down the phone. */}
+          {q && <SectionTitle>{t('common.search')}</SectionTitle>}
           {loading ? (
             <Loading />
           ) : list.length === 0 ? (
-            <EmptyState icon="🔍" title={t('prod.noProducts')} />
+            <EmptyState icon={IconSearch} title={t('prod.noProducts')} />
           ) : (
             <div className="pgrid">
               {list.map((p) => (
@@ -77,6 +183,8 @@ export function Explore() {
           )}
         </div>
       </div>
+
+      <PageTour id="shop.explore" />
     </>
   )
 }
@@ -89,8 +197,8 @@ export function Categories() {
 
   return (
     <>
-      <AppBar title={t('nav.categories')} />
-      <div className="screen">
+      <AppBar brand title={t('nav.categories')} />
+      <div className="screen" data-wt="cat-grid">
         {loading ? (
           <Loading />
         ) : (
@@ -102,13 +210,15 @@ export function Categories() {
                 style={{ textAlign: 'center' }}
                 onClick={() => nav(`/shop/c/${c.id}`)}
               >
-                <div style={{ fontSize: '2.25rem' }} aria-hidden="true">{c.icon}</div>
+                <CategoryTileArt category={c} />
                 <div style={{ fontWeight: 700, marginTop: 6 }}>{lang === 'mr' ? c.mr : c.en}</div>
               </button>
             ))}
           </div>
         )}
       </div>
+
+      <PageTour id="shop.categories" />
     </>
   )
 }
@@ -134,7 +244,7 @@ export function CategoryProducts() {
         {loading ? (
           <Loading />
         ) : products.length === 0 ? (
-          <EmptyState icon="📭" title={t('prod.noProducts')} />
+          <EmptyState icon={IconProduct} title={t('prod.noProducts')} />
         ) : (
           <div className="pgrid">
             {products.map((p) => (
@@ -151,10 +261,20 @@ export function ProductDetail() {
   const { productId } = useParams()
   const t = useT()
   const nav = useNavigate()
-  const { add, has } = useCart()
+  const { add, has, canAdd, sellerName: cartShop } = useCart()
   const [qty, setQty] = useState(1)
 
   const [data, loading] = useAsync(() => api.product(productId!), [productId])
+
+  /**
+   * The rest of this shop's window. Fetched by seller rather than filtered
+   * out of the whole catalogue, so three products cost three products.
+   */
+  const sellerId = data?.product.sellerId
+  const [more] = useAsync(
+    () => (sellerId ? api.catalog({ sellerId }) : Promise.resolve({ products: [] })),
+    [sellerId],
+  )
 
   if (loading) {
     return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><Loading /></div></>
@@ -166,19 +286,32 @@ export function ProductDetail() {
   const { product, seller } = data
   const outOfStock = !product.madeToOrder && product.stock === 0
 
+  // Newest first, this one excluded, three of them. Three is a glance; a
+  // second grid of everything she sells belongs on the shop page, not under
+  // the buy button.
+  const alsoFromShop = (more?.products ?? [])
+    .filter((p) => p.id !== product.id)
+    .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+    .slice(0, 3)
+
+  /**
+   * ONE SELLER AT A TIME. The cart belongs to whoever she added from first,
+   * so this product is refused while another shop holds it - with the name of
+   * that shop and a way to go and look, never by emptying it for her.
+   */
+  const blockedBy = canAdd(product.sellerId) ? null : (cartShop ?? '')
+
   return (
     <>
       <AppBar title={product.name} onBack={() => nav(-1)} />
       <div className="screen stack">
-        <div
-          style={{
-            aspectRatio: 1, background: 'var(--surface-2)', borderRadius: 'var(--r-lg)',
-            display: 'grid', placeItems: 'center', fontSize: '6rem',
-            border: '1px solid var(--line)', maxWidth: 420, margin: '0 auto', width: '100%',
-          }}
-          aria-hidden="true"
-        >
-          {product.emoji}
+        <div style={{ maxWidth: 420, margin: '0 auto', width: '100%' }}>
+          <ProductImage
+            src={product.imageUrl}
+            emoji={product.emoji}
+            categoryId={product.categoryId}
+            rounded="var(--r-lg)"
+          />
         </div>
 
         <div className="stack-sm">
@@ -207,7 +340,6 @@ export function ProductDetail() {
 
         {seller && <SellerCard seller={seller} />}
 
-        {/* The FSSAI number on a food listing is a legal requirement. */}
         {product.isFood ? (
           <Card>
             <div className="stack-sm small">
@@ -215,12 +347,6 @@ export function ProductDetail() {
                 <span className="dim">{t('cus.ingredients')}: </span>
                 {product.ingredients}
               </div>
-              {(product.fssai ?? seller?.fssai) && (
-                <div>
-                  <span className="dim">{t('cus.fssaiNo')}: </span>
-                  <span className="num">{product.fssai ?? seller?.fssai}</span>
-                </div>
-              )}
             </div>
           </Card>
         ) : (
@@ -237,174 +363,142 @@ export function ProductDetail() {
         {seller && (
           <Notice tone="info">
             {t('cus.deliveryFee')}: <Rupees value={seller.deliveryFee} />
-            {seller.freeDeliveryAbove > 0 && <> · ₹{seller.freeDeliveryAbove}+ मोफत</>}
+            {seller.freeDeliveryAbove > 0 && <> · ₹{seller.freeDeliveryAbove}+ {t('cart.free')}</>}
           </Notice>
+        )}
+
+        {/* Three, then the door to the rest. One shop owns the cart now, so
+            what else that shop sells is the most useful thing on this screen:
+            the next item she buys can only come from here. */}
+        {alsoFromShop.length > 0 && (
+          <div>
+            <SectionTitle>{t('cus.moreFromShop')}</SectionTitle>
+            <div className="pgrid">
+              {alsoFromShop.map((p) => (
+                <ProductCard key={p.id} product={p} onOpen={() => nav(`/shop/p/${p.id}`)} />
+              ))}
+            </div>
+            <Button
+              variant="ghost"
+              onClick={() => nav(`/shop/seller/${product.sellerId}`)}
+              style={{ marginTop: 'var(--s3)' }}
+            >
+              {t('cus.seeAllFromShop')} <IconNext aria-hidden="true" />
+            </Button>
+          </div>
         )}
       </div>
 
       <div className="actionbar">
-        {!outOfStock && (
-          <div className="row-between">
-            <span style={{ fontWeight: 600 }}>{t('prod.stock')}</span>
-            <Stepper value={qty} onChange={setQty} max={product.madeToOrder ? 20 : product.stock} />
-          </div>
+        {blockedBy !== null ? (
+          <>
+            {/* Her cart is not touched. She is told whose it is and sent to
+                look at it - emptying it for her would lose the only record of
+                what she had chosen. */}
+            <Notice tone="warn">{t('cus.cartLocked', { shop: blockedBy })}</Notice>
+            <Button onClick={() => nav('/shop/cart')}>
+              <IconCart aria-hidden="true" /> {t('cus.openCart')}
+            </Button>
+          </>
+        ) : (
+          <>
+            {!outOfStock && (
+              <div className="row-between">
+                <span style={{ fontWeight: 600 }}>{t('prod.stock')}</span>
+                <Stepper value={qty} onChange={setQty} max={product.madeToOrder ? 20 : product.stock} />
+              </div>
+            )}
+            <Button
+              disabled={outOfStock}
+              onClick={() => {
+                if (add(product, qty, seller?.shopName)) nav('/shop/cart')
+              }}
+            >
+              {outOfStock ? t('prod.outOfStock') : <><IconCart aria-hidden="true" /> {t('cus.addToCart')}</>}
+              {has(product.id) && <IconCheck aria-hidden="true" />}
+            </Button>
+          </>
         )}
-        <Button
-          disabled={outOfStock}
-          onClick={() => { add(product, qty); nav('/shop/cart') }}
-        >
-          {outOfStock ? t('prod.outOfStock') : `🧺 ${t('cus.addToCart')}`}
-          {has(product.id) ? ' ✓' : ''}
-        </Button>
       </div>
     </>
   )
 }
 
-function SellerCard({ seller }: { seller: Partial<Seller> }) {
+/**
+ * ONE SHOP'S WINDOW.
+ *
+ * Reached from "see all" under a product, and the natural landing place for
+ * her QR poster the day that comes back. It matters more than it used to: the
+ * cart holds one seller at a time, so once a buyer has added anything, this
+ * page is the whole of what she can still buy today.
+ */
+export function SellerShop() {
+  const { sellerId } = useParams()
   const t = useT()
   const nav = useNavigate()
+
+  const [data, loading] = useAsync(() => api.catalog({ sellerId }), [sellerId])
+  const products = data?.products ?? []
+  const seller = products[0]?.seller
+
+  if (loading) {
+    return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><Loading /></div></>
+  }
+
   return (
-    <button className="tile" onClick={() => nav(`/shop/s/${seller.shopSlug}`)}>
-      <div className="tile__img" aria-hidden="true">{seller.photo}</div>
+    <>
+      <AppBar title={seller?.shopName ?? t('cus.shop')} onBack={() => nav(-1)} />
+      <div className="screen stack">
+        {seller && <SellerCard seller={seller} />}
+
+        {seller && (
+          <Notice tone="info">
+            {t('cus.deliveryFee')}: <Rupees value={seller.deliveryFee ?? 0} />
+            {(seller.freeDeliveryAbove ?? 0) > 0 && (
+              <> · ₹{seller.freeDeliveryAbove}+ {t('cart.free')}</>
+            )}
+            {(seller.minOrder ?? 0) > 0 && <> · {t('cart.minOrder')} ₹{seller.minOrder}</>}
+          </Notice>
+        )}
+
+        {/* An empty shop is not an error. A seller between batches has taken
+            her listings down, and saying so beats an error icon. */}
+        {products.length === 0 ? (
+          <Card><EmptyState icon={IconProduct} title={t('prod.noProducts')} /></Card>
+        ) : (
+          <>
+            <SectionTitle>{t('cus.allFromShop')} ({products.length})</SectionTitle>
+            <div className="pgrid">
+              {products.map((p) => (
+                <ProductCard key={p.id} product={p} onOpen={() => nav(`/shop/p/${p.id}`)} />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  )
+}
+
+/**
+ * Who made this. Not a link any more - the public storefront it opened was
+ * the landing page for the share QR, and that whole surface is gone. Her name,
+ * her village and her SMB ID still belong on the product, because they are
+ * what a buyer is choosing between.
+ */
+function SellerCard({ seller }: { seller: Partial<Seller> }) {
+  const t = useT()
+  return (
+    <div className="tile">
+      <Avatar name={seller.name} size={62} />
       <div className="tile__body">
         <div className="tile__meta">{t('cus.soldBy')}</div>
         <div className="tile__title">{seller.shopName}</div>
         <div className="tile__meta">
-          ⭐ {seller.rating} ({seller.ratingCount}) · {seller.village}
+          <IconStar aria-hidden="true" /> {seller.rating} ({seller.ratingCount}) · {seller.village}
         </div>
         <div className="tiny num dim">{seller.womenBizId}</div>
       </div>
-      <span aria-hidden="true">›</span>
-    </button>
-  )
-}
-
-/** Seller storefront - where her share QR lands. */
-export function SellerStore() {
-  const { slug } = useParams()
-  const t = useT()
-  const nav = useNavigate()
-  const { add } = useCart()
-
-  const [sellerData, loadingSeller] = useAsync(() => api.sellerBySlug(slug!), [slug])
-  const [catalogData, loadingCatalog] = useAsync(() => api.catalog(), [])
-
-  if (loadingSeller || loadingCatalog) {
-    return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><Loading /></div></>
-  }
-  if (!sellerData) {
-    return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><EmptyState title="—" /></div></>
-  }
-
-  const seller = sellerData.seller
-  const products = (catalogData?.products ?? []).filter((p) => p.sellerId === seller.id)
-
-  // Devanagari initial: take the first letter WITH its vowel sign. A plain
-  // slice(0,1) on सुनीता yields स and drops the matra, which is not how the
-  // name starts. This keeps the whole cluster: सु.
-  const initial = /^.[ऀ-ःऺ-ॏ॑-ॗॢॣ]*/
-    .exec(seller.name ?? '')?.[0] ?? ''
-
-  // Filled and empty stars, so the rating reads without relying on colour.
-  const filled = Math.round(seller.rating)
-  const stars = '★'.repeat(filled) + '☆'.repeat(Math.max(0, 5 - filled))
-
-  return (
-    <>
-      <AppBar title={t('app.name')} onBack={() => nav(-1)} />
-
-      <div className="screen stack">
-        {/* --- her shop card: banner, identity, then the ID badge --- */}
-        <div className="shopcard">
-          <div className="shopcard__band">
-            <div className="shop-avatar" aria-hidden="true">
-              {initial}
-            </div>
-            <div className="grow">
-              <h1 className="shopcard__name">{seller.name}</h1>
-              <p className="shopcard__meta">
-                📍 {seller.village} · {seller.shopName}
-              </p>
-              <p className="shopcard__meta">
-                <span className="stars" aria-hidden="true">{stars}</span>{' '}
-                <span className="dim">({seller.ratingCount})</span>
-              </p>
-            </div>
-          </div>
-
-          <div className="shopcard__foot">
-            {/* Her ID goes on her packaging, so it is shown here, not hidden. */}
-            <span className="idpill">{seller.womenBizId}</span>
-            <span className="verified">
-              <span aria-hidden="true">✓</span> {t('cus.verifiedSeller')}
-            </span>
-          </div>
-        </div>
-
-        {seller.about && (
-          <Card>
-            <p className="small muted" style={{ margin: 0 }}>{seller.about}</p>
-          </Card>
-        )}
-
-        {/* --- her products ---------------------------------------- */}
-        <div>
-          <div className="sec-head">
-            <h2 className="sec-head__t">
-              {t('cus.herProducts')} ({products.length})
-            </h2>
-          </div>
-
-          {products.length === 0 ? (
-            <Card><EmptyState icon="📦" title={t('prod.noProducts')} /></Card>
-          ) : (
-            <div className="stack-sm">
-              {products.map((p) => (
-                <Card key={p.id} style={{ padding: 0, overflow: 'hidden' }}>
-                  <button
-                    className="prow"
-                    onClick={() => nav(`/shop/p/${p.id}`)}
-                    style={{
-                      background: 'none', border: 0, width: '100%',
-                      font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer',
-                    }}
-                  >
-                    <span className="prow__img" aria-hidden="true">{p.emoji}</span>
-                    <span className="prow__body">
-                      <span className="prow__name">{p.name}</span>
-                      <span className="prow__meta">
-                        {p.madeToOrder
-                          ? t('prod.madeToOrder')
-                          : `${p.stock} ${t(`unit.${p.unit}`)}`}
-                        {' · '}
-                        {p.isFood ? t('cus.homemade') : (p.material ?? '')}
-                      </span>
-                      <span className="prow__price">
-                        <Rupees value={p.price} /> <span>/ {t(`unit.${p.unit}`)}</span>
-                      </span>
-                    </span>
-                  </button>
-
-                  <div className="prow__actions">
-                    <Button onClick={() => { add(p, 1); nav('/shop/cart') }}>
-                      🛒 {t('cus.buyNow')}
-                    </Button>
-                    <a
-                      className="btn btn--ghost"
-                      href={`https://wa.me/?text=${encodeURIComponent(`${p.name} — ${seller.shopName}`)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      💬 WhatsApp
-                    </a>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </>
+    </div>
   )
 }

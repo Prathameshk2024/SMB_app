@@ -5,9 +5,14 @@ import { slotInfo } from '@shared/seller.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api } from '../../lib/api.js'
 import {
-  AppBar, AudioHelpButton, Button, Card, EmptyState, Loading, Notice,
+  AppBar, Button, Card, EmptyState, Loading, Notice,
   Pill, Rupees, SectionTitle, SlotMeter, useAsync,
 } from '../../components/ui.js'
+import {
+  IconAllClear, IconBuyers, IconGrowth, IconOrders, IconPause, IconPlay,
+  IconProduct, type IconType,
+} from '../../components/icons.js'
+import { PageTour } from '../../components/Walkthrough.js'
 
 /**
  * My Business - the daily driver. The order of things on this screen is the
@@ -24,7 +29,7 @@ export default function MyBusiness() {
   if (loadingMe || loadingOrders || loadingProducts) {
     return (
       <>
-        <AppBar title={t('biz.title')} />
+        <AppBar brand title={t('biz.title')} />
         <div className="screen"><Loading /></div>
       </>
     )
@@ -32,7 +37,7 @@ export default function MyBusiness() {
   if (!me) {
     return (
       <>
-        <AppBar title={t('biz.title')} />
+        <AppBar brand title={t('biz.title')} />
         <div className="screen"><EmptyState title="—" /></div>
       </>
     )
@@ -61,31 +66,44 @@ export default function MyBusiness() {
     setMe({ ...me!, seller: res.seller })
   }
 
-  const spoken = `${t('biz.needsAction')} ${actionable.length}. ${t('biz.earnToday')} ${todayEarnings} ${t('common.rupees')}.`
-
   return (
     <>
       <AppBar
+        brand
         title={seller.shopName}
         sub={`${seller.womenBizId} · ${seller.village}`}
-        right={<AudioHelpButton text={spoken} />}
       />
 
       <div className="screen stack">
+        {/* First thing on the screen when it applies. Being blocked is not the
+            same as waiting for approval and must not read like it: she is told
+            plainly, given the admin's reason if there was one, and pointed at
+            support rather than left to wonder why her shop went quiet. */}
+        {seller.status === 'BLOCKED' && (
+          <Notice tone="danger" title={t('biz.blockedTitle')}>
+            <div>{t('biz.blockedBody')}</div>
+            {seller.blockReason && (
+              <div style={{ marginTop: 6 }}>
+                <strong>{t('biz.blockedReason')}:</strong> {seller.blockReason}
+              </div>
+            )}
+          </Notice>
+        )}
+
         {/* Shop open toggle: one tap, right at the top. */}
-        <Card className={seller.isOpen ? '' : 'notice--warn'}>
+        <Card className={seller.isOpen ? '' : 'notice--warn'} data-wt="biz-shop">
           <div className="row-between">
             <div className="stack-sm" style={{ gap: 2 }}>
               <strong>{seller.isOpen ? t('biz.shopOpen') : t('biz.shopClosed')}</strong>
               <span className="small dim">{t('biz.shopOpenHint')}</span>
             </div>
             <Button variant={seller.isOpen ? 'quiet' : 'primary'} size="sm" onClick={toggleShop}>
-              {seller.isOpen ? '⏸' : '▶'}
+              {seller.isOpen ? <IconPause aria-hidden="true" /> : <IconPlay aria-hidden="true" />}
             </Button>
           </div>
         </Card>
 
-        <Card>
+        <Card data-wt="biz-slots">
           <SlotMeter
             used={slots.used}
             total={slots.total}
@@ -119,7 +137,7 @@ export default function MyBusiness() {
         </div>
 
         {/* THE ACTION QUEUE - the most important widget in the app. */}
-        <div>
+        <div data-wt="biz-action">
           <SectionTitle
             action={
               <button className="btn btn--quiet btn--sm" onClick={() => nav('/seller/orders')}>
@@ -132,7 +150,7 @@ export default function MyBusiness() {
 
           {actionable.length === 0 ? (
             <Card>
-              <EmptyState icon="✅" title={t('biz.noAction')} body={t('biz.noActionSub')} />
+              <EmptyState icon={IconAllClear} title={t('biz.noAction')} body={t('biz.noActionSub')} />
             </Card>
           ) : (
             <div className="stack-sm">
@@ -143,26 +161,28 @@ export default function MyBusiness() {
           )}
         </div>
 
-        <div className="pgrid pgrid--2">
-          <QuickLink icon="📦" label={t('biz.myProducts')} to="/seller/products" />
-          <QuickLink icon="🧾" label={t('biz.myOrders')} to="/seller/orders" />
-          <QuickLink icon="📈" label={t('biz.myGrowth')} to="/seller/growth" />
-          <QuickLink icon="🔳" label={t('biz.myQr')} to="/seller/qr" />
+        <div className="pgrid pgrid--2" data-wt="biz-links">
+          <QuickLink icon={IconProduct} label={t('biz.myProducts')} to="/seller/products" />
+          <QuickLink icon={IconOrders} label={t('biz.myOrders')} to="/seller/orders" />
+          <QuickLink icon={IconGrowth} label={t('biz.myGrowth')} to="/seller/growth" />
+          <QuickLink icon={IconBuyers} label={t('buy.tile')} to="/seller/buyers" />
         </div>
 
-        {seller.status !== 'ACTIVE' && (
+        {seller.status !== 'ACTIVE' && seller.status !== 'BLOCKED' && (
           <Notice tone="warn" title={t('wait.sub')}>{t('wait.canDoMeanwhile')}</Notice>
         )}
       </div>
+
+      <PageTour id="seller.business" />
     </>
   )
 }
 
-function QuickLink({ icon, label, to }: { icon: string; label: string; to: string }) {
+function QuickLink({ icon: Icon, label, to }: { icon: IconType; label: string; to: string }) {
   const nav = useNavigate()
   return (
     <button className="card card--tap" onClick={() => nav(to)} style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '1.9rem' }} aria-hidden="true">{icon}</div>
+      <div className="quicklink__icon" aria-hidden="true"><Icon /></div>
       <div style={{ fontWeight: 700, marginTop: 4 }}>{label}</div>
     </button>
   )

@@ -52,7 +52,7 @@
       "ratingCount": 38,
       "qrScans": 41,
       "qrOrders": 7,
-      "createdAt": "2026-06-04T19:23:39.849Z"
+      "createdAt": "2026-06-06T08:13:15.428Z"
     },
     {
       "id": "s2",
@@ -103,7 +103,7 @@
       "ratingCount": 21,
       "qrScans": 12,
       "qrOrders": 2,
-      "createdAt": "2026-07-04T19:23:39.849Z"
+      "createdAt": "2026-07-06T08:13:15.428Z"
     },
     {
       "id": "s3",
@@ -154,105 +154,7 @@
       "ratingCount": 12,
       "qrScans": 5,
       "qrOrders": 0,
-      "createdAt": "2026-08-13T19:23:39.849Z"
-    },
-    {
-      "id": "smtkht6a551y",
-      "womenBizId": "WB-ANADUR-002",
-      "name": "sunita",
-      "photo": "👩",
-      "phone": "9579325696",
-      "whatsapp": "9579325696",
-      "age": 35,
-      "education": "middle",
-      "village": "आणदुर",
-      "villageCode": "ANADUR",
-      "taluka": "तुळजापूर",
-      "district": "धाराशिव",
-      "pincode": "413002",
-      "shopName": "sunita",
-      "shopSlug": "sunit-wb-anadur-002",
-      "businessType": "shg",
-      "shgName": "mahila bachat gat",
-      "yearsInBusiness": 5,
-      "sellsFood": true,
-      "fssai": "11111111111111",
-      "fssaiExpiry": "2026-09-17",
-      "upiId": "sunita9579325696@ybl",
-      "upiVerified": false,
-      "digital": {
-        "smartphone": true,
-        "internet": true,
-        "upi": true,
-        "whatsappBusiness": true,
-        "socialMedia": false,
-        "digitalMarketing": false
-      },
-      "readinessScore": 40,
-      "readinessBand": "basic",
-      "isOpen": true,
-      "deliveryFee": 0,
-      "freeDeliveryAbove": 0,
-      "minOrder": 0,
-      "dispatch": "1",
-      "pincodes": [
-        "413002"
-      ],
-      "status": "REGISTERED",
-      "packsApproved": 0,
-      "rating": 0,
-      "ratingCount": 0,
-      "qrScans": 0,
-      "qrOrders": 0,
-      "createdAt": "2026-09-02T19:32:16.014Z"
-    },
-    {
-      "id": "smtl6120b75a",
-      "womenBizId": "WB-ANADUR-003",
-      "name": "Ajay Kumbhar",
-      "photo": "👩",
-      "phone": "9322125840",
-      "whatsapp": "9322125840",
-      "age": 35,
-      "education": "none",
-      "village": "आणदुर",
-      "villageCode": "ANADUR",
-      "taluka": "तुळजापूर",
-      "district": "धाराशिव",
-      "pincode": "413216",
-      "shopName": "Arpita Gruhaudyog",
-      "shopSlug": "arpitagruhaudyog-wb-anadur-003",
-      "businessType": "individual",
-      "sellsFood": true,
-      "fssai": "18789987987999",
-      "fssaiExpiry": "2026-09-03",
-      "upiId": "9322125840@ybl",
-      "upiVerified": false,
-      "digital": {
-        "smartphone": true,
-        "internet": true,
-        "upi": true,
-        "whatsappBusiness": true,
-        "socialMedia": true,
-        "digitalMarketing": true
-      },
-      "readinessScore": 60,
-      "readinessBand": "advanced",
-      "isOpen": true,
-      "deliveryFee": 0,
-      "freeDeliveryAbove": 0,
-      "minOrder": 0,
-      "dispatch": "1",
-      "pincodes": [
-        "413216"
-      ],
-      "status": "REGISTERED",
-      "packsApproved": 0,
-      "rating": 0,
-      "ratingCount": 0,
-      "qrScans": 0,
-      "qrOrders": 0,
-      "createdAt": "2026-09-03T06:50:14.507Z"
+      "createdAt": "2026-08-15T08:13:15.428Z"
     }
   ],
   "products": [
@@ -274,7 +176,7 @@
       "stock": 12,
       "status": "LIVE",
       "views": 184,
-      "createdAt": "2026-06-14T19:23:39.849Z"
+      "createdAt": "2026-06-16T08:13:15.428Z"
     },
     {
       "id": "p2",
@@ -294,7 +196,7 @@
       "stock": 8,
       "status": "LIVE",
       "views": 141,
-      "createdAt": "2026-06-19T19:23:39.849Z"
+      "createdAt": "2026-06-21T08:13:15.428Z"
     },
     {
       "id": "p3",
@@ -314,7 +216,7 @@
       "stock": 0,
       "status": "LIVE",
       "views": 63,
-      "createdAt": "2026-07-24T19:23:39.849Z"
+      "createdAt": "2026-07-26T08:13:15.428Z"
     },
     {
       "id": "p4",
@@ -334,7 +236,7 @@
       "stock": 4,
       "status": "PENDING",
       "views": 0,
-      "createdAt": "2026-09-01T23:23:39.849Z"
+      "createdAt": "2026-09-03T12:13:15.428Z"
     },
     {
       "id": "p5",
@@ -351,7 +253,7 @@
       "stock": 2,
       "status": "LIVE",
       "views": 312,
-      "createdAt": "2026-07-09T19:23:39.849Z"
+      "createdAt": "2026-07-11T08:13:15.428Z"
     },
     {
       "id": "p6",
@@ -368,7 +270,7 @@
       "stock": 15,
       "status": "LIVE",
       "views": 97,
-      "createdAt": "2026-07-14T19:23:39.849Z"
+      "createdAt": "2026-07-16T08:13:15.428Z"
     },
     {
       "id": "p7",
@@ -385,7 +287,7 @@
       "stock": 6,
       "status": "LIVE",
       "views": 55,
-      "createdAt": "2026-08-03T19:23:39.849Z"
+      "createdAt": "2026-08-05T08:13:15.428Z"
     },
     {
       "id": "p8",
@@ -402,7 +304,7 @@
       "stock": 9,
       "status": "LIVE",
       "views": 44,
-      "createdAt": "2026-08-18T19:23:39.849Z"
+      "createdAt": "2026-08-20T08:13:15.428Z"
     },
     {
       "id": "p9",
@@ -423,7 +325,7 @@
       "madeToOrder": true,
       "status": "LIVE",
       "views": 208,
-      "createdAt": "2026-08-15T19:23:39.849Z"
+      "createdAt": "2026-08-17T08:13:15.428Z"
     },
     {
       "id": "p10",
@@ -443,7 +345,7 @@
       "stock": 5,
       "status": "LIVE",
       "views": 133,
-      "createdAt": "2026-08-21T19:23:39.849Z"
+      "createdAt": "2026-08-23T08:13:15.428Z"
     },
     {
       "id": "p11",
@@ -460,7 +362,7 @@
       "stock": 30,
       "status": "LIVE",
       "views": 76,
-      "createdAt": "2026-08-27T19:23:39.849Z"
+      "createdAt": "2026-08-29T08:13:15.428Z"
     }
   ],
   "orders": [
@@ -496,12 +398,11 @@
       "paymentStatus": "UPI_SUBMITTED",
       "paymentUtr": "431209887654",
       "status": "PLACED",
-      "deliveryOtp": "4417",
-      "placedAt": "2026-09-02T18:23:39.849Z",
+      "placedAt": "2026-09-04T07:13:15.428Z",
       "events": [
         {
           "to": "PLACED",
-          "at": "2026-09-02T18:23:39.849Z",
+          "at": "2026-09-04T07:13:15.428Z",
           "by": "customer"
         }
       ]
@@ -530,22 +431,21 @@
       "paymentMode": "COD",
       "paymentStatus": "COD_PENDING",
       "status": "PACKED",
-      "deliveryOtp": "2093",
-      "placedAt": "2026-09-02T13:23:39.849Z",
+      "placedAt": "2026-09-04T02:13:15.428Z",
       "events": [
         {
           "to": "PLACED",
-          "at": "2026-09-02T13:23:39.849Z",
+          "at": "2026-09-04T02:13:15.428Z",
           "by": "customer"
         },
         {
           "to": "ACCEPTED",
-          "at": "2026-09-02T14:23:39.849Z",
+          "at": "2026-09-04T03:13:15.428Z",
           "by": "seller"
         },
         {
           "to": "PACKED",
-          "at": "2026-09-02T17:23:39.849Z",
+          "at": "2026-09-04T06:13:15.428Z",
           "by": "seller"
         }
       ]
@@ -574,27 +474,26 @@
       "paymentMode": "COD",
       "paymentStatus": "COD_PENDING",
       "status": "OUT_FOR_DELIVERY",
-      "deliveryOtp": "7752",
-      "placedAt": "2026-09-01T15:23:39.849Z",
+      "placedAt": "2026-09-03T04:13:15.428Z",
       "events": [
         {
           "to": "PLACED",
-          "at": "2026-09-01T15:23:39.849Z",
+          "at": "2026-09-03T04:13:15.428Z",
           "by": "customer"
         },
         {
           "to": "ACCEPTED",
-          "at": "2026-09-01T16:23:39.849Z",
+          "at": "2026-09-03T05:13:15.428Z",
           "by": "seller"
         },
         {
           "to": "PACKED",
-          "at": "2026-09-01T18:23:39.849Z",
+          "at": "2026-09-03T07:13:15.428Z",
           "by": "seller"
         },
         {
           "to": "OUT_FOR_DELIVERY",
-          "at": "2026-09-02T16:23:39.849Z",
+          "at": "2026-09-04T05:13:15.428Z",
           "by": "seller"
         }
       ]
@@ -623,37 +522,36 @@
       "paymentStatus": "UPI_CONFIRMED",
       "paymentUtr": "430918776541",
       "status": "COMPLETED",
-      "deliveryOtp": "1188",
-      "placedAt": "2026-09-02T10:23:39.849Z",
+      "placedAt": "2026-09-03T23:13:15.428Z",
       "events": [
         {
           "to": "PLACED",
-          "at": "2026-09-02T10:23:39.849Z",
+          "at": "2026-09-03T23:13:15.428Z",
           "by": "customer"
         },
         {
           "to": "ACCEPTED",
-          "at": "2026-09-02T11:23:39.849Z",
+          "at": "2026-09-04T00:13:15.428Z",
           "by": "seller"
         },
         {
           "to": "PACKED",
-          "at": "2026-09-02T12:23:39.849Z",
+          "at": "2026-09-04T01:13:15.428Z",
           "by": "seller"
         },
         {
           "to": "OUT_FOR_DELIVERY",
-          "at": "2026-09-02T14:23:39.849Z",
+          "at": "2026-09-04T03:13:15.428Z",
           "by": "seller"
         },
         {
           "to": "DELIVERED",
-          "at": "2026-09-02T15:23:39.849Z",
+          "at": "2026-09-04T04:13:15.428Z",
           "by": "seller"
         },
         {
           "to": "COMPLETED",
-          "at": "2026-09-02T17:23:39.849Z",
+          "at": "2026-09-04T06:13:15.428Z",
           "by": "system"
         }
       ]
@@ -682,17 +580,16 @@
       "paymentMode": "COD",
       "paymentStatus": "COD_PENDING",
       "status": "ACCEPTED",
-      "deliveryOtp": "5521",
-      "placedAt": "2026-09-02T10:23:39.849Z",
+      "placedAt": "2026-09-03T23:13:15.428Z",
       "events": [
         {
           "to": "PLACED",
-          "at": "2026-09-02T10:23:39.849Z",
+          "at": "2026-09-03T23:13:15.428Z",
           "by": "customer"
         },
         {
           "to": "ACCEPTED",
-          "at": "2026-09-02T11:23:39.849Z",
+          "at": "2026-09-04T00:13:15.428Z",
           "by": "seller"
         }
       ]
@@ -708,7 +605,7 @@
       "amount": 50,
       "utr": "512309887711",
       "payerUpi": "shobha@ybl",
-      "submittedAt": "2026-09-02T15:23:39.849Z",
+      "submittedAt": "2026-09-04T04:13:15.428Z",
       "status": "PENDING",
       "duplicateUtr": false
     },
@@ -721,7 +618,7 @@
       "amount": 50,
       "utr": "431209887654",
       "payerUpi": "vaishali@okhdfcbank",
-      "submittedAt": "2026-09-02T00:23:39.849Z",
+      "submittedAt": "2026-09-03T13:13:15.428Z",
       "status": "PENDING",
       "duplicateUtr": true
     },
@@ -734,7 +631,7 @@
       "amount": 50,
       "utr": "509911223344",
       "payerUpi": "lata.k@paytm",
-      "submittedAt": "2026-08-31T17:23:39.849Z",
+      "submittedAt": "2026-09-02T06:13:15.428Z",
       "status": "PENDING",
       "duplicateUtr": false
     },
@@ -747,30 +644,87 @@
       "amount": 50,
       "utr": "401122334455",
       "payerUpi": "sunita@ybl",
-      "submittedAt": "2026-08-03T19:23:39.849Z",
+      "submittedAt": "2026-08-05T08:13:15.428Z",
       "status": "APPROVED",
       "duplicateUtr": false,
-      "verifiedAt": "2026-08-03T19:23:39.849Z"
+      "verifiedAt": "2026-08-05T08:13:15.428Z"
     }
   ],
-  "addresses": [
+  "customers": [
     {
-      "id": "a1",
-      "label": "घर",
-      "line": "फ्लॅट 302, शिवसागर अपार्टमेंट, विमाननगर",
-      "landmark": "सिम्बायोसिस कॉलेजजवळ",
-      "city": "पुणे",
-      "pincode": "413601",
-      "isDefault": true
+      "id": "c-9011223344",
+      "phone": "9011223344",
+      "name": "प्रिया देशमुख",
+      "addresses": [
+        {
+          "id": "aa3459f243c",
+          "label": "घर",
+          "line": "फ्लॅट 302, शिवसागर अपार्टमेंट, विमाननगर, पुणे",
+          "landmark": "सिम्बायोसिस कॉलेजजवळ",
+          "pincode": "413601",
+          "isDefault": true
+        },
+        {
+          "id": "af47caa6b5f",
+          "label": "घर",
+          "line": "फ्लॅट 302, शिवसागर अपार्टमेंट, विमाननगर, पुणे",
+          "landmark": "सिम्बायोसिस कॉलेजजवळ",
+          "pincode": "413603",
+          "isDefault": false
+        }
+      ],
+      "createdAt": "2026-09-03T23:13:15.428Z",
+      "updatedAt": "2026-09-04T07:13:15.428Z"
     },
     {
-      "id": "a2",
-      "label": "ऑफिस",
-      "line": "दुसरा मजला, टेक पार्क, खराडी",
-      "landmark": "EON IT पार्क",
-      "city": "पुणे",
-      "pincode": "413603",
-      "isDefault": false
+      "id": "c-9922334455",
+      "phone": "9922334455",
+      "name": "अनिता कुलकर्णी",
+      "addresses": [
+        {
+          "id": "aeba29494e9",
+          "label": "घर",
+          "line": "घर क्र. 12, गणेश नगर, आणदुर",
+          "landmark": "ग्रामपंचायत ऑफिससमोर",
+          "pincode": "413601",
+          "isDefault": true
+        }
+      ],
+      "createdAt": "2026-09-04T02:13:15.428Z",
+      "updatedAt": "2026-09-04T02:13:15.428Z"
+    },
+    {
+      "id": "c-9765544332",
+      "phone": "9765544332",
+      "name": "सविता मोरे",
+      "addresses": [
+        {
+          "id": "ac2ec253e49",
+          "label": "घर",
+          "line": "मु. पो. रांजणगाव, ता. तुळजापूर",
+          "landmark": "शाळेजवळ",
+          "pincode": "413602",
+          "isDefault": true
+        }
+      ],
+      "createdAt": "2026-09-03T04:13:15.428Z",
+      "updatedAt": "2026-09-03T04:13:15.428Z"
+    },
+    {
+      "id": "c-9834455667",
+      "phone": "9834455667",
+      "name": "रेखा भोसले",
+      "addresses": [
+        {
+          "id": "a958eb45926",
+          "label": "घर",
+          "line": "सर्वे नं. 45, तुळजापूर रोड, आणदुर",
+          "pincode": "413601",
+          "isDefault": true
+        }
+      ],
+      "createdAt": "2026-09-03T23:13:15.428Z",
+      "updatedAt": "2026-09-03T23:13:15.428Z"
     }
   ]
 }

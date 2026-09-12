@@ -6,19 +6,30 @@
   "workspaces": [
     "shared",
     "backend",
+    "admin",
     "frontend"
   ],
   "scripts": {
     "dev": "concurrently -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "npm --workspace @shantai/backend run dev",
     "dev:web": "npm --workspace @shantai/frontend run dev",
-    "build": "npm --workspace @shantai/backend run build && npm --workspace @shantai/frontend run build",
-    "typecheck": "npm --workspace @shantai/backend run typecheck && npm --workspace @shantai/frontend run typecheck"
+    "admin": "tsx backend/scripts/admin.ts",
+    "build": "npm --workspace @shantai/backend run build && npm --workspace @shantai/frontend run build && npm --workspace @shantai/admin run build",
+    "typecheck": "npm --workspace @shantai/backend run typecheck && npm --workspace @shantai/frontend run typecheck && npm --workspace @shantai/admin run typecheck",
+    "test": "npm --workspace @shantai/backend run test && npm --workspace @shantai/frontend run test && npm --workspace @shantai/admin run test",
+    "backfill:customers": "npm --workspace @shantai/backend run backfill:customers --",
+    "purge:demo": "npm --workspace @shantai/backend run purge:demo --",
+    "dev:admin": "npm --workspace @shantai/admin run dev",
+    "dev:all": "concurrently -n api,web,admin -c green,cyan,magenta \"npm:dev:api\" \"npm:dev:web\" \"npm:dev:admin\"",
+    "admin:users": "npm --workspace @shantai/backend run admin:users --"
   },
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "tsx": "^4.23.13"
   },
   "allowScripts": {
-    "esbuild": true
+    "esbuild": true,
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
   }
 }
