@@ -1,0 +1,60 @@
+# ── Version control & OS ────────────────────────────────────────────
+.git
+.gitignore
+.DS_Store
+*.log
+
+# ── Documentation ───────────────────────────────────────────────────
+docs/
+CLAUDE.md
+README.md
+LICENSE
+
+# ── Android / Capacitor ─────────────────────────────────────────────
+android/
+
+# ── Node modules (reinstalled inside the container) ─────────────────
+node_modules/
+*/node_modules/
+
+# ── Build output (rebuilt inside the container) ─────────────────────
+backend/dist/
+frontend/dist/
+admin/dist/
+*.tsbuildinfo
+
+# ── Environment files — NEVER bake into an image ───────────────────
+**/.env
+**/.env.*
+
+# ── Backend data (Firestore in production; never ship a local db) ───
+backend/data/
+
+# ── Backend tests ───────────────────────────────────────────────────
+backend/tests/
+
+# ── Frontend source (package.json KEPT for npm workspace resolution) ─
+frontend/src/
+frontend/public/
+frontend/tests/
+frontend/index.html
+frontend/vite.config.ts
+frontend/tsconfig.json
+frontend/tsconfig.tsbuildinfo
+frontend/capacitor.config.ts
+
+# ── Admin source (package.json KEPT for npm workspace resolution) ───
+admin/src/
+admin/public/
+admin/tests/
+admin/index.html
+admin/vite.config.ts
+admin/tsconfig.json
+
+# ── Firestore rules (deployed separately via firebase CLI) ──────────
+firestore.rules
+
+# ── Docker meta (not needed inside the image) ───────────────────────
+Dockerfile
+.dockerignore
+docker-compose*.yml
