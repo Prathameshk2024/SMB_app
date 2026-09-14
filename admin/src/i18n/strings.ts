@@ -24,6 +24,8 @@ const mr: Record<string, string> = {
   'app.name': 'शांताई महिला बाजार',
   'app.admin': 'प्रशासन',
   'app.signOut': 'बाहेर पडा',
+  'app.signOutConfirmTitle': 'बाहेर पडायचे का?',
+  'app.signOutConfirm': 'पुन्हा आत येण्यासाठी ईमेल आणि पासवर्ड टाकावे लागतील.',
   'app.language': 'भाषा',
 
   /* ---- navigation ------------------------------------------------ */
@@ -306,6 +308,8 @@ const en: Record<string, string> = {
   'app.name': 'Shantai Mahila Bazar',
   'app.admin': 'Admin',
   'app.signOut': 'Sign out',
+  'app.signOutConfirmTitle': 'Sign out?',
+  'app.signOutConfirm': 'You will need your email and password to sign back in.',
   'app.language': 'Language',
 
   /* ---- navigation ------------------------------------------------ */

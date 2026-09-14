@@ -13,11 +13,12 @@ import { usePincode } from '../../store/PincodeContext.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
-import { PayButton } from '../../components/PayButton.js'
+import { PaySteps, SaveQrButton } from '../../components/PayFromPhone.js'
+import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
 import { Avatar } from '../../components/Avatar.js'
 import { AddressForm } from '../../components/AddressForm.js'
 import {
-  AppBar, Button, Card, Choice, CopyValue, EmptyState, Field, LanguagePicker, Loading,
+  AppBar, Button, Card, Choice, ConfirmSheet, CopyValue, EmptyState, Field, LanguagePicker, Loading,
   Notice, Pill, Rupees, SectionTitle, Stepper, TextInput, VoiceInput, useAsync,
 } from '../../components/ui.js'
 import { Timeline } from '../seller/Orders.js'
@@ -521,6 +522,7 @@ export function TrackOrder() {
     box?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     box?.focus({ preventScroll: true })
   }
+  const waitForReturn = useReturnFromApp(askForUtr)
   const [paying, setPaying] = useState(false)
 
   if (loading) return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><Loading /></div></>
@@ -528,6 +530,14 @@ export function TrackOrder() {
 
   const order = data.order
   const seller = data.seller
+  const orderLink = seller?.upiId
+    ? buildUpiLink({
+        upiId: seller.upiId,
+        name: seller.shopName,
+        amount: order.total,
+        note: `Shantai Mahila Bazar ${order.id}`,
+      })
+    : ''
 
   async function pay() {
     // The same check the server runs, so she is told what is wrong with the
@@ -618,38 +628,22 @@ export function TrackOrder() {
               )}
               {seller?.upiId ? (
                 <>
-                  {/* One phone cannot scan its own screen. This opens whichever
-                      UPI app she has, with the shop, the amount and the order
-                      id already in it; the QR below is for a second handset. */}
-                  <PayButton
-                    link={buildUpiLink({
-                      upiId: seller.upiId,
-                      name: seller.shopName,
-                      amount: order.total,
-                      note: `Shantai Mahila Bazar ${order.id}`,
-                      ref: order.id,
-                    })}
-                    amount={order.total}
-                    onReturn={askForUtr}
+                  <QrCode value={orderLink} size={170} label={t('cus.payTo')} />
+                  {/* One phone cannot scan its own screen, and a pay link to a
+                      personal UPI ID is declined by PhonePe and Google Pay. A
+                      QR saved to the gallery and scanned from inside her UPI
+                      app is a payment those apps accept, amount included. */}
+                  <SaveQrButton
+                    link={orderLink}
+                    fileName={`shantai-${order.id}.png`}
+                    onSaved={waitForReturn}
                   />
-                  <div className="small dim center">{t('pay.orScan')}</div>
-
-                  <QrCode
-                    value={buildUpiLink({
-                      upiId: seller.upiId,
-                      name: seller.shopName,
-                      amount: order.total,
-                      note: `Shantai Mahila Bazar ${order.id}`,
-                      ref: order.id,
-                    })}
-                    size={170}
-                    label={t('cus.payTo')}
-                  />
-                  {/* Copyable, not just printed. Paying from this same phone
-                      means there is no second screen to scan the QR with, so
-                      the ID has to be retyped into the bank app - and a UPI ID
-                      wrong by one character pays a stranger with no way back. */}
-                  <CopyValue value={seller.upiId} />
+                  <PaySteps />
+                  {/* The other route those apps accept: paste the ID. Copyable,
+                      not just printed - a UPI ID wrong by one character pays a
+                      stranger with no way back. */}
+                  <div className="dim center">{t('pay.orUpiId')}</div>
+                  <CopyValue value={seller.upiId} onCopied={waitForReturn} />
                 </>
               ) : (
                 <Notice tone="warn">{t('qrpay.notSetUp')}</Notice>
@@ -718,6 +712,7 @@ export function CustomerProfile() {
   const [editing, setEditing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const [logoutOpen, setLogoutOpen] = useState(false)
 
   const customer = data?.customer
   const addresses = customer?.addresses ?? []
@@ -895,10 +890,23 @@ export function CustomerProfile() {
           <LanguagePicker />
         </Card>
 
-        <Button variant="ghost" onClick={() => { signOut(); nav('/', { replace: true }) }}>
+        <Button variant="ghost" onClick={() => setLogoutOpen(true)}>
           {t('prof.logout')}
         </Button>
       </div>
+
+      {/* The same step the seller gets. Getting back in costs an SMS code, and
+          the one worry a shopper has about leaving - "will my cart go?" - is
+          answered before she decides: it stays on this phone. */}
+      <ConfirmSheet
+        open={logoutOpen}
+        title={t('prof.logoutConfirmTitle')}
+        body={t('prof.logoutConfirmCustomer')}
+        confirmLabel={t('prof.logout')}
+        tone="danger"
+        onCancel={() => setLogoutOpen(false)}
+        onConfirm={() => { signOut(); nav('/', { replace: true }) }}
+      />
 
       <PageTour id="shop.profile" />
     </>

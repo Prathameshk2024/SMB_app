@@ -7,7 +7,8 @@ import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
 import PhotoPicker from '../../components/PhotoPicker.js'
-import { PayButton } from '../../components/PayButton.js'
+import { PaySteps, SaveQrButton } from '../../components/PayFromPhone.js'
+import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
 import {
   AppBar, Button, Card, CopyValue, EmptyState, Field, Loading, Notice,
   Rupees, TextInput, useAsync,
@@ -45,6 +46,20 @@ export function Subscription() {
    * time the screen went from loading to loaded.
    */
   const [backFromUpi, setBackFromUpi] = useState(false)
+
+  /**
+   * She has been to her UPI app and come back. Scroll the reference box into
+   * view and put the cursor in it: a woman who has just paid ₹50 should not
+   * have to work out what this screen wants next.
+   */
+  function askForUtr() {
+    setBackFromUpi(true)
+    const box = document.getElementById('utr')
+    box?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    box?.focus({ preventScroll: true })
+  }
+  // A hook, so above the early returns for the same reason as the state above.
+  const waitForReturn = useReturnFromApp(askForUtr)
 
   if (loading) {
     return <><AppBar title={t('pay.title')} backTo="/seller" /><div className="screen"><Loading /></div></>
@@ -109,18 +124,6 @@ export function Subscription() {
     }
   }
 
-  /**
-   * She has been to her UPI app and come back. Scroll the reference box into
-   * view and put the cursor in it: a woman who has just paid ₹50 should not
-   * have to work out what this screen wants next.
-   */
-  function askForUtr() {
-    setBackFromUpi(true)
-    const box = document.getElementById('utr')
-    box?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    box?.focus({ preventScroll: true })
-  }
-
   // The same builder the buyer's payment uses: hand-rolling the query string
   // here meant two places deciding how an amount is formatted.
   const upiLink = buildUpiLink({
@@ -142,12 +145,13 @@ export function Subscription() {
         <Card>
           <div className="section-title">{t('pay.payTo')}</div>
           <div className="stack-sm">
-            {/* First, because it is the one that works on one phone. The QR
-                below it is for the case where somebody else is scanning. */}
-            <PayButton link={upiLink} amount={plan.price} onReturn={askForUtr} />
-            <div className="small dim center">{t('pay.orScan')}</div>
-
             <QrCode value={upiLink} size={200} label={t('pay.scanQr')} />
+            {/* One phone cannot scan its own screen, and a pay link to the
+                college's personal UPI ID is declined by PhonePe and Google
+                Pay. Saved to the gallery and scanned from inside her UPI app,
+                the same code is a payment they accept. */}
+            <SaveQrButton link={upiLink} fileName="shantai-subscription.png" onSaved={waitForReturn} />
+            <PaySteps />
             {/* The name as PRINTED on the poster, so she can check it against
                 the payee her own UPI app shows after scanning. Two names that
                 do not match is the one signal she has that something is
@@ -156,12 +160,11 @@ export function Subscription() {
               <div className="small dim">{t('pay.payeeName')}</div>
               <strong>{account.label}</strong>
             </div>
-            {/* Copyable, not just printed: a phone with one screen cannot scan
-                its own QR, so the ID gets retyped into the bank app - and a
-                UPI ID wrong by one character pays a stranger. */}
+            {/* The other route those apps accept: paste the ID. Copyable, not
+                just printed - a UPI ID wrong by one character pays a stranger. */}
             <div className="center">
-              <div className="small dim">{t('pay.upiId')}</div>
-              <CopyValue value={account.upiId} />
+              <div className="dim">{t('pay.orUpiId')}</div>
+              <CopyValue value={account.upiId} onCopied={waitForReturn} />
             </div>
             <div className="small dim center">
               {[account.bankName, account.accountNo && `A/C ${account.accountNo}`, account.ifsc]

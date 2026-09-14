@@ -171,7 +171,7 @@ export function SellerProfile() {
 
       <ConfirmSheet
         open={logoutOpen}
-        title={t('prof.logout')}
+        title={t('prof.logoutConfirmTitle')}
         body={t('prof.logoutConfirm')}
         confirmLabel={t('prof.logout')}
         tone="danger"

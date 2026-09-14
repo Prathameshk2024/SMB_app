@@ -13,6 +13,13 @@ import QRCode from 'qrcode'
  * to work offline inside the APK and on weak rural 4G, and because a seller's
  * UPI address should not be sent to a third party to be turned into a picture.
  */
+/**
+ * Maroon on white: enough contrast for any scanner, and it keeps the code
+ * on-brand instead of dropping a black square into a warm page. Shared with
+ * the saved copy, so the picture in her gallery is the one she saw on screen.
+ */
+export const QR_COLOURS = { dark: '#7b1e2eff', light: '#ffffffff' }
+
 export default function QrCode({
   value,
   size = 190,
@@ -34,12 +41,7 @@ export default function QrCode({
       width: size,
       margin: 1,
       errorCorrectionLevel: 'M',
-      color: {
-        // Maroon on white: enough contrast for any scanner, and it keeps the
-        // code on-brand instead of dropping a black square into a warm page.
-        dark: '#7b1e2eff',
-        light: '#ffffffff',
-      },
+      color: QR_COLOURS,
     }).catch(() => {
       if (alive) setFailed(true)
     })

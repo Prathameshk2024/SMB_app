@@ -283,13 +283,17 @@ export function isValidUpi(value: string | undefined): boolean {
  * Generated from her stored UPI ID rather than the QR image she uploaded,
  * because a generated link carries the exact amount. An uploaded screenshot has
  * no amount in it, so the customer types it by hand and can get it wrong.
+ *
+ * No `tr`. A transaction reference is a merchant field, and every payee here
+ * is a personal UPI ID: a merchant field on a person's address is one more
+ * thing a UPI app's risk check reads as a fake shop. The order id still
+ * travels, in `tn`, which is what her bank statement shows anyway.
  */
 export function buildUpiLink(opts: {
   upiId: string
   name?: string
   amount: number
   note?: string
-  ref?: string
 }): string {
   const p = new URLSearchParams({
     pa: opts.upiId,
@@ -298,7 +302,6 @@ export function buildUpiLink(opts: {
     cu: 'INR',
   })
   if (opts.note) p.set('tn', opts.note)
-  if (opts.ref) p.set('tr', opts.ref)
   return `upi://pay?${p.toString()}`
 }
 

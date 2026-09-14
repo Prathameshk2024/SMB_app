@@ -5,6 +5,7 @@ import logo from '../assets/logo.png'
 import { useAuth } from '../store/AuthContext.js'
 import { api } from '../lib/api.js'
 import { Button, useAsync } from './ui.js'
+import { Confirm } from './Confirm.js'
 import { useToast } from '../store/ToastContext.js'
 import {
   IconBack, IconHome, IconImpact, IconOrders, IconPayments, IconProducts,
@@ -20,7 +21,8 @@ import {
  */
 export function Shell() {
   const t = useT()
-  const { session, signOut } = useAuth()
+  const { signOut } = useAuth()
+  const [signingOut, setSigningOut] = useState(false)
 
   const { toast } = useToast()
   const nav = useNavigate()
@@ -113,9 +115,22 @@ export function Shell() {
         </nav>
 
         <div className="side__foot">
-          <LangToggle />
-          <div className="small dim-2 truncate" title={session?.userId}>{session?.userId}</div>
-          <Button variant="quiet" small onClick={signOut}>{t('app.signOut')}</Button>
+          {/* Asked, not done on the first click: the button sits at the
+              bottom of the sidebar, right under the nav an admin is clicking
+              all day, and getting back in means finding the password. */}
+          {signingOut ? (
+            <Confirm
+              open
+              title={t('app.signOutConfirmTitle')}
+              description={t('app.signOutConfirm')}
+              confirmLabel={t('app.signOut')}
+              tone="danger"
+              onConfirm={signOut}
+              onCancel={() => setSigningOut(false)}
+            />
+          ) : (
+            <Button variant="quiet" small className="side__signout" onClick={() => setSigningOut(true)}>{t('app.signOut')}</Button>
+          )}
         </div>
       </aside>
 
@@ -129,6 +144,8 @@ export function Shell() {
 /**
  * The whole console is bilingual, so this is not a settings-page preference -
  * it sits in the chrome where it can be reached from any screen, in one click.
+ * In the top bar's right-hand corner, where a language switch is looked for;
+ * at the foot of the sidebar it sat below the fold on a short laptop screen.
  */
 export function LangToggle() {
   const { lang, setLang, langs } = useI18n()
@@ -169,6 +186,7 @@ export function TopBar({
       )}
       <h1>{title}</h1>
       {sub && <span className="topbar__sub">{sub}</span>}
+      <LangToggle />
     </div>
   )
 }

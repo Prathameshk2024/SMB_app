@@ -135,6 +135,8 @@ export function SellerOrderDetail() {
     }
   }
 
+  const buyer = order.customerName?.trim()
+
   async function confirmPayment() {
     setBusy(true)
     const res = await api.confirmPayment(order.id)
@@ -165,13 +167,18 @@ export function SellerOrderDetail() {
         )}
 
         {/* Accepted, and the buyer has not paid yet. Nothing for the seller to do
-            but wait - and know that is what they are waiting for. */}
+            but wait - and know that is what they are waiting for. The buyer is
+            named rather than called "she": sellers here are women, buyers are
+            anyone, and a pronoun guessed from nothing is wrong for half of them.
+            Without a name on record it falls back to "the customer". */}
         {waitingForBuyer && order.status === 'ACCEPTED' && (
-          <Notice tone="warn" title={t('ord.awaitingBuyer')}>{t('ord.awaitingBuyerSub')}</Notice>
+          buyer
+            ? <Notice tone="warn" title={t('ord.awaitingBuyerNamed', { name: buyer })}>{t('ord.awaitingBuyerNamedSub', { name: buyer })}</Notice>
+            : <Notice tone="warn" title={t('ord.awaitingBuyer')}>{t('ord.awaitingBuyerSub')}</Notice>
         )}
 
         {waitingForBuyer && order.status === 'PLACED' && (
-          <Notice tone="info">{t('ord.payAfterAccept')}</Notice>
+          <Notice tone="info">{buyer ? t('ord.payAfterAcceptNamed', { name: buyer }) : t('ord.payAfterAccept')}</Notice>
         )}
 
         {awaitingUpi && (

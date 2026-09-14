@@ -164,6 +164,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .side__foot { border-top: 1px solid var(--line); padding: 10px; display: grid; gap: 8px; }
 
+/* Sidebar links and Sign out in plain black, icons included. Scoped to the
+   sidebar and one extra class deep, so they outrank .navlink and .btn--quiet
+   here without changing those rules anywhere else they are used. */
+.side .navlink,
+.side .navlink:hover,
+.side .navlink--on,
+.side .navlink__icon,
+.side .navlink:hover .navlink__icon,
+.side .navlink--on .navlink__icon { color: #000; }
+.side__foot .side__signout,
+.side__foot .side__signout:hover { color: #000; }
+
 .langtoggle { display: flex; border: 1px solid var(--line-2); border-radius: var(--r); overflow: hidden; }
 .langtoggle button {
   flex: 1;
@@ -183,6 +195,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .topbar {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 18px 24px 14px;
   border-bottom: 1px solid var(--line);
@@ -203,6 +216,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .topbar__back:hover { background: var(--bg-2); color: var(--maroon); }
 .topbar__sub { color: var(--ink-2); font-size: 13px; }
+/* Pushed to the far corner, centred on the bar rather than on the title's
+   baseline, and sized to its words instead of stretching like it does on the
+   sign-in column. */
+.topbar .langtoggle { margin-inline-start: auto; align-self: center; flex: none; }
+.topbar .langtoggle button { flex: none; padding: 5px 12px; }
 
 .body { padding: 20px 24px 56px; max-width: 1180px; }
 .stack { display: grid; gap: 16px; }
