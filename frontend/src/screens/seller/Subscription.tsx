@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { isValidUtr, normalizeUtr, utrProblem } from '@shared/payment.js'
+import { isValidUtr, normalizeUtr, paidAtProblem, utrProblem } from '@shared/payment.js'
 import { buildUpiLink } from '@shared/seller.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
@@ -9,6 +9,8 @@ import QrCode from '../../components/QrCode.js'
 import PhotoPicker from '../../components/PhotoPicker.js'
 import { PaySteps, SaveQrButton } from '../../components/PayFromPhone.js'
 import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
+import { shortDate } from '../../lib/notifications.js'
+import { SubscriptionLine, SubscriptionNotice } from '../../components/SubscriptionNotice.js'
 import {
   AppBar, Button, Card, CopyValue, EmptyState, Field, Loading, Notice,
   Rupees, TextInput, useAsync,
@@ -34,6 +36,15 @@ export function Subscription() {
 
   const [utr, setUtr] = useState('')
   const [shot, setShot] = useState<{ url: string; publicId: string } | null>(null)
+  /** Uploads switched off on the server: there is no way to attach one. */
+  const [shotUnavailable, setShotUnavailable] = useState(false)
+  /**
+   * When she paid, pre-filled with now. She is nearly always sending this
+   * straight after paying, so the default is right and she only touches it if
+   * she paid earlier - but it is on the screen, because the admin checks it
+   * against the time in her screenshot.
+   */
+  const [paidAt, setPaidAt] = useState(() => toLocalInput(new Date()))
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   /**
@@ -68,7 +79,15 @@ export function Subscription() {
     return <><AppBar title={t('pay.title')} backTo="/seller" /><div className="screen"><Loading /></div></>
   }
 
-  const { account, plan, slots, payments } = data
+  const { account, plan, slots, payments, payable, subscription } = data
+  /**
+   * What this ₹50 is for. The server lists what she may pay for, most urgent
+   * first - a renewal before a pack - and this screen pays for that one. Once
+   * a renewal is approved, a full meter offers the pack on her next visit.
+   */
+  const kind = payable?.[0]
+  const renewing = kind === 'RENEWAL'
+  const title = renewing ? t('pay.renewTitle') : t('pay.title')
 
   /**
    * ALREADY PAID? THEN THERE IS NOTHING TO DO ON THIS SCREEN.
@@ -87,7 +106,7 @@ export function Subscription() {
    * with three empty ones is taking money for something she already has. The
    * server refuses this too - the screen just says so first, and in Marathi.
    */
-  if (slots.left > 0) {
+  if (!kind) {
     return (
       <>
         <AppBar title={t('pay.title')} backTo="/seller" />
@@ -99,12 +118,20 @@ export function Subscription() {
               body={t('pay.notNeededSub', { n: slots.left })}
               action={<Button onClick={() => nav('/seller/upload')}>{t('prod.add')}</Button>}
             />
+            <div className="center"><SubscriptionLine view={subscription} /></div>
           </Card>
           <Button variant="ghost" onClick={() => nav('/seller/products')}>{t('biz.myProducts')}</Button>
         </div>
       </>
     )
   }
+
+  // The same three the server insists on. The button stays off until all of
+  // them are there, so she is never told off after pressing it.
+  const shotRequired = data.screenshotRequired && !shotUnavailable
+  const paidAtIso = fromLocalInput(paidAt)
+  const timeFault = paidAtProblem(paidAtIso)
+  const ready = isValidUtr(utr) && (!shotRequired || !!shot) && !timeFault
 
   async function submit() {
     const problem = utrProblem(utr)
@@ -114,7 +141,7 @@ export function Subscription() {
     }
     setBusy(true)
     try {
-      await api.submitPayment(normalizeUtr(utr), undefined, shot?.url)
+      await api.submitPayment(kind!, normalizeUtr(utr), paidAtIso, shot?.url)
       toast(t('ok.paymentSubmitted'))
       nav('/seller/waiting', { replace: true })
     } catch (e) {
@@ -130,16 +157,22 @@ export function Subscription() {
     upiId: account.upiId,
     name: account.label,
     amount: plan.price,
-    note: `Shantai Mahila Bazar ${PLAN_NOTE}`,
+    note: `Shantai Mahila Bazar ${renewing ? 'renewal' : PLAN_NOTE}`,
   })
 
   return (
     <>
-      <AppBar title={t('pay.title')} backTo="/seller" />
+      <AppBar title={title} backTo="/seller" />
       <div className="screen stack">
+        {/* A renewal says what she is buying back: time, with everything she
+            already has kept as it is - the one question a woman whose shop has
+            just gone quiet will ask before paying again. */}
+        {renewing && <SubscriptionNotice view={subscription} />}
         <Card style={{ textAlign: 'center' }}>
           <div className="hero-num"><Rupees value={plan.price} /></div>
-          <p className="muted" style={{ marginTop: 'var(--s2)' }}>{t('pay.what')}</p>
+          <p className="muted" style={{ marginTop: 'var(--s2)' }}>
+            {renewing ? t('pay.renewWhat', { n: plan.months }) : t('pay.what')}
+          </p>
         </Card>
 
         <Card>
@@ -151,7 +184,7 @@ export function Subscription() {
                 Pay. Saved to the gallery and scanned from inside her UPI app,
                 the same code is a payment they accept. */}
             <SaveQrButton link={upiLink} fileName="shantai-subscription.png" onSaved={waitForReturn} />
-            <PaySteps />
+            <PaySteps screenshot={data.screenshotRequired} />
             {/* The name as PRINTED on the poster, so she can check it against
                 the payee her own UPI app shows after scanning. Two names that
                 do not match is the one signal she has that something is
@@ -192,28 +225,66 @@ export function Subscription() {
                 placeholder="512309887711"
               />
             </Field>
-            {/* This was a button that did nothing - it opened no picker and
-                uploaded nowhere, so an admin checking a disputed ₹50 had only
-                the typed number to go on. It is a real upload now, into the
-                signed `payment` folder rather than among the product photos. */}
-            <Field label={`${t('pay.screenshot')} (${t('common.optional')})`}>
+            {/* Required, not optional. Anybody can type twelve digits; the
+                success screen from her UPI app, with the UTR, the date and
+                the time on it, is what an admin actually approves on. It goes
+                into the signed `payment` folder, and the server accepts no
+                other link. */}
+            <Field
+              label={shotRequired ? t('pay.screenshot') : `${t('pay.screenshot')} (${t('common.optional')})`}
+              hint={t('pay.screenshotHint')}
+              required={shotRequired}
+            >
               <PhotoPicker
                 kind="payment"
                 label={t('pay.screenshot')}
                 imageUrl={shot?.url}
                 onUploaded={setShot}
                 onCleared={() => setShot(null)}
+                onUnavailable={() => setShotUnavailable(true)}
+              />
+            </Field>
+
+            <Field label={t('pay.paidAt')} hint={t('pay.paidAtHint')} error={timeFault ?? undefined} required htmlFor="paidAt">
+              <input
+                id="paidAt"
+                className={`input ${timeFault ? 'input--err' : ''}`}
+                type="datetime-local"
+                value={paidAt}
+                max={toLocalInput(new Date(Date.now() + 10 * 60 * 1000))}
+                onChange={(e) => setPaidAt(e.target.value)}
               />
             </Field>
           </div>
         </Card>
 
-        <Button onClick={() => void submit()} disabled={busy || !isValidUtr(utr)}>
+        {/* Says what is still missing, rather than leaving a grey button to
+            explain itself. */}
+        {!ready && isValidUtr(utr) && shotRequired && !shot && (
+          <Notice tone="warn">{t('pay.needScreenshot')}</Notice>
+        )}
+
+        <Button onClick={() => void submit()} disabled={busy || !ready}>
           {busy ? t('common.loading') : t('pay.submit')}
         </Button>
       </div>
     </>
   )
+}
+
+/**
+ * `<input type="datetime-local">` speaks the phone's local time with no zone -
+ * "2026-09-15T14:05" - and the server stores an instant. These two convert,
+ * so a woman in IST picking 2:05 pm is recorded as 2:05 pm IST.
+ */
+function toLocalInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function fromLocalInput(value: string): string {
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString()
 }
 
 /* ================================================================== */
@@ -236,8 +307,14 @@ export function PaymentWaiting() {
    * think to try. Ten seconds is frequent enough to feel immediate and light
    * enough for rural 4G, and it stops the moment she is approved or rejected.
    */
-  const status = data?.status
-  const settled = status === 'ACTIVE' || status === 'PAYMENT_REJECTED'
+  /**
+   * Settled when HER LATEST PAYMENT is decided - not when her account status
+   * changes. A seller renewing, or buying a second pack, is ACTIVE before she
+   * pays and after, so reading the status told her "approved" the moment she
+   * sent her UTR.
+   */
+  const latestStatus = data?.payments[0]?.status
+  const settled = !!data && latestStatus !== 'PENDING'
 
   useEffect(() => {
     if (loading || settled) return
@@ -256,7 +333,22 @@ export function PaymentWaiting() {
 
   const latest = data.payments[0]
 
-  if (data.status === 'ACTIVE') {
+  // A renewal comes back to a shop that is open again, not to "add your
+  // first product" - she already has them.
+  if (latest?.status === 'APPROVED' && latest.kind === 'RENEWAL') {
+    return (
+      <div className="app-shell">
+        <div className="screen screen--nonav stack center" style={{ justifyContent: 'center', minHeight: '100vh' }}>
+          <div className="bigstate" aria-hidden="true"><IconCheck /></div>
+          <h1 className="h1">{t('wait.renewed')}</h1>
+          <p className="muted">{t('wait.renewedSub', { date: shortDate(data.subscription?.endsAt) })}</p>
+          <Button onClick={() => nav('/seller', { replace: true })}>{t('biz.title')}</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (latest?.status === 'APPROVED' || (!latest && data.status === 'ACTIVE')) {
     return (
       <div className="app-shell">
         <div className="screen screen--nonav stack center" style={{ justifyContent: 'center', minHeight: '100vh' }}>
@@ -270,7 +362,7 @@ export function PaymentWaiting() {
     )
   }
 
-  if (data.status === 'PAYMENT_REJECTED') {
+  if (latest?.status === 'REJECTED') {
     return (
       <div className="app-shell">
         <AppBar title={t('pay.title')} />

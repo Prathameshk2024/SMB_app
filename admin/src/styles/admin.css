@@ -250,7 +250,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); gap: 10px; }
 /* Every tile the same height whatever its label does, so a two-line caption
    does not leave a short neighbour floating. */
-.tiles > * { display: flex; flex-direction: column; justify-content: center; min-height: 74px; }
+/* A tile is also a size container, so its figure can shrink with it. On a
+   phone a tile is ~130px inside, and "₹12,34,567" at 26px ran out past its
+   border and off the screen. 15cqi fits an eight-digit rupee figure with its
+   commas; the plain px line before it is what a browser without container
+   units keeps. */
+.tiles > * {
+  display: flex; flex-direction: column; justify-content: center; min-height: 74px;
+  container-type: inline-size; min-width: 0;
+}
 
 .tile {
   background: var(--surface);
@@ -265,7 +273,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .tile--action { border-color: var(--gold); background: var(--gold-soft); cursor: pointer; }
 .tile--action:hover { border-color: var(--gold-deep); }
 .tile--zero { opacity: 0.72; }
-.tile__n { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tile__n {
+  font-size: 26px;
+  font-size: min(26px, 15cqi);
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tile__n--mini { font-size: 21px; font-size: min(21px, 15cqi); }
 .tile--action .tile__n { color: var(--gold-deep); }
 .tile__l { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
 
@@ -309,6 +325,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pill--warn { background: var(--warn-soft); color: var(--gold-deep); border-color: var(--gold); }
 .pill--danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 .pill--info { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+
+/* "Sort by" and its menu, kept together on one line and pushed to the right
+   end of whatever filter row it sits in. */
+.sortsel { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: auto; }
+.sortsel .select { width: auto; min-width: 190px; }
 
 .input, .select, .textarea {
   width: 100%;
@@ -625,3 +646,70 @@ table.t tr:last-child td { border-bottom: 0; }
   color: var(--ink);
 }
 .dlg::backdrop { background: rgba(0, 0, 0, 0.45); }
+/* Wide enough to hold a phone screenshot and the numbers it is checked against. */
+.dlg--wide { width: min(900px, calc(100vw - 32px)); }
+
+/* ================= payment proof ================= */
+
+/* A phone screenshot is tall and narrow, so the thumbnail is too. */
+.shotthumb {
+  position: relative;
+  flex: none;
+  width: 96px;
+  height: 160px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.shotthumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+.shotthumb__cap {
+  position: absolute; inset: auto 0 0 0;
+  padding: 3px 4px;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  text-align: center;
+}
+.shotthumb--none {
+  display: grid; place-items: center;
+  padding: 8px;
+  font-size: 12px; text-align: center;
+  color: var(--danger);
+  border-style: dashed;
+  cursor: default;
+}
+
+.payfacts { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 6px 0; }
+
+.verify {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--surface-2);
+  display: grid;
+  gap: 6px;
+}
+.verify__item { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; cursor: pointer; }
+.verify__item input { margin-top: 3px; width: 16px; height: 16px; flex: none; }
+
+.shotview { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 280px); gap: 16px; margin-top: 12px; }
+.shotview__img img {
+  width: 100%;
+  max-height: calc(100vh - 160px);
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: #fff;
+}
+.shotview__big { font-size: 20px; letter-spacing: 0.04em; }
+@media (max-width: 700px) {
+  .shotview { grid-template-columns: 1fr; }
+}
+
+/* Feedback. Text stars take the gold token; the number and word always sit beside them. */
+.stars-text { color: var(--gold-deep); letter-spacing: 1px; }
+.nowrap { white-space: nowrap; }

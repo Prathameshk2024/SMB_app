@@ -1,6 +1,8 @@
 import type {
-  AdminStats, Order, Product, ReadinessBand, Seller, SubscriptionPayment,
+  AdminStats, Order, Product, RatingSummary, ReadinessBand, Review, Seller,
+  SubscriptionPayment,
 } from '@shared/types.js'
+import type { SubscriptionView } from '@shared/subscription.js'
 
 /**
  * The one seam between the console and the API.
@@ -166,9 +168,15 @@ export type PaymentRow = SubscriptionPayment
 /** /admin/orders decorates each order with the seller's shop name and id. */
 export type OrderRow = Order & { seller?: string; womenBizId?: string }
 export type ProductRow = Product & { seller?: Seller }
+/** /admin/reviews decorates each review with the seller's shop name and id. */
+export type ReviewRow = Review & { seller?: string; womenBizId?: string }
 export type SellerRow = Seller & {
   productCount: number
+  /** Delivered orders only, summed on the server. */
+  earned?: number
   slots: { used: number; total: number }
+  /** Where her six months stand, on the server's clock. */
+  subscription?: SubscriptionView
 }
 
 /**
@@ -184,6 +192,10 @@ export interface SellerDetail {
   orders: OrderRow[]
   payments: SubscriptionPayment[]
   earned: number
+  /** Hidden ones included and marked. */
+  reviews: Review[]
+  /** Visible reviews only - what her shop page shows. */
+  rating: RatingSummary
 }
 
 export interface ImpactReport {
@@ -220,8 +232,9 @@ export const api = {
   payments: (status = 'PENDING') =>
     get<{ payments: PaymentRow[] }>(`/admin/payments?status=${encodeURIComponent(status)}`),
 
-  approvePayment: (id: string) =>
-    post<{ payment: SubscriptionPayment; seller?: Seller }>(`/admin/payments/${id}/approve`),
+  /** `checks` is what the admin compared; the server refuses an approval without all of them. */
+  approvePayment: (id: string, checks: string[]) =>
+    post<{ payment: SubscriptionPayment; seller?: Seller }>(`/admin/payments/${id}/approve`, { checks }),
 
   rejectPayment: (id: string, reason: string) =>
     post<{ payment: SubscriptionPayment }>(`/admin/payments/${id}/reject`, { reason }),
@@ -257,4 +270,16 @@ export const api = {
   },
 
   impact: () => get<ImpactReport>('/admin/impact'),
+
+  /** Every review, hidden ones included. `maxRating: 2` is the low-ratings view. */
+  reviews: (params: { sellerId?: string; maxRating?: number; hidden?: boolean } = {}) => {
+    const qs = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) if (v !== undefined) qs.set(k, String(v))
+    const s = qs.toString()
+    return get<{ reviews: ReviewRow[]; summary: RatingSummary }>(`/admin/reviews${s ? `?${s}` : ''}`)
+  },
+
+  /** Take a review down (reason required, and kept) or put it back. */
+  hideReview: (id: string, hidden: boolean, reason?: string) =>
+    post<{ review: Review }>(`/admin/reviews/${id}/hide`, { hidden, reason }),
 }

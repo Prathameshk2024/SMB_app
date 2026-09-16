@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { SortSelect, useSort } from '../components/SortSelect.js'
+import { ORDER_SORTS, sortRows } from '../lib/sort.js'
 import type { OrderStatus } from '@shared/types.js'
+import { cancelReasonKey, endingEvent } from '@shared/orderCancel.js'
 import { useT } from '../i18n/I18nProvider.js'
 import { IconOrders } from '../components/icons.js'
 import { api, type OrderRow } from '../lib/api.js'
@@ -35,7 +38,8 @@ export function Orders() {
     [status, pincode],
   )
 
-  const rows = data?.orders ?? []
+  const [sort, setSort] = useSort('orders', ORDER_SORTS)
+  const rows = useMemo(() => sortRows(data?.orders ?? [], ORDER_SORTS, sort), [data, sort])
 
   return (
     <>
@@ -56,6 +60,7 @@ export function Orders() {
             value={pincode}
             onChange={(e) => setPincode(e.target.value.replace(/\D/g, '').slice(0, 6))}
           />
+          <SortSelect options={ORDER_SORTS} value={sort} onChange={setSort} />
         </div>
 
         <ErrorNote error={error} />
@@ -129,6 +134,7 @@ export function Orders() {
 function OrderDetail({ order, onClose }: { order: OrderRow; onClose: () => void }) {
   const t = useT()
   const last = order.events[order.events.length - 1]
+  const ended = endingEvent(order)
   const ref = useRef<HTMLDialogElement>(null)
 
   /* No close() in a cleanup. StrictMode runs effect, cleanup, effect in
@@ -198,6 +204,21 @@ function OrderDetail({ order, onClose }: { order: OrderRow; onClose: () => void 
           <span className="dim">{t('or.total')}</span>
           <span className="strong num">{rupees(order.total)}</span>
         </div>
+
+        {/* Who called it off and why - the first thing support is asked about
+            an order that never arrived. The code reads in the admin's own
+            language; "other" and older rejects carry their own words. */}
+        {ended && (
+          <Notice tone="danger">
+            <strong>
+              {t(ended.by === 'seller' ? 'or.endedBySeller' : 'or.endedByCustomer')}
+            </strong>
+            {' · '}
+            {ended.reason && ended.reason !== 'other' && (ended.by === 'seller' || ended.by === 'customer')
+              ? t(cancelReasonKey(ended.by, ended.reason))
+              : (ended.note ?? '-')}
+          </Notice>
+        )}
 
         {last && (
           <div className="small dim-2">

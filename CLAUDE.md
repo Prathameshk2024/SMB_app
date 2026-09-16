@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (239) + frontend (94) + admin (28) tests
+npm test               # backend (283) + frontend (100) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -122,6 +122,17 @@ Two predicates in `orderFlow.ts` say whose turn it is, and both sides read them 
 - `awaitingPaymentConfirmation()` — UPI and not yet `UPI_CONFIRMED`. `POST /orders/:id/advance` refuses `PACKED` on it, and `Orders.tsx` hides the button so she does not discover the rule by being told no.
 
 A typed UTR is a claim, not money: `UPI_SUBMITTED` only means the buyer says so. Only her own `confirm-payment`, made after looking at her UPI app, reaches `UPI_CONFIRMED`. Checkout no longer accepts a `paymentUtr` at all.
+
+### Calling an order off
+
+`shared/src/orderCancel.ts` is the rule; `backend/src/db/orderCancel.ts` applies it and `POST /orders/:id/cancel` is the one route, for both sides — which side is asking comes from the session, never the body. Both land on the existing `CANCELLED` state; the event's `by` says who.
+
+- **The buyer, only while `PLACED`.** Nothing has been paid (UPI is paid after acceptance) and nothing is cooking. After acceptance the button is gone and the screen says to call the seller — "the customer asked to cancel" is on her list for exactly that.
+- **The seller, from `ACCEPTED` to `OUT_FOR_DELIVERY`.** Before acceptance she has Reject; `DELIVERED` is not undone by a button. Her Cancel button sits below the content, never in the action bar her thumb lives on.
+- **Both sides walk the same three steps** in `CancelOrderSheet`, worded for the reader: "cancel it for certain?" (what it costs the other person), the reason, then "cancel this order?" (it cannot be undone) — only that third button sends it.
+- **Then the seller gets a fourth screen: the refund.** The app moves no money, so whatever the buyer paid is in her account and only she can return it. `refundOwed()` reads it off `paymentStatus` — `confirmed`, `claimed` (a UTR, which she is told to check) or `none` (still told to return any cash or advance). It closes only on "I understand", and `RefundNotice` keeps saying it on the cancelled order's screen while money was reported; the buyer's screen says the seller must send it back.
+- **A reason is always required, picked from a list.** "Other" is the escape hatch and the only one that needs typed words (5–200 characters). The event stores the reason **code** in `reason`, not a sentence, so each reader sees it in their own language; `note` carries words only for "other". Old rejects kept their translated sentence in `note` and are shown as written.
+- `endingEvent()` finds the event that ended an order; both apps' order screens and the admin order panel draw who stopped it and why from it. `backend/tests/order-cancel.test.ts` holds all of this.
 
 ### The two numbers nobody can check for her
 
@@ -220,10 +231,10 @@ desk between a seller and her first customer. It does — and that is outweighed
 by what a listing carries: a photograph, a price, and on food an ingredients
 claim that goes out under this market's name.
 
-What did **not** change: she writes the listing, the slot and the publish
-allowance are spent at submission (so "save as draft" is not a way round
-either), a refusal carries a reason she reads in her own app, and a live
-listing she edits stays live rather than going back into the queue.
+What did **not** change: she writes the listing, the slot is spent at
+submission (so "save as draft" is not a way round either), a refusal carries
+a reason she reads in her own app, and a live listing she edits stays live
+rather than going back into the queue.
 
 Her side says "send for checking" rather than "publish", on the button and
 under it, because a woman refreshing the shop for a listing nobody has
@@ -234,6 +245,8 @@ approved yet has been told nothing by a screen that said "published".
 `publiclyVisible(product, seller)` in `catalog.routes.ts` is the single rule, used by **both** the catalogue list and the by-id lookup: `LIVE` product, `ACTIVE` seller, shop open. The two used to decide it separately, and a listing hidden from the list but readable by id is not hidden — it is findable by anyone who tries the id. Both halves matter: a LIVE product under a BLOCKED seller is still off the shelf, and a shop closed for the afternoon takes its whole window with it.
 
 A hidden listing answers **404, not 403**, and the same 404 as an id that never existed — distinguishing them confirms that a draft she has not finished is there. `backend/tests/catalog-visibility.test.ts` holds the rule.
+
+**A seller leaves the API unauthenticated only as `PublicSeller`**, built by `publicSeller()` in `backend/src/db/publicSeller.ts` and used by the catalogue list, `GET /catalog/products/:id` and `GET /sellers/:id`. It is an **allow-list**: name, photo, shop, SMB ID, village, delivery terms, pincodes, UPI ID/QR, and the rating derived from reviews. It replaced a deny-list (`publicView`) that stripped seven named fields, and the product route, which sent her whole record — phone, admin notices, block reason, readiness answers — to anyone with a product id. Her phone reaches a buyer only on their own order. `backend/tests/public-seller.test.ts` asserts the exact key set, so a new field on the card is a decision, not an accident.
 
 ### Editing a published product
 
@@ -259,20 +272,18 @@ cost nothing.
 
 `editsAreLimited()` covers `LIVE` and `PAUSED` only. A `DRAFT` has not been
 published, and a `REJECTED` listing is being *fixed* — charging an edit to
-answer a take-down could leave a slot she paid ₹50 for holding something she
-is not allowed to repair.
+answer a take-down could leave her unable to repair the very thing she was
+told to repair.
 
-**The replacement ceiling is the other half of the rule.** Archiving frees a
-slot the instant it happens, so on its own the edit limit is avoided by
-archiving and uploading again. `publishAllowance()` caps what one pack may
-ever publish at `slotsPerPack × (1 + REPLACEMENTS_PER_SLOT)` — five listings
-at a time, fifteen over its life — counted on `seller.listingsPublished` and
-spent by `POST /products` and by `DRAFT/REJECTED → LIVE`. Archiving does not
-give one back; that is the point.
+The edit limit holds because **she cannot delete a submitted listing** (see
+*Slots and subscription*): there is no taking a listing down and putting a
+fresh one up in its slot. A lifetime cap on listings per pack
+(`publishAllowance`, counted on `seller.listingsPublished`) existed only to
+close that route while deleting was allowed, and went with it —
+`listingsPublished` is no longer written and old rows still carry it.
 
-`editCount` and `listingsPublished` are both optional and read as zero when
-absent, so nothing published before the rule loses an edit to a change made
-when editing was free.
+`editCount` is optional and reads as zero when absent, so nothing published
+before the rule loses an edit to a change made when editing was free.
 
 The screen is `frontend/src/screens/seller/EditProduct.tsx`, and it is
 deliberately **not** the wizard: one question per screen is right when the job
@@ -318,9 +329,24 @@ Known gap: **the server never checks `categoryId` against this list** — `produ
 
 ### Product photos
 
+**Every upload is compressed on the phone, and nothing over 5MB is accepted.** Product photos, her bank's QR and the payment screenshot all go through `uploadImage()` in `frontend/src/lib/upload.ts`, so anything uploaded later gets the same treatment. Each image is re-encoded as JPEG, small ones included, with quality stepped down until it meets a target size. The numbers are in `lib/compress.ts`: product 1200px and ~350KB; payment screenshot 1800px and ~600KB, because the admin has to *read* the UTR and time on it. The canvas is painted white first, since a transparent PNG pixel encodes as black in JPEG. Cloudinary's signed upload transformation in `uploads.routes.ts` repeats the same size caps, as a backstop for a phone that could not compress. `frontend/tests/compress.test.ts` holds it.
+
 `PhotoPicker` takes **one photo, from the gallery, and nothing else**. The camera button and the emoji fallback grid are both gone, so a photo is now required unless Cloudinary is off — the picker reports that upward through `onUnavailable` and the step stops being a wall the seller cannot pass. Once a photo is in, "choose from gallery" is disabled rather than silently replacing it; the ✕ on the thumbnail is the way to change it. The file input resets its own `value`, or removing a photo and picking the same file again fires no `change` event at all.
 
 A listing that still has no picture — an old one, or Cloudinary off — falls back to a photograph of its **category**, never of a product: `frontend/src/lib/categoryPhoto.ts`, the same bundled files the landing page already ships, so it costs no new bytes. A generic jar of pickle above a seller's name is honest about being a category picture; a specific-looking photo of someone else's pickle is not. Categories with no honest match (beauty, farm produce, jewellery) are absent on purpose and keep the emoji — a wrong photo is worse than none.
+
+### Feedback
+
+`shared/src/review.ts` is the rule, `backend/src/db/reviews.ts` applies it, and `backend/tests/reviews.test.ts` holds it. A village seller has nothing a stranger can check except what her last buyers said, so every rule here is about keeping that worth reading.
+
+- **Only the buyer on a `DELIVERED` order**, through `POST /orders/:id/review`. No order, no review — that is what stops a rival's one-stars and a seller's own five-stars.
+- **One order, one voice.** Writing again replaces the review; it never adds a second. Allowed for `REVIEW_WINDOW_DAYS` (30) after delivery, so a quarrel months later cannot reach her rating.
+- **Stars required, words optional** (max 500). A tap is a complete review. Every row of stars prints its number and a word (`rev.word.N`) — never stars alone.
+- **First name only in public** (`publicName`, copied at write time). Her card already prints her village; a full name beside a village is an address. `toPublicReview` strips `customerId` and every moderation field.
+- **The rating is derived, never stored.** `Seller.rating`/`ratingCount` are legacy; the catalogue overwrites them from `reviews` on every answer. A stored average goes stale the moment an admin hides a review.
+- **Hide is the only admin action** (`POST /admin/reviews/:id/hide`, reason required and kept). Editing a buyer's words would make every review something the platform might have written. A hidden review leaves the public list and the average; editing it does not put it back up; the buyer sees that it was hidden, the seller stops seeing it.
+- **Where it shows:** the buyer's order screen (asks, straight under the timeline) and a "leave a review" pill on their order list · the product page (three, ones mentioning that product first) and the shop page (summary + all) · her home card, `/seller/reviews` and her order screen · the admin **Reviews** screen (low-ratings and hidden filters) and each seller's page. Public reviews are gated like her window: a blocked seller's reviews 404 with her shop, a merely closed shop keeps them.
+- `reviews` is a Firestore collection like the others and is **never seeded** — invented praise in front of real customers is the one thing this exists to rule out. `purge:demo` removes reviews on the orders it removes.
 
 ### The updates list
 
@@ -336,9 +362,22 @@ A listing that still has no picture — an old one, or Cloudinary off — falls 
 
 `shared/src/seller.ts`. ₹50 = one pack = 5 product slots, no payment gateway — the seller pays the admin's UPI and admin approves by hand. `SLOT_CONSUMING` deliberately excludes `DRAFT`, so a seller can experiment before paying. Validation functions here run on **both** sides: the client for a fast friendly message, the server because the client can lie.
 
-**Deleting a product deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
+**One product, one slot — and only an admin gives one back.** `SLOT_CONSUMING` is `PENDING`, `LIVE`, `PAUSED`. A seller cannot delete a submitted listing: My Products has no Remove button on one, and `DELETE /products/:id` answers 403 unless `sellerMayDelete()` — a `DRAFT`, which holds no slot and nobody else has seen. Deleting used to free the slot, which made a pack of five a rotating shop of as many products as she liked. The slot comes back when an admin **rejects** a listing or **takes a live one down** (both land on `REJECTED`, which is not in the list), at that moment rather than when the row is swept 48 hours later — five slots, three sent in, the third refused, leaves three free. Her rejected notice says the slot is free again. A woman stuck with a listing she regrets asks an admin to take it down. `backend/tests/slots.test.ts` holds this; `revoke-slots` counts in-use slots by the same rule.
 
-This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity and price from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the next time a seller tidies her shop. The slot frees immediately, as before, and `listingsPublished` is untouched, so deleting is still not a way round the replacement ceiling.
+**The ₹50 lasts six months.** `shared/src/subscription.ts` is the rule, `backend/src/db/subscription.ts` applies approvals, `backend/tests/subscription.test.ts` holds both.
+
+- **Only one date is stored: `Seller.subscriptionEndsAt`.** Expiry writes nothing — no product flipped to `PAUSED`, her `isOpen` switch untouched, no slot released. Public routes ask `canSellNow()` (`ACTIVE` and not expired): `publiclyVisible`, serviceability, `GET /sellers/:id`, `POST /orders`, and submitting a listing. So renewal is the date moving, and "everything exactly as before" — same packs, same products, same slots — is true by construction. Orders already in progress carry on: she can still deliver, cancel and refund.
+- **Six calendar months from the admin's approval**, counted in IST, clamped at month end (`addMonths`). One date for the whole shop however many packs she has; a **flat ₹50 `RENEWAL`** renews all of them. A `PACK` bought mid-term adds slots and leaves the date alone. A renewal paid in the reminder week adds six months to the *current end*, so no paid days are lost. Any payment approved for an already-paused shop reopens it from the approval.
+- **What she may pay for is `payableKinds()`**, sent to her screen as `payable` and enforced on submit: a pack when her slots are full, a renewal from `RENEW_REMINDER_DAYS` (7) before the end, and *only* a renewal once paused. `SubscriptionPayment.kind` records which; a request with no `kind` (an older APK) means the most urgent open one.
+- **Every screen is told the state by the API** (`subscriptionView`, on `/sellers/me`, `/products/mine`, `/sellers/me/subscription`, `/admin/sellers[/:id]`) — the server's clock, never the phone's.
+- **The reminder is derived, like the rest of her updates list:** `subscriptionFeed()` turns the view into one row (the reminder week, then "paused — renew"); an approved renewal writes a `SUBSCRIPTION_RENEWED` notice carrying the new date. Her home and products screens show `SubscriptionNotice`; a paused shop's live listings read "paused" on her list while their stored status stays `LIVE`.
+- **Submitting a payment no longer sets `PAYMENT_SUBMITTED` on an `ACTIVE` seller.** It used to, which hid a paying seller's entire shop from the catalogue while her second pack waited in the queue. The waiting screen settles on her latest payment's status for the same reason.
+- **Admin:** a subscription pill (with the date) on every selling seller in the register and on her page, a filter for ending-this-week and expired, the kind and resulting end date on each payment, and `subscriptionsExpiring` / `subscriptionsExpired` on the dashboard. `activeSellers` counts only shops a buyer can reach today. Granted slots start a term for a seller who has none, but never extend one — time is paid.
+- **Existing sellers** were given a term once at boot by `backfillSubscriptionTerms`: six months from their last approved payment (or from the deploy, for granted packs), and never fewer than seven days, so no shop closes the morning after the deploy without warning.
+
+**Deleting a draft deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
+
+This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity and price from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the day listings become deletable again, by her or by an admin.
 
 **Where the ₹50 goes is `ADMIN_PAYMENT_ACCOUNT` in `config.ts`**, env-readable
 (`ADMIN_UPI_ID`, `ADMIN_UPI_NAME`, `ADMIN_BANK_NAME`), defaulting to the
@@ -356,9 +395,21 @@ Both payment screens (this one and the buyer's order screen) offer a QR, a **Sav
 
 **There is no "Pay" button on a `upi://pay` link, and it must not come back while payees are personal UPI IDs.** It existed twice. The second time it opened PhonePe and Google Pay correctly, and they refused the payment with "declined for security reasons": UPI apps treat a payment that *another app* starts, to a *personal* UPI ID, as the shape of a scam, and every payee here — sellers and the college — is one. Nothing in the link fixes that; the same code scanned from the gallery pays fine (tested on real phones, 14 September 2026). A pay link works again only for business UPI IDs (PhonePe Business, Paytm for Business…), and then only for those accounts. `buildUpiLink()` sends no `tr` for the same reason: a merchant field on a personal ID is one more thing the risk check reads as a fake shop.
 
-The tap after paying is Back, so `lib/useReturnFromApp.ts` is armed when she saves the QR or copies the ID, and on her return (hidden, then visible — never `focus` alone) the screen scrolls the UTR box into view and focuses it, once per arming. The optional screenshot beside it is a real `PhotoPicker` upload (`kind: 'payment'`, its own signed Cloudinary folder) that reaches `SubscriptionPayment.screenshotUrl` and is linked from the admin queue: the UTR is typed by hand and can be mistyped or invented, the bank's own receipt cannot, and that is what settles a disputed ₹50.
+The tap after paying is Back, so `lib/useReturnFromApp.ts` is armed when she saves the QR or copies the ID, and on her return (hidden, then visible — never `focus` alone) the screen scrolls the UTR box into view and focuses it, once per arming.
+
+**The ₹50 needs proof, not twelve digits.** Anybody can type a UTR, and approving one grants five slots. So a subscription payment carries three things an admin holds against each other:
+
+- **A screenshot of her UPI app's success screen — required.** A `PhotoPicker` upload (`kind: 'payment'`) into its own signed Cloudinary folder. `screenshotProblem()` in `backend/src/db/payments.ts` accepts only a URL in *this* account's `…/payment/` folder, so a pasted link or a product photo cannot stand in for it. With Cloudinary off there is no way to attach one, so nothing is required, and `/sellers/me/subscription` says so as `screenshotRequired`.
+- **When she paid** — `paidAt`, a `datetime-local` pre-filled with now. `paidAtProblem()` in `shared/src/payment.ts` refuses a time in the future (10 minutes' slack for phone clocks) or older than 7 days.
+- **The UTR**, as before.
+
+The admin queue shows the screenshot inline and opens it large beside the UTR, the stated time and the amount. **Approve stays disabled until three checks are ticked** — the UTR matches, the date and time match, the money is on the bank statement — and `POST /admin/payments/:id/approve` refuses any request whose `checks` lack one of `PAYMENT_CHECKS`, so the checklist is the rule and not decoration. The CLI takes `approve <id> --verified` and no longer offers `approve all`. Rejecting needs no checklist: refusing an unproven payment is always safe. `backend/tests/payment-proof.test.ts` holds all of it.
 
 Because approval is by hand, **how long she has been waiting is the number that makes somebody act on it**, and the console owns it: `waited()` in `admin/src/lib/format.ts` computes it from `submittedAt` — minutes under the hour, hours to two days, then days — and `Payments.tsx` re-reads the clock every 30 minutes so a console left open on a desk stops showing the age it had at page load. `/admin/payments` deliberately sends no `waitingHours`: a number computed on the server is frozen at the moment of the response, and two sources for one figure is how an admin stops trusting either.
+
+### Sorting the admin lists
+
+Sellers, Products, Orders and Payments each have a **Sort by** menu. `admin/src/lib/sort.ts` holds one option table per list, because "highest" is a different number on each: what she has earned (delivered orders, added to `/admin/sellers` as `earned`), what a product costs, what an order or payment came to. Sorting is client-side, since every list already arrives whole. Names go through an `Intl.Collator` for Marathi and English, so Devanagari and Latin names each sort properly and case is ignored. The choice is remembered per list in `localStorage`, and newest-first is the default everywhere. `admin/tests/sort.test.ts` holds it.
 
 ### Other shared modules
 
@@ -431,4 +482,4 @@ Do not use Firebase Dynamic Links — it shut down on 25 August 2025. Deferred d
 
 ## Not built yet
 
-Reviews · chat · push notifications · disputes · returns and refunds · coupons · real camera capture · QR decoding · courses and certificates · the seller's own address book.
+Seller replies to reviews · chat · push notifications · disputes · returns and refunds · coupons · real camera capture · QR decoding · courses and certificates · the seller's own address book.

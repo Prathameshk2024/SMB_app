@@ -5,13 +5,16 @@ import {
   HAPPY_PATH, SELLER_ACTIONS, STATUS_STYLE, awaitingPaymentConfirmation,
   statusLabelKey, stepIndex, type SellerAction,
 } from '@shared/orderFlow.js'
+import { sellerCanCancel } from '@shared/orderCancel.js'
 import { useT } from '../../i18n/I18nProvider.js'
+import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import {
   AppBar, Button, Card, Choice, ConfirmSheet, EmptyState,
-  Loading, Notice, Pill, Rupees, useAsync,
+  Loading, Notice, Pill, Rupees, SectionTitle, useAsync,
 } from '../../components/ui.js'
+import { ReviewItem } from '../../components/Reviews.js'
 import { IconCall, IconCheck, IconMap, IconOrders } from '../../components/icons.js'
 
 const TABS: { id: string; labelKey: string; statuses?: OrderStatus[] }[] = [
@@ -96,6 +99,7 @@ export function SellerOrderDetail() {
   const [confirm, setConfirm] = useState<SellerAction | null>(null)
   const [actionErr, setActionErr] = useState('')
   const [rejectOpen, setRejectOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
   if (loading) {
@@ -158,6 +162,18 @@ export function SellerOrderDetail() {
           <strong style={{ fontSize: 'var(--t-lg)' }}><Rupees value={order.total} /></strong>
         </div>
 
+        <OrderEndedNotice order={order} viewer="seller" />
+        <RefundNotice order={order} viewer="seller" />
+
+        {/* What this buyer said about this order, where she can match it to
+            the goods she sent. Read-only: see screens/seller/Reviews.tsx. */}
+        {data.review && (
+          <div>
+            <SectionTitle>{t('rev.fromBuyer')}</SectionTitle>
+            <Card><ReviewItem review={data.review} /></Card>
+          </div>
+        )}
+
         {/* The seller is being asked to deliver somewhere they have not listed, so the
             question is put in front of them before Accept. */}
         {order.outsideArea && (
@@ -205,7 +221,7 @@ export function SellerOrderDetail() {
                   <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>{i.emoji}</span>
                   <div>
                     <div style={{ fontWeight: 600 }}>{i.name}</div>
-                    <div className="small dim num">{i.qty} × ₹{i.price}</div>
+                    <div className="small dim num">{i.qty} × <Rupees value={i.price} /></div>
                   </div>
                 </div>
                 <Rupees value={i.qty * i.price} />
@@ -253,6 +269,15 @@ export function SellerOrderDetail() {
 
         {actionErr && <Notice tone="danger">{actionErr}</Notice>}
 
+        {/* Below everything and outside the action bar, on purpose: the bar
+            is where her thumb goes forty times a day to move orders along,
+            and "cancel" must never be the button that happens to be there. */}
+        {sellerCanCancel(order.status) && (
+          <Button variant="ghost" disabled={busy} onClick={() => setCancelOpen(true)}>
+            {t('cancel.button')}
+          </Button>
+        )}
+
         {actions.length > 0 && (
           <div className="actionbar">
             {actions.map((a) => (
@@ -272,6 +297,17 @@ export function SellerOrderDetail() {
           </div>
         )}
       </div>
+
+      <CancelOrderSheet
+        order={order}
+        by="seller"
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onCancelled={(o) => {
+          setData({ ...data!, order: o })
+          toast(`${t('ok.orderUpdated')}: ${t(statusLabelKey(o.status))}`)
+        }}
+      />
 
       <ConfirmSheet
         open={!!confirm}

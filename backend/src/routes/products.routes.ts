@@ -2,11 +2,12 @@ import { Router } from 'express'
 import type { Product } from '@shared/types.js'
 import {
   MAX_EDITS, countsAsEdit, editsAreLimited, editsLeft, initialListingStatus,
-  publishAllowance, publishesLeft, slotInfo,
+  sellerMayDelete, slotInfo,
 } from '@shared/seller.js'
 import { getDb, newId, save } from '../db/store.js'
 import { requireRole } from '../middleware/auth.js'
 import { purgeArchived, purgeExpiredRejections } from '../db/moderation.js'
+import { isExpired, subscriptionView } from '@shared/subscription.js'
 import { destroyImage } from './uploads.routes.js'
 
 export const productsRouter: Router = Router()
@@ -43,8 +44,12 @@ productsRouter.get('/mine', requireRole('seller'), (req, res) => {
   const sellerId = req.auth!.sellerId!
   const products = db.products.filter((p) => p.sellerId === sellerId)
   const seller = db.sellers.find((s) => s.id === sellerId)!
-  res.json({ products, slots: slotInfo(seller, products) })
+  // Her list shows live products as paused while the shop is, so it needs the
+  // state - on the server's clock, not the phone's.
+  res.json({ products, slots: slotInfo(seller, products), subscription: subscriptionView(seller) })
 })
+
+const EXPIRED_MR = 'तुमची वर्गणी संपली आहे. ₹50 भरून नूतनीकरण केल्यावर उत्पादने पाठवता येतील.'
 
 
 
@@ -68,6 +73,12 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
     })
     return
   }
+  // Drafts are still hers to write while the shop is paused; sending one in
+  // waits for the renewal, like everything else a buyer would see.
+  if (!asDraft && isExpired(seller)) {
+    res.status(403).json({ error: 'Subscription expired', messageMr: EXPIRED_MR })
+    return
+  }
 
   // THE SLOT GATE. Enforced here, not just by the disabled button in the UI -
   // the button is a courtesy, this is the rule.
@@ -78,25 +89,6 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
       error: 'No slots left',
       messageMr: 'सर्व जागा भरल्या आहेत. आणखी 5 जागांसाठी 50 रुपये भरा.',
       slots,
-    })
-    return
-  }
-
-  /**
-   * THE REPLACEMENT GATE.
-   *
-   * Slots say how many listings may be live at once; this says how many a
-   * pack may ever publish. Archiving frees a slot the instant it happens, so
-   * without this a seller edits twice, archives, uploads the same product
-   * again and has two fresh edits - and the limit on editing is decoration.
-   *
-   * A draft has published nothing yet, so it does not spend one.
-   */
-  if (!asDraft && publishesLeft(seller) <= 0) {
-    res.status(402).json({
-      error: 'No publishes left',
-      messageMr: 'या पॅकमध्ये आणखी नवीन उत्पादन टाकता येणार नाही. आणखी 5 जागांसाठी 50 रुपये भरा.',
-      publishAllowance: publishAllowance(seller),
     })
     return
   }
@@ -134,7 +126,6 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
   }
 
   db.products.push(product)
-  if (!asDraft) seller.listingsPublished = (seller.listingsPublished ?? 0) + 1
   save()
   res.status(201).json({ product })
 })
@@ -171,13 +162,18 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
    * cannot approve her own listing, and skipping the queue here would make
    * "save as draft" the way around it.
    *
-   * A draft consumes no slot, so publishing one does, which is why the slot
-   * gate has to run here too and not only on create.
+   * Neither a draft nor a rejected listing holds a slot, so sending one in
+   * takes one, which is why the slot gate has to run here too and not only on
+   * create.
    */
   if (req.body.status === 'LIVE' && (current.status === 'DRAFT' || current.status === 'REJECTED')) {
     const seller = db.sellers.find((s) => s.id === req.auth!.sellerId)!
     if (seller.status !== 'ACTIVE') {
       res.status(403).json({ error: 'Not active', messageMr: 'प्रशासकाच्या मंजुरीची वाट पहा' })
+      return
+    }
+    if (isExpired(seller)) {
+      res.status(403).json({ error: 'Subscription expired', messageMr: EXPIRED_MR })
       return
     }
 
@@ -200,19 +196,10 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
       })
       return
     }
-    if (publishesLeft(seller) <= 0) {
-      res.status(402).json({
-        error: 'No publishes left',
-        messageMr: 'या पॅकमध्ये आणखी नवीन उत्पादन टाकता येणार नाही. आणखी 5 जागांसाठी 50 रुपये भरा.',
-        publishAllowance: publishAllowance(seller),
-      })
-      return
-    }
 
     // Publishing a draft is submitting it, exactly like a new listing: the
-    // allowance is spent now, and an admin decides whether it goes live.
+    // slot is spent now, and an admin decides whether it goes live.
     patch.status = initialListingStatus(false)
-    seller.listingsPublished = (seller.listingsPublished ?? 0) + 1
   }
 
   // Editing a live listing no longer knocks it back into a queue. She can fix
@@ -250,21 +237,15 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
 })
 
 /**
- * DELETE MEANS DELETE.
+ * A SELLER DELETES DRAFTS, AND NOTHING ELSE.
  *
- * This used to stamp the row `ARCHIVED` and leave it in place. Nothing ever
- * read those rows again - every list, every count and every slot calculation
- * filtered them straight back out - so the only thing the tombstone achieved
- * was a database that grew for ever and a console an admin could not read.
+ * Deleting a submitted listing used to free its slot, so one ₹50 pack of five
+ * became a rotating shop of as many products as she cared to upload. Now a
+ * listing keeps its slot until an admin rejects it or takes it down - see
+ * SLOT_CONSUMING. The button is gone from her screen; this is the rule.
  *
- * Her ORDERS are unaffected, which is what makes this safe: `OrderItem` copies
- * the name, the emoji, the quantity and the price onto the order when it is
- * placed, so a delivered order still prints what was in it years after the
- * listing is gone. Nothing dereferences `productId` to draw an order.
- *
- * The slot frees immediately - that was always the point of archiving - and
- * `listingsPublished` is untouched, so deleting is still not a way to publish
- * a sixteenth listing on one pack.
+ * A draft holds no slot and nobody else has seen it, so that one she may
+ * still throw away. It is a real delete, not an `ARCHIVED` tombstone.
  */
 productsRouter.delete('/:id', requireRole('seller'), (req, res) => {
   const db = getDb()
@@ -273,6 +254,14 @@ productsRouter.delete('/:id', requireRole('seller'), (req, res) => {
   )
   if (i < 0) {
     res.status(404).json({ error: 'Product not found' })
+    return
+  }
+
+  if (!sellerMayDelete(db.products[i]!.status)) {
+    res.status(403).json({
+      error: 'Only a draft can be deleted by the seller',
+      messageMr: 'पाठवलेले उत्पादन काढता येत नाही. ते काढायचे असल्यास प्रशासकाशी संपर्क करा.',
+    })
     return
   }
 

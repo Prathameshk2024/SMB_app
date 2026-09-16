@@ -135,6 +135,12 @@ a { color: var(--maroon); }
 /* Long words and URLs must wrap, not widen the page. */
 p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
 
+/* ...except a figure. `anywhere` also shrinks an element's minimum width to
+   one character, so an amount beside a long label in a flex row was squeezed
+   until "₹450" printed as "₹45" over "0" - a different number, on the screen
+   where she is told what to pay. The label beside it wraps instead. */
+.money, .hero-num { white-space: nowrap; overflow-wrap: normal; }
+
 :focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 2px;
@@ -328,6 +334,12 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-width: 0; }
 .grow { flex: 1; min-width: 0; }
 .wrap-row { display: flex; flex-wrap: wrap; gap: var(--s2); }
+/* Two figures side by side while both fit, one above the other when one
+   does not. `min-width: auto` is the point: a card is as wide as its number,
+   so a big day's earnings takes the whole row rather than running out of
+   the card. */
+.stat-row { display: flex; flex-wrap: wrap; gap: var(--s3); }
+.stat-row > .card { flex: 1 1 130px; min-width: auto; }
 
 /* A maroon section heading with a rule running off to the right. */
 .sec-head {
@@ -589,6 +601,60 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
 .empty__title { font-size: var(--t-md); font-weight: 700; }
 .empty__body { color: var(--ink-2); max-width: 32ch; font-size: var(--t-sm); }
 
+/* No internet: a whole-screen sheet OVER the app, so what is underneath
+   stays mounted and comes back untouched. */
+.offline {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  overflow-y: auto;
+  display: flex;
+  padding: calc(var(--s5) + var(--safe-t)) var(--s4) calc(var(--s5) + var(--safe-b));
+}
+.offline__card {
+  margin: auto;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  text-align: center;
+}
+.offline__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 700;
+  color: var(--maroon);
+  margin-bottom: var(--s5);
+}
+.offline__logo { width: 40px; height: 40px; }
+.offline__icon {
+  width: 96px; height: 96px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--maroon-soft);
+  color: var(--maroon);
+  font-size: 2.75rem;
+}
+.offline__title { margin: var(--s2) 0 0; font-size: var(--t-xl); line-height: 1.25; }
+.offline__body { margin: 0; color: var(--ink-2); font-size: var(--t-base); max-width: 34ch; }
+.offline__safe {
+  margin: var(--s2) 0 var(--s4);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-full);
+  background: var(--green-soft);
+  color: var(--green-dark);
+  font-size: var(--t-base);
+  font-weight: 600;
+}
+.offline__still { margin: 0; min-height: 1.5em; color: var(--danger); font-size: var(--t-base); }
+
 /* ============================================================
    List tiles & product cards
    ============================================================ */
@@ -782,7 +848,9 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
 /* ============================================================
    Stepper / dots / timeline / OTP / action bar
    ============================================================ */
-.stepper { display: inline-flex; align-items: center; border: 2px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
+/* `flex: none`: its buttons are a fixed 44px and it clips, so a stepper that
+   shrinks beside a long amount loses its + off the edge. The name wraps. */
+.stepper { display: inline-flex; flex: none; align-items: center; border: 2px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
 .stepper button { width: var(--tap); height: var(--tap); border: 0; background: var(--surface); font-size: 1.3rem; font-weight: 700; cursor: pointer; color: var(--maroon); }
 .stepper button:active { background: var(--surface-2); }
 .stepper button:disabled { color: var(--ink-3); }
@@ -1531,3 +1599,42 @@ pre, code { overflow-x: auto; max-width: 100%; }
   flex: 0 0 auto;
   font-weight: 600;
 }
+
+/* ------------------------------------------------------------------
+   Feedback - stars, the rating summary, one review
+   Stars are gold because the token says so; every row of them also
+   prints its number and a word (see components/Reviews.tsx).
+   ------------------------------------------------------------------ */
+.stars { display: inline-flex; gap: 2px; vertical-align: middle; }
+.star { color: var(--line-2); fill: none; flex: 0 0 auto; }
+.star--on { color: var(--gold); fill: var(--gold); }
+.stars--sm .star { width: 16px; height: 16px; }
+.stars--md .star { width: 22px; height: 22px; }
+.stars--lg .star { width: 30px; height: 30px; }
+
+.rating-line { display: inline-flex; align-items: center; flex-wrap: wrap; gap: var(--s2); }
+
+.rating-summary { display: flex; flex-wrap: wrap; gap: var(--s4); align-items: center; }
+.rating-summary__big { display: flex; flex-direction: column; align-items: center; gap: var(--s1); min-width: 7rem; }
+.rating-summary__bars { flex: 1 1 12rem; display: flex; flex-direction: column; gap: var(--s1); }
+.rating-bar { display: flex; align-items: center; gap: var(--s2); }
+.rating-bar .star { width: 14px; height: 14px; }
+.rating-bar__track { flex: 1; height: 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); overflow: hidden; }
+.rating-bar__fill { display: block; height: 100%; background: var(--gold); }
+
+.review-list { display: flex; flex-direction: column; }
+.review { display: flex; flex-direction: column; gap: var(--s1); padding: var(--s3) 0; }
+.review + .review { border-top: 1px solid var(--line); }
+.review:first-child { padding-top: 0; }
+.review:last-child { padding-bottom: 0; }
+.review__text { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.star-picker { display: flex; justify-content: center; gap: var(--s2); flex-wrap: wrap; }
+.star-picker__btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: var(--tap); min-height: calc(var(--tap) + 12px); padding: var(--s1) var(--s2);
+  border: 2px solid var(--line); border-radius: var(--r-sm); background: var(--surface);
+  color: var(--ink-2); font: inherit; cursor: pointer;
+}
+.star-picker__btn .star { width: 30px; height: 30px; }
+.star-picker__btn--on { border-color: var(--gold); background: var(--gold-soft); color: var(--gold-deep); }

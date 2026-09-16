@@ -1,8 +1,10 @@
 import type {
   Address, AdminPaymentAccount, Category, Customer, DigitalProfile, Order, Product,
-  Seller, SellerGroup, SellerWeek, Session, SubscriptionPayment,
+  PublicReview, PublicSeller, RatingSummary, Review, Seller, SellerGroup, SellerWeek, Session,
+  SubscriptionPayment,
 } from '@shared/types.js'
 import type { SlotInfo } from '@shared/seller.js'
+import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
 
 /**
  * The single seam between the app and the server.
@@ -226,7 +228,8 @@ export const api = {
   registerSeller: (body: SellerRegistration) =>
     post<{ seller: Seller; session: Session }>('/sellers/register', body),
 
-  me: () => get<{ seller: Seller; slots: SlotInfo }>('/sellers/me'),
+  /** `subscription` is decided on the server's clock - never work it out from the phone's. */
+  me: () => get<{ seller: Seller; slots: SlotInfo; subscription: SubscriptionView }>('/sellers/me'),
 
   updateMe: (patchBody: Partial<Seller>) =>
     patch<{ seller: Seller }>('/sellers/me', patchBody),
@@ -234,26 +237,32 @@ export const api = {
   /** Her buyers, derived from her own orders. Never anybody else's. */
   myBuyers: () => get<{ buyers: SellerBuyer[] }>('/sellers/me/buyers'),
 
-  sellerById: (id: string) => get<{ seller: Seller }>(`/sellers/${id}`),
+  sellerById: (id: string) => get<{ seller: PublicSeller }>(`/sellers/${id}`),
 
   subscription: () =>
     get<{
-      plan: { price: number; slotsPerPack: number }
+      plan: { price: number; slotsPerPack: number; months: number }
       account: AdminPaymentAccount
       slots: SlotInfo
       status: Seller['status']
+      subscription: SubscriptionView
+      /** What she may pay for now, most urgent first. Empty means nothing is due. */
+      payable: PaymentKind[]
+      /** False only when the server has uploads switched off. */
+      screenshotRequired: boolean
       payments: SubscriptionPayment[]
     }>('/sellers/me/subscription'),
 
-  submitPayment: (utr: string, payerUpi?: string, screenshotUrl?: string) =>
+  submitPayment: (kind: PaymentKind, utr: string, paidAt: string, screenshotUrl?: string) =>
     post<{ payment: SubscriptionPayment; status: Seller['status'] }>(
       '/sellers/me/subscription/payment',
-      { utr, payerUpi, screenshotUrl },
+      { kind, utr, paidAt, screenshotUrl },
     ),
 
   /* ---------------- products ---------------- */
 
-  myProducts: () => get<{ products: Product[]; slots: SlotInfo }>('/products/mine'),
+  myProducts: () =>
+    get<{ products: Product[]; slots: SlotInfo; subscription: SubscriptionView }>('/products/mine'),
 
   createProduct: (body: Partial<Product> & { asDraft?: boolean }) =>
     post<{ product: Product }>('/products', body),
@@ -261,7 +270,8 @@ export const api = {
   updateProduct: (id: string, body: Partial<Product>) =>
     patch<{ product: Product }>(`/products/${id}`, body),
 
-  archiveProduct: (id: string) => del<{ ok: true; slots: SlotInfo }>(`/products/${id}`),
+  /** Drafts only - the server refuses a submitted listing. */
+  deleteDraft: (id: string) => del<{ ok: true; slots: SlotInfo }>(`/products/${id}`),
 
   /* ---------------- catalog (public) ---------------- */
 
@@ -271,12 +281,13 @@ export const api = {
     const qs = new URLSearchParams()
     for (const [k, v] of Object.entries(params)) if (v) qs.set(k, v)
     const s = qs.toString()
-    return get<{ products: (Product & { seller?: Partial<Seller> })[] }>(
+    return get<{ products: (Product & { seller?: PublicSeller })[] }>(
       `/catalog/products${s ? `?${s}` : ''}`,
     )
   },
 
-  product: (id: string) => get<{ product: Product; seller?: Seller }>(`/catalog/products/${id}`),
+  /** `seller` is the public card only - never her phone. See db/publicSeller.ts. */
+  product: (id: string) => get<{ product: Product; seller?: PublicSeller }>(`/catalog/products/${id}`),
 
   /** Is this pincode covered by any open seller? Derived, never a static list. */
   serviceability: (pincode: string) =>
@@ -310,8 +321,28 @@ export const api = {
 
   /* ---------------- orders ---------------- */
 
-  myOrders: () => get<{ orders: Order[] }>('/orders/mine'),
-  order: (id: string) => get<{ order: Order; seller?: Partial<Seller> }>(`/orders/${id}`),
+  /** `reviewedOrderIds` comes back for a customer only. */
+  myOrders: () => get<{ orders: Order[]; reviewedOrderIds?: string[] }>('/orders/mine'),
+
+  /**
+   * `review` is the buyer's own in full (so a hidden one can say so), and the
+   * public copy for the seller - absent for her once an admin has hidden it.
+   */
+  order: (id: string) =>
+    get<{ order: Order; seller?: Partial<Seller>; review?: Review | PublicReview }>(`/orders/${id}`),
+
+  /** Written, or written again - one review per delivered order. */
+  reviewOrder: (id: string, rating: number, comment?: string) =>
+    post<{ review: Review }>(`/orders/${id}/review`, { rating, comment }),
+
+  /* ---------------- feedback ---------------- */
+
+  /** What buyers said about one shop. Public. */
+  shopReviews: (sellerId: string) =>
+    get<{ reviews: PublicReview[]; summary: RatingSummary }>(`/catalog/sellers/${sellerId}/reviews`),
+
+  /** Her own reviews - the public list, readable even while she is not public. */
+  myReviews: () => get<{ reviews: PublicReview[]; summary: RatingSummary }>('/sellers/me/reviews'),
 
   placeOrders: (body: {
     address: { line: string; landmark?: string; pincode: string }
@@ -328,6 +359,10 @@ export const api = {
     post<{ order: Order }>(`/orders/${id}/pay`, { utr }),
 
   confirmPayment: (id: string) => post<{ order: Order }>(`/orders/${id}/confirm-payment`),
+
+  /** Either side calling an order off; the server knows which from the session. */
+  cancelOrder: (id: string, reason: string, note?: string) =>
+    post<{ order: Order }>(`/orders/${id}/cancel`, { reason, note }),
 
   /* ---------------- analytics ---------------- */
 

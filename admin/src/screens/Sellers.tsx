@@ -4,7 +4,10 @@ import { useT } from '../i18n/I18nProvider.js'
 import { IconGo, IconSellers } from '../components/icons.js'
 import { api, type SellerRow } from '../lib/api.js'
 import { TopBar } from '../components/Shell.js'
+import { SortSelect, useSort } from '../components/SortSelect.js'
+import { SELLER_SORTS, sortRows } from '../lib/sort.js'
 import { SellerActions, StatusPill } from '../components/SellerActions.js'
+import { SubscriptionPill } from '../components/Subscription.js'
 import {
   Button, Card, CopyValue, EmptyState, ErrorNote, Loading, useAsync,
 } from '../components/ui.js'
@@ -23,30 +26,49 @@ import {
 export function Sellers() {
   const t = useT()
   const [q, setQ] = useState('')
+  /** '' for everyone, or one subscription state - who to ring this week. */
+  const [sub, setSub] = useState<'' | 'expiring' | 'expired'>('')
   const [data, loading, error, reload] = useAsync(() => api.sellers(), [])
+  const [sort, setSort] = useSort('sellers', SELLER_SORTS)
 
   const rows = useMemo(() => {
-    const all = data?.sellers ?? []
+    const all = (data?.sellers ?? []).filter((s) => !sub || s.subscription?.state === sub)
     const needle = q.trim().toLowerCase()
-    if (!needle) return all
-    return all.filter((s) =>
-      [s.name, s.shopName, s.village, s.phone, s.womenBizId]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(needle)),
-    )
-  }, [data, q])
+    const found = !needle
+      ? all
+      : all.filter((s) =>
+          [s.name, s.shopName, s.village, s.phone, s.womenBizId]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(needle)),
+        )
+    return sortRows(found, SELLER_SORTS, sort)
+  }, [data, q, sort, sub])
 
   return (
     <>
       <TopBar title={t('se.title')} sub={data ? `${data.sellers.length}` : undefined} />
       <div className="body stack">
-        <input
-          className="input"
-          style={{ maxWidth: 320 }}
-          placeholder={t('se.searchHint')}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
+        <div className="row wrap">
+          <input
+            className="input"
+            style={{ maxWidth: 320 }}
+            placeholder={t('se.searchHint')}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <select
+            className="select"
+            style={{ maxWidth: 240 }}
+            value={sub}
+            onChange={(e) => setSub(e.target.value as typeof sub)}
+            aria-label={t('se.filterSub')}
+          >
+            <option value="">{t('se.subAll')}</option>
+            <option value="expiring">{t('se.subExpiring')}</option>
+            <option value="expired">{t('se.subExpired')}</option>
+          </select>
+          <SortSelect options={SELLER_SORTS} value={sort} onChange={setSort} />
+        </div>
 
         <ErrorNote error={error} />
 
@@ -77,6 +99,9 @@ function SellerCard({ seller, onDone }: { seller: SellerRow; onDone: () => void 
             <span className="strong">{seller.name}</span>
             <span className="dim">{seller.shopName}</span>
             <StatusPill status={seller.status} />
+            {/* Only for a seller who is selling: a registered woman who has
+                never paid has no six months to show. */}
+            {seller.status === 'ACTIVE' && <SubscriptionPill view={seller.subscription} />}
           </div>
           <div className="small dim">
             <span className="mono">{seller.womenBizId}</span>

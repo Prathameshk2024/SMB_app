@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useT } from '../i18n/I18nProvider.js'
+import { SortSelect, useSort } from '../components/SortSelect.js'
+import { PRODUCT_SORTS, sortRows } from '../lib/sort.js'
 import { IconProducts } from '../components/icons.js'
 import { REJECT_GRACE_HOURS, hoursUntilRemoval } from '@shared/moderation.js'
 import { api, type ProductRow } from '../lib/api.js'
@@ -26,8 +28,9 @@ export function Products() {
   const t = useT()
   const [tab, setTab] = useState<Tab>('PENDING')
   const [data, loading, error, reload] = useAsync(() => api.products(tab), [tab])
+  const [sort, setSort] = useSort('products', PRODUCT_SORTS)
 
-  const rows = data?.products ?? []
+  const rows = useMemo(() => sortRows(data?.products ?? [], PRODUCT_SORTS, sort), [data, sort])
 
   return (
     <>
@@ -43,6 +46,7 @@ export function Products() {
           <Button small variant={tab === 'REJECTED' ? 'primary' : 'quiet'} onClick={() => setTab('REJECTED')}>
             {t('pr.rejectedTab')}
           </Button>
+          <SortSelect options={PRODUCT_SORTS} value={sort} onChange={setSort} />
         </div>
 
         <ErrorNote error={error} />

@@ -518,7 +518,7 @@ export function OtpInput({
 }
 
 export function Rupees({ value, className = '' }: { value: number; className?: string }) {
-  return <span className={`num ${className}`}>₹{Number(value || 0).toLocaleString('en-IN')}</span>
+  return <span className={`num money ${className}`}>₹{Number(value || 0).toLocaleString('en-IN')}</span>
 }
 
 /**

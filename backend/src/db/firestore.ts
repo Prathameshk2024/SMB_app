@@ -35,7 +35,7 @@ import type { Db } from './seed.js'
  * in Firestore untouched, so restoring this entry is the whole rollback.
  */
 const COLLECTIONS = [
-  'sellers', 'products', 'orders', 'payments', 'customers',
+  'sellers', 'products', 'orders', 'payments', 'customers', 'reviews',
   // Auth state. `firestore.rules` already denies every client-SDK read, which
   // matters more for these three than for anything else in the list: `admins`
   // holds password hashes and `sessions` holds live credentials.

@@ -9,7 +9,7 @@ import { Confirm } from './Confirm.js'
 import { useToast } from '../store/ToastContext.js'
 import {
   IconBack, IconHome, IconImpact, IconOrders, IconPayments, IconProducts,
-  IconSellers, IconToday,
+  IconReviews, IconSellers, IconToday,
 } from './icons.js'
 
 /**
@@ -81,6 +81,7 @@ export function Shell() {
     { to: '/products', icon: IconProducts, label: t('nav.products'), badge: s?.pendingProducts },
     { to: '/sellers', icon: IconSellers, label: t('nav.sellers') },
     { to: '/orders', icon: IconOrders, label: t('nav.orders'), badge: s?.stuckOrders },
+    { to: '/reviews', icon: IconReviews, label: t('nav.reviews') },
     { to: '/impact', icon: IconImpact, label: t('nav.impact') },
   ]
 

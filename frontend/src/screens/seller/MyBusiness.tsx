@@ -9,9 +9,11 @@ import {
   Pill, Rupees, SectionTitle, SlotMeter, useAsync,
 } from '../../components/ui.js'
 import {
-  IconAllClear, IconBuyers, IconGrowth, IconOrders, IconPause, IconPlay,
+  IconAllClear, IconBuyers, IconChevron, IconGrowth, IconOrders, IconPause, IconPlay,
   IconProduct, type IconType,
 } from '../../components/icons.js'
+import { RatingLine } from '../../components/Reviews.js'
+import { SubscriptionLine, SubscriptionNotice } from '../../components/SubscriptionNotice.js'
 import { PageTour } from '../../components/Walkthrough.js'
 
 /**
@@ -25,6 +27,8 @@ export default function MyBusiness() {
   const [me, loadingMe, setMe] = useAsync(() => api.me(), [])
   const [orderData, loadingOrders] = useAsync(() => api.myOrders(), [])
   const [productData, loadingProducts] = useAsync(() => api.myProducts(), [])
+  // Not waited on: the rating is not what she opened this screen to act on.
+  const [reviewData] = useAsync(() => api.myReviews(), [])
 
   if (loadingMe || loadingOrders || loadingProducts) {
     return (
@@ -61,6 +65,8 @@ export default function MyBusiness() {
 
   const todayOrders = orders.filter((o) => isToday(o.placedAt)).length
 
+  const expired = me.subscription?.state === 'expired'
+
   async function toggleShop() {
     const res = await api.updateMe({ isOpen: !seller.isOpen })
     setMe({ ...me!, seller: res.seller })
@@ -90,18 +96,35 @@ export default function MyBusiness() {
           </Notice>
         )}
 
-        {/* Shop open toggle: one tap, right at the top. */}
-        <Card className={seller.isOpen ? '' : 'notice--warn'} data-wt="biz-shop">
-          <div className="row-between">
+        {/* The renewal reminder and the paused shop, above everything they
+            affect. Nothing at all while the six months are comfortably open. */}
+        <SubscriptionNotice view={me.subscription} />
+
+        {/* Shop open toggle: one tap, right at the top. While the subscription
+            has run out the shop is closed whatever the switch says, so the
+            card says that instead and the switch waits: flipping it would
+            change nothing a buyer can see, and her own choice is kept for the
+            day she renews. */}
+        {expired ? (
+          <Card className="notice--warn" data-wt="biz-shop">
             <div className="stack-sm" style={{ gap: 2 }}>
-              <strong>{seller.isOpen ? t('biz.shopOpen') : t('biz.shopClosed')}</strong>
-              <span className="small dim">{t('biz.shopOpenHint')}</span>
+              <strong>{t('sub.shopPaused')}</strong>
+              <span className="small dim">{t('sub.shopPausedHint')}</span>
             </div>
-            <Button variant={seller.isOpen ? 'quiet' : 'primary'} size="sm" onClick={toggleShop}>
-              {seller.isOpen ? <IconPause aria-hidden="true" /> : <IconPlay aria-hidden="true" />}
-            </Button>
-          </div>
-        </Card>
+          </Card>
+        ) : (
+          <Card className={seller.isOpen ? '' : 'notice--warn'} data-wt="biz-shop">
+            <div className="row-between">
+              <div className="stack-sm" style={{ gap: 2 }}>
+                <strong>{seller.isOpen ? t('biz.shopOpen') : t('biz.shopClosed')}</strong>
+                <span className="small dim">{t('biz.shopOpenHint')}</span>
+              </div>
+              <Button variant={seller.isOpen ? 'quiet' : 'primary'} size="sm" onClick={toggleShop}>
+                {seller.isOpen ? <IconPause aria-hidden="true" /> : <IconPlay aria-hidden="true" />}
+              </Button>
+            </div>
+          </Card>
+        )}
 
         <Card data-wt="biz-slots">
           <SlotMeter
@@ -109,12 +132,14 @@ export default function MyBusiness() {
             total={slots.total}
             hint={slots.isFull ? t('biz.slotsFull') : t('biz.slotsLeft', { n: slots.left })}
           />
+          <div style={{ marginTop: 'var(--s2)' }}><SubscriptionLine view={me.subscription} /></div>
           {slots.almostFull && (
             <div style={{ marginTop: 'var(--s3)' }}>
               <Notice tone="warn">{t('biz.oneSlotLeft')}</Notice>
             </div>
           )}
-          {(slots.isFull || slots.total === 0) && (
+          {/* Buying slots waits for the renewal - see payableKinds. */}
+          {!expired && (slots.isFull || slots.total === 0) && (
             <div style={{ marginTop: 'var(--s3)' }}>
               <Button size="sm" onClick={() => nav('/seller/subscription')}>
                 {t('biz.addSlots')}
@@ -123,14 +148,14 @@ export default function MyBusiness() {
           )}
         </Card>
 
-        <div className="row" style={{ gap: 'var(--s3)' }}>
-          <Card className="grow">
+        <div className="stat-row">
+          <Card>
             <div className="small dim">{t('biz.earnToday')}</div>
             <div className="hero-num" style={{ fontSize: 'var(--t-xl)' }}>
               <Rupees value={todayEarnings} />
             </div>
           </Card>
-          <Card className="grow">
+          <Card>
             <div className="small dim">{t('biz.ordersToday')}</div>
             <div className="hero-num num" style={{ fontSize: 'var(--t-xl)' }}>{todayOrders}</div>
           </Card>
@@ -160,6 +185,19 @@ export default function MyBusiness() {
             </div>
           )}
         </div>
+
+        {/* Her stars, one tap from the list of what was said. Below the work
+            of the day, above everything else: it is how the next buyer will
+            judge her, and she should see it the way they do. */}
+        <button className="card card--tap" onClick={() => nav('/seller/reviews')}>
+          <div className="row-between">
+            <div className="stack-sm" style={{ gap: 2 }}>
+              <strong>{t('rev.title')}</strong>
+              <RatingLine average={reviewData?.summary.average} count={reviewData?.summary.count} />
+            </div>
+            <IconChevron aria-hidden="true" />
+          </div>
+        </button>
 
         <div className="pgrid pgrid--2" data-wt="biz-links">
           <QuickLink icon={IconProduct} label={t('biz.myProducts')} to="/seller/products" />

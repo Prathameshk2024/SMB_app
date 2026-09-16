@@ -11,6 +11,7 @@ import { Products } from './screens/Products.js'
 import { Sellers } from './screens/Sellers.js'
 import { SellerDetail } from './screens/SellerDetail.js'
 import { Orders } from './screens/Orders.js'
+import { Reviews } from './screens/Reviews.js'
 import { Impact } from './screens/Impact.js'
 
 /**
@@ -52,6 +53,7 @@ function Gate() {
         <Route path="/sellers" element={<Sellers />} />
         <Route path="/sellers/:sellerId" element={<SellerDetail />} />
         <Route path="/orders" element={<Orders />} />
+        <Route path="/reviews" element={<Reviews />} />
         <Route path="/impact" element={<Impact />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

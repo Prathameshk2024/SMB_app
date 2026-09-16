@@ -7,7 +7,7 @@ import {
   FiMic, FiMinus, FiPackage, FiPause, FiPhone, FiPlay, FiPlayCircle, FiPlus,
   FiPlusCircle, FiSearch, FiShare2, FiShoppingBag, FiShoppingCart,
   FiSmartphone, FiSquare, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2,
-  FiTrendingDown, FiTrendingUp, FiUpload, FiUser, FiUsers, FiX,
+  FiTrendingDown, FiTrendingUp, FiUpload, FiUser, FiUsers, FiWifiOff, FiX,
 } from 'react-icons/fi'
 import { MdCurrencyRupee, MdOutlineFastfood, MdQrCode2 } from 'react-icons/md'
 import { FaWhatsapp } from 'react-icons/fa'
@@ -54,6 +54,7 @@ export const IconEmpty: IconType = FiInbox
 export const IconBell: IconType = FiBell
 export const IconWaiting: IconType = FiClock
 export const IconLock: IconType = FiLock
+export const IconOffline: IconType = FiWifiOff
 export const IconEdit: IconType = FiEdit2
 export const IconCopy: IconType = FiCopy
 export const IconTrash: IconType = FiTrash2

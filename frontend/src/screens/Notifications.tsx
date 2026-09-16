@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useT } from '../i18n/I18nProvider.js'
 import { useAuth } from '../store/AuthContext.js'
 import { api } from '../lib/api.js'
-import { adminFeed, buildFeed, markSeen, mergeFeeds } from '../lib/notifications.js'
+import {
+  adminFeed, buildFeed, markSeen, mergeFeeds, subscriptionFeed,
+} from '../lib/notifications.js'
 import { STATUS_STYLE, statusLabelKey } from '@shared/orderFlow.js'
 import {
   AppBar, Card, EmptyState, Loading, Pill, Rupees, useAsync,
@@ -43,7 +45,11 @@ export default function Notifications() {
   }, [session, loading])
 
   const feed = session
-    ? mergeFeeds(buildFeed(data?.orders ?? [], session.role), adminFeed(meData?.seller))
+    ? mergeFeeds(
+        buildFeed(data?.orders ?? [], session.role),
+        adminFeed(meData?.seller),
+        subscriptionFeed(meData?.subscription),
+      )
     : []
   const orderPath = session?.role === 'seller' ? '/seller/orders' : '/shop/orders'
 

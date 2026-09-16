@@ -80,12 +80,15 @@ export function SaveQrButton({
  * probably never opened, and a button that saves a picture explains nothing
  * about what the picture is for.
  */
-export function PaySteps() {
+export function PaySteps({ screenshot = false }: { screenshot?: boolean }) {
   const t = useT()
   return (
     <ol className="stack-sm" style={{ margin: 0, paddingLeft: 'var(--s5)' }}>
       <li>{t('pay.step1')}</li>
       <li>{t('pay.step2')}</li>
+      {/* Where proof is asked for, the step to capture it comes BEFORE she
+          leaves the success screen - it is gone once she presses back. */}
+      {screenshot && <li>{t('pay.stepScreenshot')}</li>}
       <li>{t('pay.step3')}</li>
     </ol>
   )

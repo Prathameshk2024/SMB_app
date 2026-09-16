@@ -1,28 +1,48 @@
 import type { Product, ProductStatus, Seller } from './types.js'
 import { upiProblem } from './payment.js'
+import { SUBSCRIPTION_MONTHS } from './subscription.js'
 
 /**
  * SUBSCRIPTION + PRODUCT SLOTS
  * 50 rupees buys one PACK = 5 product slots. A 6th product means a second pack.
  * No gateway: she pays the admin's account and admin approves by hand.
+ *
+ * The shop stays open for SUBSCRIPTION_MONTHS from approval, and a flat ₹50
+ * renews every pack she has - see shared/src/subscription.ts.
  */
 
 export const PLAN = {
   price: 50,
   slotsPerPack: 5,
-  /** null = lifetime. A field, not a constant, so switching to yearly is config. */
-  validityDays: null as number | null,
+  /** How long one approval keeps the shop open. Sent to her subscription screen. */
+  months: SUBSCRIPTION_MONTHS,
 }
 
 /**
- * Which product states consume a slot.
+ * Which product states consume a slot. ONE PRODUCT, ONE SLOT, FOR GOOD.
  *
- * DRAFT deliberately does not, so she can experiment before paying. ARCHIVED
- * does not either, so archiving frees a slot immediately - without that escape
- * hatch a woman with five bad listings is stuck forever and her only option is
- * paying again, which is how you lose her.
+ * A slot is spent when she submits a listing and stays spent while it is
+ * waiting, live or paused. She cannot give it back herself: a seller who could
+ * delete a listing and put up another had a pack of five that was really a
+ * pack of as many as she liked.
+ *
+ * Only an admin frees one, by rejecting a listing or taking a live one down.
+ * REJECTED is therefore absent - the slot comes back the moment the decision
+ * is made, not when the rejected row is swept 48 hours later. That is also
+ * what stops a woman with a bad listing being stuck: she asks, and an admin
+ * takes it down.
+ *
+ * DRAFT does not consume one either, so she can experiment before paying.
  */
-export const SLOT_CONSUMING: ProductStatus[] = ['PENDING', 'LIVE', 'PAUSED', 'REJECTED']
+export const SLOT_CONSUMING: ProductStatus[] = ['PENDING', 'LIVE', 'PAUSED']
+
+/**
+ * The only listing a seller may delete herself: a draft. It holds no slot and
+ * nobody but her has seen it, so removing it frees nothing and hides nothing.
+ */
+export function sellerMayDelete(status: ProductStatus): boolean {
+  return status === 'DRAFT'
+}
 
 export function countUsedSlots(products: Pick<Product, 'status'>[]): number {
   return products.filter((p) => SLOT_CONSUMING.includes(p.status)).length
@@ -118,31 +138,10 @@ export function editsLeft(product: Pick<Product, 'editCount'>): number {
  *
  * A DRAFT is not published yet, and a REJECTED listing is being FIXED - an
  * admin took it down and told her why, so charging her an edit to answer that
- * could leave a slot she paid for holding something she is not allowed to
- * repair.
+ * could leave her unable to repair the very thing she was told to repair.
  */
 export function editsAreLimited(status: ProductStatus): boolean {
   return status === 'LIVE' || status === 'PAUSED'
-}
-
-/**
- * How many listings one pack may ever publish.
- *
- * Archiving frees a slot on the spot, which is the escape hatch that stops a
- * woman with five bad listings being stuck - but without a ceiling it is also
- * the way around MAX_EDITS: archive, upload again, two fresh edits, for ever.
- * A pack is five listings at a time and fifteen over its life.
- */
-export const REPLACEMENTS_PER_SLOT = 2
-
-export function publishAllowance(seller: Pick<Seller, 'packsApproved'>): number {
-  return (seller.packsApproved || 0) * PLAN.slotsPerPack * (1 + REPLACEMENTS_PER_SLOT)
-}
-
-export function publishesLeft(
-  seller: Pick<Seller, 'packsApproved' | 'listingsPublished'>,
-): number {
-  return Math.max(0, publishAllowance(seller) - (seller.listingsPublished ?? 0))
 }
 
 /**

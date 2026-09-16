@@ -2,6 +2,9 @@ import { Router } from 'express'
 import type { Product, Seller } from '@shared/types.js'
 import { getDb } from '../db/store.js'
 import { CATEGORIES } from '../db/seed.js'
+import { NO_RATING, publicReviewsFor, ratingsBySeller } from '../db/reviews.js'
+import { publicSeller } from '../db/publicSeller.js'
+import { canSellNow } from '@shared/subscription.js'
 
 /** Public, unauthenticated. This is what a shopper and a scanned QR both hit. */
 export const catalogRouter: Router = Router()
@@ -21,10 +24,14 @@ export const catalogRouter: Router = Router()
  */
 export function publiclyVisible(
   product: Pick<Product, 'status'> | undefined,
-  seller: Pick<Seller, 'status' | 'isOpen'> | undefined,
+  seller: Pick<Seller, 'status' | 'isOpen' | 'subscriptionEndsAt'> | undefined,
+  now = Date.now(),
 ): boolean {
   if (!product || !seller) return false
-  return product.status === 'LIVE' && seller.status === 'ACTIVE' && !!seller.isOpen
+  // `canSellNow` is the account and the six months together: a shop whose
+  // subscription ran out comes off the shelf the moment the date passes, with
+  // nothing about her products or her open/closed switch rewritten.
+  return product.status === 'LIVE' && canSellNow(seller, now) && !!seller.isOpen
 }
 
 catalogRouter.get('/categories', (_req, res) => {
@@ -62,37 +69,13 @@ catalogRouter.get('/products', (req, res) => {
     )
   }
 
-  // Attach the seller card each listing needs, which
-  // the law requires to be displayed on every food listing.
+  // Attach the seller card each listing needs, which the law requires to be
+  // displayed on every food listing. The cart and checkout run entirely off
+  // it. What is on it, and why, is in db/publicSeller.ts.
+  const ratings = ratingsBySeller(db)
   const withSeller = list.map((p) => {
-    const s = db.sellers.find((x) => x.id === p.sellerId)
-    return {
-      ...p,
-      seller: s && {
-        id: s.id,
-        womenBizId: s.womenBizId,
-        name: s.name,
-        photo: s.photo,
-        shopName: s.shopName,
-        shopSlug: s.shopSlug,
-        village: s.village,
-        rating: s.rating,
-        ratingCount: s.ratingCount,
-        deliveryFee: s.deliveryFee,
-        freeDeliveryAbove: s.freeDeliveryAbove,
-        minOrder: s.minOrder,
-        // The cart and checkout run entirely off this card: serviceability
-        // needs the pincode list, and the UPI block needs her handle and
-        // whether she has actually set her payment QR up.
-        pincodes: s.pincodes,
-        upiId: s.upiId,
-        upiQrReady: s.upiQrReady,
-        // The image she uploaded, so checkout can show HER bank's QR rather
-        // than one this app drew. Public on purpose: it is the thing a buyer
-        // has to scan to pay her.
-        upiQrUrl: s.upiQrUrl,
-      },
-    }
+    const s = sellerById.get(p.sellerId)
+    return { ...p, seller: s && publicSeller(s, ratings.get(s.id) ?? NO_RATING) }
   })
 
   res.json({ products: withSeller })
@@ -110,7 +93,28 @@ catalogRouter.get('/products/:id', (req, res) => {
     return
   }
 
-  res.json({ product, seller })
+  // The card, never the record. This route used to send her whole document -
+  // phone, admin notices, block reason - to anyone holding a product id.
+  const { summary } = publicReviewsFor(db, seller!.id)
+  res.json({ product, seller: publicSeller(seller!, summary) })
+})
+
+/**
+ * WHAT BUYERS SAID ABOUT ONE SHOP. Public, like the shop itself.
+ *
+ * Gated on the same thing as her window: a blocked seller's shop is off the
+ * shelf, and so is what people said about it. A shop merely closed for the
+ * afternoon keeps its reviews - they are what a buyer reads to decide whether
+ * to come back tomorrow.
+ */
+catalogRouter.get('/sellers/:sellerId/reviews', (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.sellerId)
+  if (!seller || seller.status !== 'ACTIVE') {
+    res.status(404).json({ error: 'Shop not found', messageMr: 'हे दुकान सापडले नाही' })
+    return
+  }
+  res.json(publicReviewsFor(db, seller.id))
 })
 
 // GET /addresses used to live here. It had no auth check and returned the same
@@ -155,7 +159,7 @@ catalogRouter.get('/serviceability', (req, res) => {
 
   const db = getDb()
   const sellers = db.sellers.filter(
-    (s) => s.status === 'ACTIVE' && s.isOpen && s.pincodes.includes(pincode),
+    (s) => canSellNow(s) && s.isOpen && s.pincodes.includes(pincode),
   )
   const sellerIds = new Set(sellers.map((s) => s.id))
   const productCount = db.products.filter(
@@ -172,7 +176,7 @@ catalogRouter.get('/serviceability', (req, res) => {
     nearbyVillages: [
       ...new Set(
         db.sellers
-          .filter((s) => s.status === 'ACTIVE' && s.isOpen)
+          .filter((s) => canSellNow(s) && s.isOpen)
           .flatMap((s) => s.pincodes.map((pc) => `${s.village} (${pc})`)),
       ),
     ].slice(0, 6),

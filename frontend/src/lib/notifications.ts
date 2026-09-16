@@ -1,4 +1,5 @@
 import type { AdminNoticeKind, Order, OrderStatus, Role, Seller } from '@shared/types.js'
+import type { SubscriptionView } from '@shared/subscription.js'
 import { statusLabelKey } from '@shared/orderFlow.js'
 
 /**
@@ -212,18 +213,73 @@ const ADMIN_ROW: Record<AdminNoticeKind, { to?: string }> = {
   UNBLOCKED: {},
   PRODUCT_APPROVED: { to: '/seller/products' },
   PRODUCT_REJECTED: { to: '/seller/products' },
+  SUBSCRIPTION_RENEWED: { to: '/seller' },
 }
 
 export function adminFeed(seller: Seller | null | undefined): Notice[] {
-  return (seller?.notices ?? []).map((n) => ({
-    id: n.id,
-    at: n.at,
-    labelKey: `notif.adm.${n.kind}`,
-    vars: n.n == null ? undefined : { n: n.n },
-    // The reason, or the product's name - whatever the decision was about.
-    who: n.note ?? '',
-    to: ADMIN_ROW[n.kind]?.to,
-  }))
+  return (seller?.notices ?? []).map((n): Notice => {
+    // A renewal's note is the new end date, which belongs IN the sentence
+    // ("open until 15 Mar 2027") rather than printed raw beneath it.
+    if (n.kind === 'SUBSCRIPTION_RENEWED') {
+      return {
+        id: n.id, at: n.at, labelKey: 'notif.adm.SUBSCRIPTION_RENEWED',
+        vars: { date: shortDate(n.note) }, who: '', to: ADMIN_ROW[n.kind].to,
+      }
+    }
+    return {
+      id: n.id,
+      at: n.at,
+      labelKey: `notif.adm.${n.kind}`,
+      vars: n.n == null ? undefined : { n: n.n },
+      // The reason, or the product's name - whatever the decision was about.
+      who: n.note ?? '',
+      to: ADMIN_ROW[n.kind]?.to,
+    }
+  })
+}
+
+/* ------------------------------------------------------------------ */
+/* Her six months                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The renewal reminder, derived from her end date like everything else here.
+ *
+ * Nothing is written when the reminder week starts or when the shop pauses -
+ * no job runs at that moment to write it. The server says where she stands
+ * (on its clock, not the phone's) and this turns that into one row:
+ *
+ * - the reminder week: "your shop pauses on 15 Mar", timed from the day the
+ *   week began, so it counts once on the bell when it appears;
+ * - once paused: "your shop is paused - renew", timed at the end date.
+ *
+ * The row id carries the end date, so after a renewal the next term's
+ * reminder is a new row rather than one she already marked as read.
+ */
+export function subscriptionFeed(view: SubscriptionView | null | undefined): Notice[] {
+  if (!view?.endsAt) return []
+  const vars = { date: shortDate(view.endsAt), n: view.daysLeft ?? 0 }
+  if (view.state === 'expiring' && view.remindFrom) {
+    return [{
+      id: `sub-expiring:${view.endsAt}`, at: view.remindFrom, labelKey: 'notif.sub.expiring',
+      vars, who: '', to: '/seller/subscription',
+    }]
+  }
+  if (view.state === 'expired') {
+    return [{
+      id: `sub-expired:${view.endsAt}`, at: view.endsAt, labelKey: 'notif.sub.expired',
+      vars, who: '', to: '/seller/subscription',
+    }]
+  }
+  return []
+}
+
+/** "15 Mar 2027" - Latin digits, the way every other date in the app is printed. */
+export function shortDate(iso: string | undefined): string {
+  const d = new Date(iso ?? '')
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
 }
 
 /** Both halves, newest first. The list she reads does not care where a line came from. */

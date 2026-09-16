@@ -7,8 +7,7 @@
  * that works here will work there.
  *
  *   npx tsx backend/scripts/admin.ts pending
- *   npx tsx backend/scripts/admin.ts approve all
- *   npx tsx backend/scripts/admin.ts approve 9822011223
+ *   npx tsx backend/scripts/admin.ts approve 9822011223 --verified
  *   npx tsx backend/scripts/admin.ts reject sp2 "UTR not in the bank statement"
  *   npx tsx backend/scripts/admin.ts sellers
  *   npx tsx backend/scripts/admin.ts grant 9822011223 2
@@ -38,6 +37,9 @@ interface Payment {
   amount: number
   utr: string
   payerUpi: string
+  screenshotUrl?: string
+  paidAt?: string
+  submittedAt: string
   status: string
   duplicateUtr: boolean
   waitingHours?: number
@@ -101,23 +103,42 @@ function printPayments(list: Payment[]): void {
     console.log(`  ${c.bold(p.id.padEnd(16))} ${p.sellerName}`)
     console.log(`  ${''.padEnd(16)} ${c.dim(p.womenBizId)}  +91 ${p.phone}`)
     console.log(`  ${''.padEnd(16)} ₹${p.amount}  UTR ${p.utr}  ${p.payerUpi}`)
+    console.log(`  ${''.padEnd(16)} paid ${p.paidAt ? stamp(p.paidAt) : c.amber('not stated')}  ·  sent ${stamp(p.submittedAt)}`)
+    console.log(`  ${''.padEnd(16)} screenshot ${p.screenshotUrl ?? c.red('NONE — check the bank statement')}`)
     console.log(`  ${''.padEnd(16)} ${waitTxt}${p.duplicateUtr ? '  ' + c.red('DUPLICATE UTR — check carefully') : ''}`)
     console.log('')
   }
-  console.log(c.dim('  Approve with:  npx tsx backend/scripts/admin.ts approve <id|phone|all>\n'))
+  console.log(c.dim('  Open the screenshot, match its UTR, date and time, and find the ₹50 on the statement.'))
+  console.log(c.dim('  Then:  npx tsx backend/scripts/admin.ts approve <id|phone> --verified\n'))
 }
 
-async function approve(target: string): Promise<void> {
+function stamp(iso: string): string {
+  return new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+/**
+ * One payment at a time, and only after saying it was checked.
+ *
+ * `approve all` used to exist. Each approval grants five slots on a UTR that
+ * anybody can type, so approving a queue without opening a single screenshot
+ * is exactly the hole the checklist closes - the API refuses an approval that
+ * does not carry the checks, and `--verified` is this script saying so.
+ */
+async function approve(target: string | undefined, verified: boolean): Promise<void> {
+  if (!target || target === 'all' || !verified) {
+    console.error(c.red('\n  Approve one payment at a time, after checking it:'))
+    console.error('  npx tsx backend/scripts/admin.ts approve <id|phone> --verified')
+    console.error(c.dim('  --verified means: the screenshot\'s UTR, date and time match, and the ₹50 is on the statement.\n'))
+    process.exit(1)
+  }
+
   const pending = await listPending()
   if (!pending.length) {
     console.log(c.dim('\n  Nothing to approve.\n'))
     return
   }
 
-  const chosen =
-    target === 'all'
-      ? pending
-      : pending.filter((p) => p.id === target || p.phone === target || p.womenBizId === target)
+  const chosen = pending.filter((p) => p.id === target || p.phone === target || p.womenBizId === target)
 
   if (!chosen.length) {
     console.error(c.red(`\n  No pending payment matches "${target}".`))
@@ -128,7 +149,7 @@ async function approve(target: string): Promise<void> {
   for (const p of chosen) {
     const r = await call<{ seller?: { packsApproved: number; status: string; name: string } }>(
       `/api/admin/payments/${p.id}/approve`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ checks: ['utr', 'dateTime', 'received'] }) },
     )
     const s = r.seller
     console.log(
@@ -213,7 +234,7 @@ async function main(): Promise<void> {
 
   switch (cmd) {
     case 'pending': printPayments(await listPending()); break
-    case 'approve': await approve(a1 ?? 'all'); break
+    case 'approve': await approve(a1, a2 === '--verified'); break
     case 'reject': await reject(a1!, a2 ?? 'UTR did not match the bank statement'); break
     case 'grant': await grant(a1!, Number(a2 ?? 1)); break
     case 'sellers': await sellers(); break
@@ -223,7 +244,8 @@ async function main(): Promise<void> {
       console.log(`
   Commands:
     pending                     list ₹50 payments waiting for approval
-    approve <id|phone|all>      approve — grants 5 product slots
+    approve <id|phone> --verified
+                                approve after checking the screenshot — grants 5 product slots
     reject <id> [reason]        reject with a reason
     grant <phone> [packs]       grant slots directly, no payment needed
     sellers                     every seller with status and slot usage
