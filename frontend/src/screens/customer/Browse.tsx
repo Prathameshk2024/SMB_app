@@ -10,7 +10,7 @@ import { api } from '../../lib/api.js'
 import { categoryPhoto } from '../../lib/categoryPhoto.js'
 import {
   AppBar, Button, Card, EmptyState, Loading, Notice, Pill,
-  Rupees, SectionTitle, Stepper, TextInput, useAsync,
+  Rupees, SectionTitle, TextInput, useAsync,
 } from '../../components/ui.js'
 import {
   IconCart, IconCheck, IconMinus, IconNext, IconPlus, IconProduct, IconSearch,
@@ -262,7 +262,6 @@ export function ProductDetail() {
   const t = useT()
   const nav = useNavigate()
   const { add, has, canAdd, sellerName: cartShop } = useCart()
-  const [qty, setQty] = useState(1)
 
   const [data, loading] = useAsync(() => api.product(productId!), [productId])
 
@@ -431,16 +430,15 @@ export function ProductDetail() {
           </>
         ) : (
           <>
-            {!outOfStock && (
-              <div className="row-between">
-                <span style={{ fontWeight: 600 }}>{t('prod.stock')}</span>
-                <Stepper value={qty} onChange={setQty} max={product.madeToOrder ? 20 : product.stock} />
-              </div>
-            )}
+            {/* No quantity row here. It carried `prod.stock` - "how much is
+                left?", the question the SELLER answers when she lists the
+                product - which asked a buyer to declare the shop's stock. One
+                is added, and the quantity is hers to change on the cart line
+                that follows, where the ceiling is the stock she cannot see. */}
             <Button
               disabled={outOfStock}
               onClick={() => {
-                if (add(product, qty, seller?.shopName)) nav('/shop/cart')
+                if (add(product, 1, seller?.shopName)) nav('/shop/cart')
               }}
             >
               {outOfStock ? t('prod.outOfStock') : <><IconCart aria-hidden="true" /> {t('cus.addToCart')}</>}
