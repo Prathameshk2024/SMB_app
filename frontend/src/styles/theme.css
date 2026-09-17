@@ -100,8 +100,14 @@
   --shadow: 0 2px 12px rgba(59, 43, 35, 0.07);
   --shadow-up: 0 -2px 14px rgba(59, 43, 35, 0.09);
 
-  --safe-b: env(safe-area-inset-bottom, 0px);
-  --safe-t: env(safe-area-inset-top, 0px);
+  /* Space for the phone's own bars. `env()` is right in a browser; inside the
+     APK, Android WebView reports 0 there, so lib/appInsets.ts sets the
+     --app-inset-* pair instead. The larger of the two wins, so nothing is
+     counted twice. */
+  --app-inset-b: 0px;
+  --app-inset-t: 0px;
+  --safe-b: max(env(safe-area-inset-bottom, 0px), var(--app-inset-b));
+  --safe-t: max(env(safe-area-inset-top, 0px), var(--app-inset-t));
 
   --shell: 100%;
 }
@@ -200,6 +206,12 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
   padding-bottom: var(--s5);
 }
 .screen--nonav { padding-bottom: calc(var(--s6) + var(--safe-b)); }
+/* A screen with no tab bar under it ends at the phone's own navigation bar,
+   so its last line needs that room too. Not where an action bar closes the
+   screen: the bar is flush to the bottom and already carries the room. */
+.app-shell:not(.app-shell--nav) > .screen:last-child:not(.screen--nonav):not(:has(.actionbar)) {
+  padding-bottom: calc(var(--s5) + var(--safe-b));
+}
 @media (min-width: 600px) {
   .screen { padding: var(--s5); }
 }
@@ -1021,7 +1033,7 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
   bottom: auto;
   top: 0;
   border-radius: 0 0 var(--r-xl) var(--r-xl);
-  padding-top: calc(var(--s4) + env(safe-area-inset-top, 0px));
+  padding-top: calc(var(--s4) + var(--safe-t));
   padding-bottom: var(--s4);
 }
 
@@ -1272,7 +1284,9 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
 .cta .btn--ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.6); }
 
 /* Footer */
-.lfoot { border-top: 1px solid var(--line); padding: var(--s5) 0; color: var(--ink-3); font-size: var(--t-sm); background: var(--surface); }
+/* The last thing on the landing page, so it carries the room for the phone's
+   navigation bar - otherwise its final line sits under the buttons. */
+.lfoot { border-top: 1px solid var(--line); padding: var(--s5) 0 calc(var(--s5) + var(--safe-b)); color: var(--ink-3); font-size: var(--t-sm); background: var(--surface); }
 .lfoot__in { display: flex; flex-direction: column; gap: var(--s2); }
 
 /* ============================================================
@@ -1671,7 +1685,7 @@ textarea::placeholder {
 .gate__inner {
   max-width: 560px;
   margin: 0 auto;
-  padding: var(--s5) var(--s4) calc(var(--s5) + env(safe-area-inset-bottom, 0px));
+  padding: var(--s5) var(--s4) calc(var(--s5) + var(--safe-b));
 }
 
 /* The veg / non-veg mark (icons.tsx VegMark): a bordered square with a dot,

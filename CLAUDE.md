@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (285) + frontend (100) + admin (37) tests
+npm test               # backend (286) + frontend (105) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -486,6 +486,7 @@ How the container is built is not recorded in this repo: there is no Dockerfile 
 - **A Vercel deploy of `frontend/` is an APK update.** The APK is rebuilt only when the wrapper changes — or that URL does, because it is hard-coded there.
 - **The APK needs the network to open at all.** Nothing is bundled into it, so "works offline in the APK" is never a reason for a choice in `frontend/`.
 - **Its origin is that Vercel URL**, so the `CORS_ORIGIN` entry and MSG91's allowed domain for the web app already cover it.
+- **Its WebView draws under Android's navigation bar and reports no safe-area inset.** `--safe-b` in `theme.css` is the larger of `env(safe-area-inset-bottom)` and `--app-inset-b`, which `lib/appInsets.ts` sets before the first render: the wrapper's measured value if it sends `window.ShantaiInsets`, otherwise 48px inside an Android WebView, otherwise 0. Anything pinned to the bottom edge takes its room from `--safe-b`, never from `env()` directly. `docs/DEPLOY.md` §6 has the wrapper side.
 - **It is Android System WebView, not Chrome.** A web API that works in the browser still has to be tried on a phone inside the APK — `navigator.share` is absent there. Voice input and the copy button were checked inside it on 15 September 2026. Its Android permissions, `RECORD_AUDIO` for the mic among them, are declared in the wrapper, not here.
 - **The wrapper intercepts some links.** Any scheme other than `http(s)`, `data:`, `blob:` and `about:` (`tel:`, `upi:`, `whatsapp:`) is handed to Android to open another app, and any URL containing `.pdf`, `.csv`, `.xlsx`, `.doc`, `.txt`, `.zip`, `download=`, `export=` or `attachment=` goes to a native downloader instead of loading — so a page link that merely contains one of those never opens in the app.
 
