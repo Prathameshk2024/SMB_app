@@ -178,14 +178,12 @@ Both apps route in the browser. Vercel knows nothing about `/seller/orders` or
 returns 404** — the first thing anyone does after being sent a link. Static
 files are matched before rewrites, so `/assets/…` still serves the real bundle.
 
-The seller app needed a second half to that fix. It builds with `base: './'`
-for Capacitor, and on the web a relative path is resolved against the current
+The rewrite only works with absolute asset paths, which is Vite's default and
+why neither app sets `base`. A relative base is resolved against the current
 directory: reloading `/seller/orders` asks for `/seller/assets/index-xxx.js`,
 the rewrite answers with `index.html`, and a script tag receiving HTML is a
-blank screen. `frontend/vite.config.ts` now picks `'/'` unless the build is
-`--mode capacitor`, so the web build is absolute and the APK build is
-relative. Nothing to configure in Vercel; the default `npm run build` is the
-web build.
+blank screen. Nothing to configure in Vercel; the default `npm run build` is
+right.
 
 Every `VITE_*` value is read at **build** time, not run time — changing one
 means redeploying, not just restarting. The admin console has no login OTP, so
@@ -286,23 +284,48 @@ passes:
 
 ## 6. The Android build
 
-The APK is Capacitor wrapping `frontend/`. It has no dev server to proxy
-through, so `VITE_API_URL` **must** be set at build time:
+The APK is **not built from this repo**. It is a React Native WebView: an Expo
+project (SDK 54) kept in its own folder, `appgold-main`, where `app/index.tsx`
+is the whole app. Its one screen loads the production deployment of Vercel
+project 1 over the network:
 
-```bash
-cd frontend
-VITE_API_URL=https://shantai-api-204453348000.asia-south1.run.app npm run cap:sync
-npm run cap:open
+```
+https://shantai-mahila-bajar-app-frontend.vercel.app/
 ```
 
-`cap:sync` builds with `--mode capacitor`, which is what switches `base` to
-`'./'`. Building the APK with a plain `npm run build` produces absolute
-`/assets/…` paths, and the WebView — which loads from the filesystem, with no
-server root — finds nothing at all: a white screen on launch, with no error
-that names the cause. Always go through `cap:sync`.
+What follows from that:
 
-On Windows the `VITE_API_URL=… ` prefix is a POSIX shell form; use Git Bash, or
-put the value in `frontend/.env` and run `npm run cap:sync` on its own.
+- **Deploying `frontend/` updates the app** on every phone the next time it
+  loads. A frontend change needs no APK build, and the APK has no
+  `VITE_API_URL` of its own — it runs the web build.
+- **Rebuild the APK only when the wrapper changes**, or when that URL does. It
+  is hard-coded in `app/index.tsx`, so a new Vercel domain without a new APK
+  leaves every installed app pointing at the old one.
+- **CORS and MSG91 need nothing extra.** The WebView's origin is that Vercel
+  URL, which must already be in `CORS_ORIGIN` (§3) and in the widget's allowed
+  domains (§2) for the web app to work. If requests fail only inside the APK,
+  compare the URL in `app/index.tsx` with those two lists first.
+- **No network, no app.** Nothing is bundled into the APK.
 
-A WebView origin is not an `https://` site, so CORS applies differently there —
-if requests from the APK are blocked, that is the thing to look at first.
+The wrapper is Android System WebView, not Chrome, and it does more than
+display the page:
+
+- Any link whose scheme is not `http(s)`, `data:`, `blob:` or `about:` —
+  `tel:`, `upi:`, `whatsapp:` — is handed to Android to open another app.
+- Any URL containing `.pdf`, `.csv`, `.xlsx`, `.xls`, `.doc`, `.txt`, `.zip`,
+  `download=`, `export=` or `attachment=` goes to a native downloader instead of
+  loading. A page link that merely contains one of those never opens in the app.
+- Android Back walks the WebView's history, so it behaves like browser Back.
+- The Android permissions the site relies on — `RECORD_AUDIO` for voice input
+  among them — are declared in the wrapper's `app.json`.
+
+A web API that works in Chrome is not guaranteed there (`navigator.share` is
+absent), so anything that touches the phone has to be tried inside the APK —
+suite P of `docs/MANUAL-TEST-PLAN.md`.
+
+To build it, from the wrapper's folder: `npm install`, then
+`npm run android` (`expo run:android`) for a build on a connected phone. Its
+release build type is currently signed with the debug keystore
+(`android/app/build.gradle`), which the Play Store refuses; a Play listing
+needs its own upload keystore first, and the package name
+(`com.siddharam_sutar.mywebviewapp`) cannot change after the first upload.

@@ -10,8 +10,8 @@ import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
  * The single seam between the app and the server.
  *
  * No screen calls fetch directly. In development Vite proxies /api to
- * localhost:4000; in the APK build VITE_API_URL points at the deployed API,
- * because there is no dev server inside a Capacitor WebView to proxy through.
+ * localhost:4000; the deployed build - which is also what the Android APK
+ * loads - has no dev server to proxy through, so VITE_API_URL points at the API.
  */
 
 const BASE = import.meta.env.VITE_API_URL ?? ''

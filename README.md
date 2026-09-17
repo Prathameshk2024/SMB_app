@@ -7,7 +7,7 @@ subscription payments.
 ## Layout
 
 ```
-frontend/   seller + customer app  (React + Vite, also built as an Android APK)
+frontend/   seller + customer app  (React + Vite, also shipped inside an Android APK)
 admin/      admin console          (React + Vite, deployed as its own site)
 backend/    Express API for both   (includes /api/admin/*)
 shared/     types and domain rules imported by all three
@@ -66,17 +66,11 @@ several required settings are not the platform defaults.
 
 ## Android APK
 
-Capacitor is not installed yet. From `frontend/`:
-
-```bash
-npm i -D @capacitor/cli
-npm i @capacitor/core @capacitor/android
-npx cap init "Shantai Mahila Bazar" in.shantabazar.app --web-dir=dist
-npm run cap:add && npm run cap:sync && npm run cap:open
-```
-
-Set `VITE_API_URL` in `frontend/.env` to the deployed API first; the APK has no
-dev server to proxy through.
+The APK is not built from this repo. It is a separate Expo project, a React
+Native WebView whose one screen loads the deployed `frontend/` from Vercel, so
+deploying `frontend/` updates the app on every phone. Rebuild the APK only when
+the wrapper itself changes. See
+[`docs/DEPLOY.md`](docs/DEPLOY.md#6-the-android-build).
 
 ## Further reading
 

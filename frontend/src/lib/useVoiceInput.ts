@@ -12,8 +12,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * It is not available everywhere - iOS Safari does not have it - so callers
  * must check `supported` and keep the keyboard as the fallback, never hide it.
  *
- * Inside the Capacitor APK the WebView needs RECORD_AUDIO permission in
- * AndroidManifest.xml, otherwise onerror fires with 'not-allowed'.
+ * Inside the Android APK it works because the React Native WebView wrapper
+ * declares RECORD_AUDIO (its app.json); without that, onerror fires with
+ * 'not-allowed'.
  */
 
 export type VoiceError = 'denied' | 'no-speech' | 'network' | 'other' | null

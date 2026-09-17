@@ -6,13 +6,12 @@ import { cloudinaryThumb } from '../lib/upload.js'
 /**
  * A product image that reads through the LRU cache.
  *
- * Products currently carry an emoji rather than a photo, so `src` is usually
- * absent and we render the emoji. The moment real photos land - Capacitor
- * Camera on the seller side, object storage behind it - passing `src` is all
- * that is needed; every list and detail screen already uses this component.
+ * `src` is the listing's Cloudinary photo when it has one. Without it - an old
+ * listing, or Cloudinary off - every list and detail screen gets the category's
+ * photograph, or the emoji where no honest category photo exists.
  *
- * If a cached image was evicted, or the fetch fails, it falls back to the
- * emoji rather than showing a broken frame. Eviction is never a visible error.
+ * If a cached image was evicted, or the fetch fails, it takes that same
+ * fallback rather than showing a broken frame. Eviction is never a visible error.
  */
 export default function ProductImage({
   src,

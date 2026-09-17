@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 शांताई महिला बाजार / Shantai Mahila Bazar — a digital marketplace for rural women entrepreneurs in Maharashtra. Three user-facing surfaces, one API:
 
-- **frontend/** — the seller + customer app (React/Vite, also shipped as a Capacitor APK)
+- **frontend/** — the seller + customer app (React/Vite; the Android APK is a React Native WebView that loads it from Vercel — see *Deployment shape*)
 - **admin/** — the admin console (React/Vite, deployed separately)
 - **backend/** — Express API serving all three, including `/api/admin/*`
 - **shared/** — domain types and rules imported by all of the above
@@ -450,7 +450,7 @@ From spec section 6, encoded in `frontend/src/styles/theme.css`:
 - Confirmation dialogs state the consequence, never a bare "Are you sure?"
 - An empty state never repeats the action already standing in the bar below it. `MyProducts` had "New product" twice, one above the other, and the second read as a different thing rather than the same one.
 - Latin digits (₹500, not ५००) — that is what is printed on money.
-- **No web fonts.** Android ships Noto Sans Devanagari, so Marathi renders from system fonts at zero network cost and the APK works offline.
+- **No web fonts.** Android ships Noto Sans Devanagari, so Marathi renders from system fonts at zero network cost.
 - `theme.css` opens with a `:root` block marked **THEME SWAP POINT**; every colour, size and radius comes from those tokens, so retheming is a change to that block alone.
 
 Voice input (`frontend/src/lib/useVoiceInput.ts`) wraps the Web Speech API and is an **addition** — the keyboard is never removed, and the mic simply does not render where speech is unsupported. Every `VoiceInput` owns its own mic and dictates into itself; there is no app-wide microphone.
@@ -463,7 +463,7 @@ Both landing photo strips are one component, `PhotoRotator`, cross-fading every 
 
 ## Deployment shape
 
-One Cloud Run service (`shantai-api`, `asia-south1` — the API) and two Vercel projects from this same repo, distinguished only by Root Directory (`frontend` and `admin`). `VITE_API_URL` is read at **build** time, so changing it means redeploying.
+One Cloud Run service (`shantai-api`, `asia-south1` — the API) and two Vercel projects from this same repo, distinguished only by Root Directory (`frontend` and `admin`), plus an Android APK that is not built from this repo at all (below). `VITE_API_URL` is read at **build** time, so changing it means redeploying.
 
 **The app is the `prathamesh2` branch, and both Vercel projects must track it by name.** `main` holds only the initial commit and `prathamesh` — GitHub's default branch — is an older copy from 8 September with no `admin/` and a lockfile missing rollup's Linux binary, so every default Vercel reaches for builds the wrong code or fails outright. The two branches share nothing after the initial commit; do not merge `prathamesh` in.
 
@@ -476,9 +476,17 @@ How the container is built is not recorded in this repo: there is no Dockerfile 
 
 **Both apps route in the browser, so both need `vercel.json`** — one catch-all rewrite to `index.html`, already committed in each folder. Without it every URL but the home page 404s on reload, which is the first thing anyone does with a link they were sent.
 
-**`base` is per build, not per app.** `frontend/vite.config.ts` emits `'./'` only under `--mode capacitor`, which `npm run cap:sync` passes; every other build is `'/'`. The WebView loads from the filesystem and needs relative paths; the web needs absolute ones, because a relative path under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. Mode rather than an environment variable so the flag needs no cross-platform shim and nobody has to remember it. `admin` sets no `base` and is unaffected either way.
+**Neither Vite config sets `base`, and neither should.** The default absolute `/assets/…` is the only path right at every route depth: a relative one under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. A `--mode capacitor` build with `base: './'` and `cap:*` scripts existed for a Capacitor APK that never shipped, and were removed.
 
-Do not use Firebase Dynamic Links — it shut down on 25 August 2025. Deferred deep linking uses Android App Links plus the Play Install Referrer API.
+**The Android APK is a React Native WebView, not a build of this repo.** It is an Expo project kept in its own folder (`appgold-main`, outside this repository; `app/index.tsx` is the whole app), and its one screen loads the production frontend, `https://shantai-mahila-bajar-app-frontend.vercel.app/`, over the network. `docs/DEPLOY.md` §6 has the detail; what matters when changing code here:
+
+- **A Vercel deploy of `frontend/` is an APK update.** The APK is rebuilt only when the wrapper changes — or that URL does, because it is hard-coded there.
+- **The APK needs the network to open at all.** Nothing is bundled into it, so "works offline in the APK" is never a reason for a choice in `frontend/`.
+- **Its origin is that Vercel URL**, so the `CORS_ORIGIN` entry and MSG91's allowed domain for the web app already cover it.
+- **It is Android System WebView, not Chrome.** A web API that works in the browser still has to be tried on a phone inside the APK — `navigator.share` is absent there. Voice input and the copy button were checked inside it on 15 September 2026. Its Android permissions, `RECORD_AUDIO` for the mic among them, are declared in the wrapper, not here.
+- **The wrapper intercepts some links.** Any scheme other than `http(s)`, `data:`, `blob:` and `about:` (`tel:`, `upi:`, `whatsapp:`) is handed to Android to open another app, and any URL containing `.pdf`, `.csv`, `.xlsx`, `.doc`, `.txt`, `.zip`, `download=`, `export=` or `attachment=` goes to a native downloader instead of loading — so a page link that merely contains one of those never opens in the app.
+
+Do not use Firebase Dynamic Links — it shut down on 25 August 2025. Deferred deep linking, when it is built, will use Android App Links plus the Play Install Referrer API; the wrapper has neither yet.
 
 ## Not built yet
 

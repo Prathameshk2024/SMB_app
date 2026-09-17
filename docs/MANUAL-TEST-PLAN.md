@@ -570,19 +570,25 @@ Run these across both apps.
 
 ---
 
-## 16. Suite P — Android APK (Capacitor)
+## 16. Suite P — Android APK (React Native WebView)
 
-Only if you are testing the packaged build.
+Only if you are testing the packaged build. The APK loads the deployed site
+(`docs/DEPLOY.md` §6), so run this after the Vercel deploy you mean to check.
 
 | ID | What to do | What must happen |
 |---|---|---|
-| ☐ P1 | Install the APK and open it | The app loads — `base: './'` is set for the WebView |
-| ☐ P2 | Turn off the network and open it | Shell and text still render. No web fonts, so Marathi is intact offline |
-| ☐ P3 | Check `VITE_API_URL` in the build | It points at the deployed API. It is read at **build** time — changing it needs a rebuild |
+| ☐ P1 | Install the APK and open it | The deployed site loads, the same build as the web |
+| ☐ P2 | Turn off the network and open it | No English error dialog and no raw `net::ERR_…` text. Nothing is bundled into the APK, so it cannot show the shop offline |
+| ☐ P3 | Deploy a visible change to `frontend/`, close the app fully and reopen it | The change is there without reinstalling the APK |
 | ☐ P4 | Android hardware Back on a seller screen | Same behaviour as browser Back, and it never signs her out |
 | ☐ P5 | The photo picker | Opens the **gallery**. There is no camera capture |
-| ☐ P6 | Deep link into a shop from a QR | Opens the app at that shop, via App Links + the Play Install Referrer API — **not** Firebase Dynamic Links, which shut down on 25 August 2025 |
+| ☐ P6 | Press the mic on a text field | Android asks for the microphone once; what she says fills the field |
 | ☐ P7 | Marathi text | Renders from Android's Noto Sans Devanagari, with nothing downloaded |
+| ☐ P8 | Copy the UPI ID on a payment screen, switch to PhonePe, paste, come back | The paste is the exact ID. On return, the 12-digit UTR box is scrolled into view and focused |
+| ☐ P9 | Tap a call button and a WhatsApp help button | The phone dialler and WhatsApp open, not a web page inside the app |
+
+Deep links into a shop (App Links + the Play Install Referrer API) are not
+built yet, so there is nothing to test there.
 
 ---
 
