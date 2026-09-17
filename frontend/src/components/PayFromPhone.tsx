@@ -5,6 +5,7 @@ import { useToast } from '../store/ToastContext.js'
 import { Button } from './ui.js'
 import { IconDownload } from './icons.js'
 import { QR_COLOURS } from './QrCode.js'
+import { apiUrl } from '../lib/api.js'
 
 /**
  * PAYING FROM THE SAME PHONE THAT SHOWS THE QR.
@@ -37,31 +38,39 @@ export function SaveQrButton({
   const [busy, setBusy] = useState(false)
 
   async function save() {
+    /**
+     * INSIDE THE APK: let Android download it.
+     *
+     * The WebView drops a download made in the page and has no share sheet,
+     * so nothing was ever saved there. The wrapper hands any URL containing
+     * `download=` to Android's downloader, so the server draws the same QR
+     * and the phone saves it to Downloads. The toast says where to look,
+     * because the only other sign is the phone's own notification.
+     */
+    if (isAndroidWebView()) {
+      window.location.assign(
+        apiUrl('/qr/upi.png', { download: '1', name: fileName, link }),
+      )
+      toast(t('ok.qrDownloading'))
+      onSaved?.()
+      return
+    }
+
     setBusy(true)
     try {
+      // In a browser the page can save it itself.
       const blob = await qrPng(link)
-      // Inside the APK's WebView a download link does nothing and says
-      // nothing, so the share sheet is the way out there - and where even that
-      // is missing, she is told to take a screenshot rather than told "saved".
-      if (isAndroidWebView()) {
-        const file = new File([blob], fileName, { type: 'image/png' })
-        if (!navigator.canShare?.({ files: [file] })) throw new Error('cannot save here')
-        await navigator.share({ files: [file] })
-      } else {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = fileName
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        setTimeout(() => URL.revokeObjectURL(url), 10_000)
-      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10_000)
       toast(t('ok.qrOnPhone'))
       onSaved?.()
-    } catch (e) {
-      // Closing the share sheet is a choice, not a failure.
-      if (e instanceof DOMException && e.name === 'AbortError') return
+    } catch {
       toast(t('err.qrSaveFailed'))
     } finally {
       setBusy(false)

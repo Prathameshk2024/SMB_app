@@ -19,6 +19,16 @@ const BASE = import.meta.env.VITE_API_URL ?? ''
 const TOKEN_KEY = 'wb.token'
 
 /**
+ * A full API address for something the phone opens rather than fetches - a
+ * file handed to Android's downloader. Still the one place that knows where
+ * the API lives.
+ */
+export function apiUrl(path: string, query: Record<string, string> = {}): string {
+  const qs = new URLSearchParams(query).toString()
+  return `${BASE}/api${path}${qs ? `?${qs}` : ''}`
+}
+
+/**
  * In memory first; localStorage only carries the token across a reload.
  *
  * A phone with site data blocked - or simply full - made every write here a

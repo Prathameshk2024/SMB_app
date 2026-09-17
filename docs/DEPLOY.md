@@ -315,6 +315,9 @@ display the page:
 - Any URL containing `.pdf`, `.csv`, `.xlsx`, `.xls`, `.doc`, `.txt`, `.zip`,
   `download=`, `export=` or `attachment=` goes to a native downloader instead of
   loading. A page link that merely contains one of those never opens in the app.
+  **"Save QR to phone" depends on this**: inside the APK it opens
+  `/api/qr/upi.png?download=1&…`, and this rule is what saves the picture.
+  Changing the rule in the wrapper breaks QR saving.
 - Android Back walks the WebView's history, so it behaves like browser Back.
 - The Android permissions the site relies on — `RECORD_AUDIO` for voice input
   among them — are declared in the wrapper's `app.json`.

@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (286) + frontend (105) + admin (37) tests
+npm test               # backend (290) + frontend (105) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -394,7 +394,7 @@ is not the old placeholder. No account number or IFSC — she pays by UPI, and a
 wrong A/C under a QR is worse than none; the payee NAME is stored exactly as
 printed on the poster so she can check it against what her UPI app shows.
 
-Both payment screens (this one and the buyer's order screen) offer a QR, a **Save QR to phone** button, three written steps, the UPI ID with a copy button, and a UTR box, in that order. **A phone cannot scan its own screen**, so the two routes that work from one handset are: save the QR, then scan it from the gallery inside PhonePe or Google Pay; or copy the UPI ID and paste it there. `components/PayFromPhone.tsx` is both. Inside the APK's WebView a download does nothing, so it uses the share sheet there and says "take a screenshot" where even that is missing.
+Both payment screens (this one and the buyer's order screen) offer a QR, a **Save QR to phone** button, three written steps, the UPI ID with a copy button, and a UTR box, in that order. **A phone cannot scan its own screen**, so the two routes that work from one handset are: save the QR, then scan it from the gallery inside PhonePe or Google Pay; or copy the UPI ID and paste it there. `components/PayFromPhone.tsx` is both. Inside the APK's WebView a download made in the page is silently dropped and there is no share sheet, so there the button opens `GET /api/qr/upi.png?download=1&link=…` (`routes/qr.routes.ts`): the server draws the same QR, and the wrapper hands any URL containing `download=` to Android's downloader, which saves it to Downloads. The route draws only a `upi://pay` link with a valid payee, and is rate-limited.
 
 **There is no "Pay" button on a `upi://pay` link, and it must not come back while payees are personal UPI IDs.** It existed twice. The second time it opened PhonePe and Google Pay correctly, and they refused the payment with "declined for security reasons": UPI apps treat a payment that *another app* starts, to a *personal* UPI ID, as the shape of a scam, and every payee here — sellers and the college — is one. Nothing in the link fixes that; the same code scanned from the gallery pays fine (tested on real phones, 14 September 2026). A pay link works again only for business UPI IDs (PhonePe Business, Paytm for Business…), and then only for those accounts. `buildUpiLink()` sends no `tr` for the same reason: a merchant field on a personal ID is one more thing the risk check reads as a fake shop.
 

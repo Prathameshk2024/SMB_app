@@ -14,6 +14,7 @@ import { ordersRouter } from './routes/orders.routes.js'
 import { adminRouter } from './routes/admin.routes.js'
 import { flush, getDb, initStore, resetDb, save } from './db/store.js'
 import { uploadsRouter } from './routes/uploads.routes.js'
+import { qrRouter } from './routes/qr.routes.js'
 import { customersRouter } from './routes/customers.routes.js'
 import {
   ALLOW_DEV_RESET, CORS_ORIGIN, describeConfig, PORT as CONFIG_PORT,
@@ -101,6 +102,7 @@ app.use('/api/catalog', catalogRouter)
 app.use('/api/customers', customersRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/uploads', uploadsRouter)
+app.use('/api/qr', qrRouter)
 
 // Admin has no frontend in this repo by design - the admin site is separate.
 app.use('/api/admin', adminRouter)
