@@ -1,9 +1,5 @@
 import type {
-<<<<<<< ours
-  Category, Customer, Order, Product, Seller, SubscriptionPayment,
-=======
   Category, Customer, Order, Product, Review, Seller, SubscriptionPayment,
->>>>>>> theirs
 } from '@shared/types.js'
 import { computeReadiness, readinessBand } from '@shared/readiness.js'
 import type { DigitalProfile } from '@shared/types.js'

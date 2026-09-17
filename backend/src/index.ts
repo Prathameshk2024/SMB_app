@@ -20,10 +20,7 @@ import {
 } from './config.js'
 import { sellerWeek } from './db/analytics.js'
 import { purgeArchived, purgeExpiredRejections } from './db/moderation.js'
-<<<<<<< HEAD
-=======
 import { backfillSubscriptionTerms } from './db/subscription.js'
->>>>>>> origin/prathamesh2
 
 const app = express()
 const PORT = CONFIG_PORT
@@ -193,8 +190,6 @@ async function main() {
   // nothing has read one since, and a collection that only grows is what makes
   // the database unreadable to the people who have to audit it.
   if (purgeExpiredRejections(getDb().products) + purgeArchived(getDb().products) > 0) save()
-<<<<<<< HEAD
-=======
   // Sellers from before the six-month rule have no end date; they get one
   // once, here, before the first request asks whether their shop is open.
   // Nothing is swept on a timer after that - expiry is read off the date.
@@ -203,7 +198,6 @@ async function main() {
     console.log(`[subscription] gave ${terms} existing seller(s) a six-month term`)
     save()
   }
->>>>>>> origin/prathamesh2
   startHousekeeping()
 
   app.listen(PORT, () => {
