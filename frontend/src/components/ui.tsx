@@ -235,13 +235,20 @@ export function TextInput({
  * away the correction she just made.
  */
 export function VoiceInput({
-  value, onChange, error, multiline, lang: langOverride, ...rest
+  value, onChange, error, multiline, lang: langOverride, speakHint, ...rest
 }: {
   value: string
   onChange: (v: string) => void
   error?: boolean
   multiline?: boolean
   lang?: string
+  /**
+   * Say, under the box, that it can be spoken. For fields that are hard to
+   * type - a village name that is not on our list. Where this phone cannot
+   * listen, it points at the microphone on her keyboard instead, which works
+   * in any box.
+   */
+  speakHint?: boolean
 } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
   const t = useT()
   const { lang } = useI18n()
@@ -306,7 +313,15 @@ export function VoiceInput({
 
   // A locked field keeps no microphone. Dictating into a box that cannot
   // accept the words is worse than having no mic at all.
-  if (!voice.supported || rest.disabled) return field
+  if (rest.disabled) return field
+  if (!voice.supported) {
+    return speakHint ? (
+      <>
+        {field}
+        <div className="field__hint">{t('voice.keyboardHint')}</div>
+      </>
+    ) : field
+  }
 
   const problem =
     voice.error === 'denied'
@@ -342,6 +357,12 @@ export function VoiceInput({
       )}
 
       {problem && <div className="field__hint">{problem}</div>}
+
+      {/* Said only while nothing else is: the live transcript and a mic
+          problem are both more useful in this spot. */}
+      {speakHint && !voice.listening && !problem && (
+        <div className="field__hint">{t('voice.speakHint')}</div>
+      )}
     </>
   )
 }
