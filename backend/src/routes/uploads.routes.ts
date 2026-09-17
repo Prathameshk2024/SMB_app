@@ -75,9 +75,15 @@ uploadsRouter.post('/signature', requireUploader, (req, res) => {
   const params: Record<string, string | number> = {
     folder,
     timestamp,
-    // Cloudinary applies this on upload, so we store one sensibly sized master
-    // instead of a 12MP phone photo: 1200px long edge, auto quality.
-    transformation: 'c_limit,w_1200,h_1200,q_auto',
+    // Cloudinary applies this on upload, so what is stored is compressed even
+    // if a phone could not compress it first (an old browser, an image its
+    // canvas could not decode). The phone already sends JPEG at these sizes;
+    // this is the backstop. A payment screenshot keeps more pixels and better
+    // quality, because the admin has to READ the UTR and time on it - the same
+    // split as COMPRESSION in frontend/src/lib/upload.ts.
+    transformation: kind === 'payment'
+      ? 'c_limit,w_1800,h_1800,q_auto:good'
+      : 'c_limit,w_1200,h_1200,q_auto',
   }
 
   res.json({

@@ -108,6 +108,27 @@ export default function UploadProduct() {
     )
   }
 
+  /* Gate 1b: the six months ran out. Sending a listing in waits for the
+     renewal, like everything else a buyer would see - the server refuses it
+     too, so she is told here rather than at the last step. */
+  if (me.subscription?.state === 'expired') {
+    return (
+      <>
+        <AppBar title={t('prod.add')} />
+        <div className="screen">
+          <Card>
+            <EmptyState
+              icon={IconLock}
+              title={t('sub.uploadBlocked')}
+              body={t('sub.uploadBlockedSub')}
+              action={<Button onClick={() => nav('/seller/subscription')}>{t('sub.renewButton')}</Button>}
+            />
+          </Card>
+        </div>
+      </>
+    )
+  }
+
   /* Gate 2: slots full. An opportunity, never an error. */
   if (slots.isFull) {
     return (

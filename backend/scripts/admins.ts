@@ -16,7 +16,7 @@
  * argument: a password on a command line ends up in the shell history and in
  * the process list, where anybody else on the machine can read it.
  *
- * ON A HOST WITH NO SHELL (Render's free tier) use `hash` locally and set
+ * ON A HOST WITH NO SHELL (Cloud Run) use `hash` locally and set
  * ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD_HASH. The first sign-in
  * creates the real record and the variables stop being consulted.
  */

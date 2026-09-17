@@ -1,8 +1,14 @@
 import { Router, type Request } from 'express'
 import type { AdminStats, ReadinessBand } from '@shared/types.js'
-import { PLAN, slotInfo } from '@shared/seller.js'
+import { PLAN, countUsedSlots, slotInfo } from '@shared/seller.js'
 import { REJECT_GRACE_HOURS } from '@shared/moderation.js'
+import { allChecksDone } from '@shared/payment.js'
 import { BAND_LABEL } from '@shared/readiness.js'
+import { summarizeReviews } from '@shared/review.js'
+import {
+  SUBSCRIPTION_MONTHS, addMonths, canSellNow, subscriptionState, subscriptionView,
+} from '@shared/subscription.js'
+import { applyApprovedPayment } from '../db/subscription.js'
 import { getDb, save } from '../db/store.js'
 import { sellerStatusAfterReject } from '../db/payments.js'
 import { appendNotice as notifySeller } from '../db/notices.js'
@@ -109,7 +115,14 @@ adminRouter.get('/stats', (_req, res) => {
     ordersWeek: db.orders.filter(
       (o) => Date.now() - new Date(o.placedAt).getTime() < 7 * 86_400_000,
     ).length,
-    activeSellers: db.sellers.filter((s) => s.status === 'ACTIVE').length,
+    // "Active" means a buyer can reach her today, so a paused shop is not one.
+    activeSellers: db.sellers.filter((s) => canSellNow(s)).length,
+    subscriptionsExpiring: db.sellers.filter(
+      (s) => s.status === 'ACTIVE' && subscriptionState(s) === 'expiring',
+    ).length,
+    subscriptionsExpired: db.sellers.filter(
+      (s) => s.status === 'ACTIVE' && subscriptionState(s) === 'expired',
+    ).length,
     totalSellers: db.sellers.length,
     newRegistrations: db.sellers.filter(
       (s) => Date.now() - new Date(s.createdAt).getTime() < 7 * 86_400_000,
@@ -129,13 +142,6 @@ adminRouter.get('/stats', (_req, res) => {
     subscriptionRevenue: approvedPayments.reduce((n, p) => n + (Number(p.amount) || 0), 0),
     approvedPaymentCount: approvedPayments.length,
     repurchaseRate: db.sellers.length ? repurchasers / db.sellers.length : 0,
-    funnel: [
-      { mr: 'नोंदणी केली', en: 'Registered', v: db.sellers.length },
-      { mr: '50 रुपये भरले', en: 'Paid ₹50', v: db.payments.length },
-      { mr: 'मंजूर झाले', en: 'Approved', v: db.sellers.filter((s) => s.status === 'ACTIVE').length },
-      { mr: 'पहिले उत्पादन', en: 'First product', v: new Set(db.products.map((p) => p.sellerId)).size },
-      { mr: 'पहिले ऑर्डर', en: 'First order', v: sellersWithEarnings.size },
-    ],
     earningBands: ['₹0', '< ₹1,000', '₹1,000-5,000', '> ₹5,000'].map((label) => ({
       label,
       v: earningBandCounts.get(label) ?? 0,
@@ -178,17 +184,28 @@ adminRouter.post('/payments/:id/approve', (req, res) => {
     return
   }
 
+  /**
+   * Approval grants five slots, so it is not one click. The admin confirms
+   * the UTR and the date and time against the screenshot, and that the money
+   * actually reached the account - and the request says so, or it is refused.
+   * The checklist in the console is this rule, drawn.
+   */
+  if (!allChecksDone(req.body?.checks)) {
+    res.status(400).json({
+      error: 'Verify the UTR, date and time, and receipt before approving',
+      messageMr: 'मंजूर करण्याआधी UTR, तारीख-वेळ आणि पैसे जमा झाल्याची खात्री करा',
+    })
+    return
+  }
+
   payment.status = 'APPROVED'
   payment.verifiedAt = new Date().toISOString()
   payment.verifiedBy = verifierName(db, req)
 
-  // Approving grants exactly one pack and flips her to ACTIVE.
+  // A pack adds five slots; either kind can start, reopen or extend her six
+  // months. The rules, and what she is told, are in db/subscription.ts.
   const seller = db.sellers.find((s) => s.id === payment.sellerId)
-  if (seller) {
-    seller.packsApproved += 1
-    seller.status = 'ACTIVE'
-    notifySeller(seller, 'PAYMENT_APPROVED', { n: PLAN.slotsPerPack })
-  }
+  if (seller) applyApprovedPayment(seller, payment, payment.verifiedAt)
   save()
 
   // No SMS goes out on approval, and the waiting screen no longer promises
@@ -234,6 +251,11 @@ adminRouter.post('/sellers/:id/grant-slots', (req, res) => {
   if (seller.status === 'REGISTERED' || seller.status === 'PAYMENT_SUBMITTED') {
     seller.status = 'ACTIVE'
   }
+  // A seller given her first slots needs a term to sell in. Granted slots do
+  // not extend or reopen an existing one: goodwill is slots, and time is paid.
+  if (!seller.subscriptionEndsAt) {
+    seller.subscriptionEndsAt = addMonths(new Date().toISOString(), SUBSCRIPTION_MONTHS)
+  }
   // In slots, not packs. A pack is our unit; what she counts is the number of
   // products she can now put up.
   notifySeller(seller, 'SLOTS_GRANTED', { n: granted * PLAN.slotsPerPack })
@@ -258,9 +280,10 @@ adminRouter.post('/sellers/:id/revoke-slots', (req, res) => {
   }
 
   const packs = Math.max(1, Number(req.body?.packs ?? 1))
-  const used = db.products.filter(
-    (p) => p.sellerId === seller.id,
-  ).length
+  // Slots in use by the same rule her meter shows. Counting every row would
+  // include drafts and rejected listings, which hold no slot, and refuse a
+  // revoke the console says is possible.
+  const used = countUsedSlots(db.products.filter((p) => p.sellerId === seller.id))
   const remaining = Math.max(0, seller.packsApproved - packs)
 
   if (remaining * PLAN.slotsPerPack < used) {
@@ -335,6 +358,9 @@ adminRouter.post('/products/:id/moderate', (req, res) => {
     return
   }
 
+  // Rejecting - a new submission or a live listing taken down - is what frees
+  // her slot, immediately: REJECTED is not in SLOT_CONSUMING. She cannot free
+  // one herself.
   product.status = approve ? 'LIVE' : 'REJECTED'
   product.rejectReason = approve ? undefined : reason
   // The clock the automatic removal runs on. Cleared on approval, so a product
@@ -379,14 +405,99 @@ adminRouter.get('/orders', (req, res) => {
   })
 })
 
+/* ------------------------------------------------------------------ */
+/* Feedback                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every review on the platform, hidden ones included.
+ *
+ * The admin reads what the public reads plus what was taken down, with the
+ * seller's shop beside each one. Low ratings are the signal worth acting on -
+ * a seller collecting ones and twos needs a call from a coordinator long
+ * before she needs blocking - so `maxRating` filters to them.
+ */
+adminRouter.get('/reviews', (req, res) => {
+  const db = getDb()
+  const { sellerId, maxRating, hidden } = req.query as Record<string, string | undefined>
+
+  let list = [...db.reviews]
+  if (sellerId) list = list.filter((r) => r.sellerId === sellerId)
+  if (maxRating) list = list.filter((r) => r.rating <= Number(maxRating))
+  if (hidden === 'true') list = list.filter((r) => r.hidden)
+  if (hidden === 'false') list = list.filter((r) => !r.hidden)
+
+  const sellerById = new Map(db.sellers.map((s) => [s.id, s]))
+  res.json({
+    reviews: list
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((r) => ({
+        ...r,
+        seller: sellerById.get(r.sellerId)?.shopName,
+        womenBizId: sellerById.get(r.sellerId)?.womenBizId,
+      })),
+    summary: summarizeReviews(list),
+  })
+})
+
+/**
+ * Take a review down, or put it back.
+ *
+ * Hiding is the only thing an admin can do to a review. Editing a buyer's
+ * words would make every review on the platform something the platform might
+ * have written; deleting would leave nothing to look at if the seller or the
+ * buyer disputes the decision. A reason is required to hide, and kept.
+ */
+adminRouter.post('/reviews/:id/hide', (req, res) => {
+  const db = getDb()
+  const review = db.reviews.find((r) => r.id === req.params.id)
+  if (!review) {
+    res.status(404).json({ error: 'Review not found', messageMr: 'हा अभिप्राय सापडला नाही' })
+    return
+  }
+
+  const hide = !!req.body?.hidden
+  const reason = String(req.body?.reason ?? '').trim()
+  if (hide && !reason) {
+    res.status(400).json({
+      error: 'Hiding a review needs a reason',
+      messageMr: 'अभिप्राय लपवण्याचे कारण लिहा',
+      fields: { reason: 'required' },
+    })
+    return
+  }
+
+  review.hidden = hide || undefined
+  review.hiddenAt = hide ? new Date().toISOString() : undefined
+  review.hiddenBy = hide ? verifierName(db, req) : undefined
+  review.hiddenReason = hide ? reason : undefined
+
+  save()
+  res.json({ review })
+})
+
 adminRouter.get('/sellers', (_req, res) => {
   const db = getDb()
+  // What each woman has earned, for "highest earnings first" - counted the
+  // way her own page and /admin/impact count it, delivered orders only. One
+  // pass over orders, not one filter per seller.
+  const earned = new Map<string, number>()
+  for (const o of db.orders) {
+    if (o.status === 'DELIVERED') earned.set(o.sellerId, (earned.get(o.sellerId) ?? 0) + o.total)
+  }
   res.json({
     sellers: db.sellers.map((s) => {
       const products = db.products.filter(
         (p) => p.sellerId === s.id,
       )
-      return { ...s, slots: slotInfo(s, products), productCount: products.length }
+      return {
+        ...s,
+        slots: slotInfo(s, products),
+        productCount: products.length,
+        earned: earned.get(s.id) ?? 0,
+        // On the server's clock, like every other answer about the date.
+        subscription: subscriptionView(s),
+      }
     }),
   })
 })
@@ -416,10 +527,22 @@ adminRouter.get('/sellers/:id', (req, res) => {
     .filter((o) => o.sellerId === seller.id)
     .sort((a, b) => b.placedAt.localeCompare(a.placedAt))
 
+  const reviews = db.reviews
+    .filter((r) => r.sellerId === seller.id)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+
   res.json({
-    seller: { ...seller, slots: slotInfo(seller, products), productCount: products.length },
+    seller: {
+      ...seller,
+      slots: slotInfo(seller, products),
+      productCount: products.length,
+      subscription: subscriptionView(seller),
+    },
     products,
     orders,
+    // Hidden ones included and marked: the admin is the person who hid them.
+    reviews,
+    rating: summarizeReviews(reviews),
     payments: db.payments
       .filter((p) => p.sellerId === seller.id)
       .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),

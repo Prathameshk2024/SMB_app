@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useT } from '../i18n/I18nProvider.js'
 import { useAuth } from '../store/AuthContext.js'
 import { api } from '../lib/api.js'
-import { adminFeed, buildFeed, mergeFeeds, unreadCount } from '../lib/notifications.js'
+import {
+  adminFeed, buildFeed, mergeFeeds, subscriptionFeed, unreadCount,
+} from '../lib/notifications.js'
 import { IconBell } from './icons.js'
 
 /**
@@ -35,7 +37,9 @@ export default function NotificationBell() {
     ])
       .then(([{ orders }, me]) => {
         if (!alive) return
-        const feed = mergeFeeds(buildFeed(orders, session.role), adminFeed(me?.seller))
+        const feed = mergeFeeds(
+          buildFeed(orders, session.role), adminFeed(me?.seller), subscriptionFeed(me?.subscription),
+        )
         setUnread(unreadCount(feed, session.userId))
       })
       // A bell that cannot count is still a bell. Never let this break a screen.

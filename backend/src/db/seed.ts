@@ -1,5 +1,9 @@
 import type {
+<<<<<<< ours
   Category, Customer, Order, Product, Seller, SubscriptionPayment,
+=======
+  Category, Customer, Order, Product, Review, Seller, SubscriptionPayment,
+>>>>>>> theirs
 } from '@shared/types.js'
 import { computeReadiness, readinessBand } from '@shared/readiness.js'
 import type { DigitalProfile } from '@shared/types.js'
@@ -12,6 +16,8 @@ export interface Db {
   orders: Order[]
   payments: SubscriptionPayment[]
   customers: Customer[]
+  /** Buyers' feedback on delivered orders. Never seeded - see `seed()`. */
+  reviews: Review[]
   /**
    * The auth collections. They live in the same store as everything else so
    * they get the same durability - a session that vanished on restart would
@@ -37,7 +43,7 @@ export interface Db {
 /** A database with nothing in it. What a live install starts from. */
 export function emptyDb(): Db {
   return {
-    sellers: [], products: [], orders: [], payments: [], customers: [],
+    sellers: [], products: [], orders: [], payments: [], customers: [], reviews: [],
     sessions: [], admins: [], authEvents: [],
   }
 }
@@ -49,6 +55,7 @@ export function withDefaults(raw: Partial<Db>): Db {
     orders: raw.orders ?? [],
     payments: raw.payments ?? [],
     customers: raw.customers ?? [],
+    reviews: raw.reviews ?? [],
     sessions: raw.sessions ?? [],
     admins: raw.admins ?? [],
     authEvents: raw.authEvents ?? [],
@@ -310,6 +317,11 @@ export function seed(): Db {
   // would be a working credential committed to the repository, and a seeded
   // administrator would be a known password on every fresh install - which is
   // exactly the shape of the default `changeme` this change exists to remove.
-  return { sellers, products, orders, payments, customers, sessions: [], admins: [], authEvents: [] }
+  // No seeded reviews either: invented praise in front of real customers is
+  // the one thing feedback exists to rule out.
+  return {
+    sellers, products, orders, payments, customers, reviews: [],
+    sessions: [], admins: [], authEvents: [],
+  }
 }
 

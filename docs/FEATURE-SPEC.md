@@ -16,8 +16,8 @@ These change the database shape, so they are cheaper to answer now than to migra
 |---|---|---|
 | 1 | Can one phone number be both seller and customer? | Yes — one account with `roles[]` and a role switcher. Avoids duplicate KYC. |
 | 2 | Cart with items from three sellers? | Split into three orders under one `order_group`. Delivery and payment are both per-seller, so it has to be. |
-| 3 | Is the ₹50 lifetime or does it expire? | Model it as `plans(price, slots, validity_days)` with `validity_days = NULL` meaning lifetime. Ship as lifetime; you can switch to yearly later without a migration. |
-| 4 | Do product **drafts** consume a slot? | No. Only products that are live, pending approval, or paused. Archiving a product frees its slot — otherwise a woman with 5 bad listings is permanently stuck. |
+| 3 | Is the ₹50 lifetime or does it expire? | **Decided September 2026: six months.** The shop stays open for 6 months from the admin's approval; then the whole shop pauses until a flat ₹50 renewal is approved, which puts back every pack and product as it was. Only `Seller.subscriptionEndsAt` is stored — see `shared/src/subscription.ts`. |
+| 4 | Do product **drafts** consume a slot? | No. Only products that are live, pending approval, or paused. One product holds one slot: the seller cannot delete a submitted product to free it. Only an admin rejecting or taking down a product frees its slot (changed September 2026 — seller-side archiving let one pack rotate through unlimited products). A woman with a bad listing asks an admin to take it down. |
 | 5 | Does the platform take a commission on orders? | Recommend **no** in v1. The money goes buyer → seller directly via her UPI; the platform never holds it. That avoids payment-aggregator licensing entirely. |
 | 6 | Who guarantees the delivery happened? | Nobody but the seller — which is exactly why you need a delivery OTP. |
 | 7 | Languages | **Marathi (default) + English.** Hindi is easy to add later since the i18n layer is the same. |
@@ -135,10 +135,10 @@ After that, the same status persists as a banner across the app, and the state r
 
 ### Slot accounting
 
-- `slots_total` = approved packs × 5 · `slots_used` = products not archived
+- `slots_total` = approved packs × 5 · `slots_used` = products pending, live or paused
 - **[P0]** A slot meter sits at the top of My Business and of My Products: `३ / ५ उत्पादने` with a filled bar. She must always know where she stands without doing arithmetic.
 - **[P0]** At 5 of 5, the Upload button shows a lock icon and opens the buy-more screen. Never a silent failure or a raw error.
-- **[P0]** Archiving a product frees its slot immediately, with a confirmation that says so plainly.
+- **[P0]** A seller cannot delete a submitted product. Its slot frees only when an admin rejects it or takes it down, immediately, and her screen says the slot is free again. Drafts hold no slot and she may delete them.
 - **[P1]** Warn at 4 of 5: "one slot left".
 - **[P1]** Admin can grant free slots manually (goodwill, a trainee batch, a demo account).
 - **[P2]** Bulk packs — ₹150 for 20 slots — once you know whether anyone buys a second pack.
@@ -315,7 +315,7 @@ The daily driver. This is the screen she opens the app for.
 **My products [P0]**
 - Slot meter repeated at the top
 - Photo, price, stock, status: live / draft / pending approval / rejected / paused
-- Inline quick actions — in-stock toggle, edit price, edit stock, duplicate, **archive (frees a slot)**
+- Inline quick actions — in-stock toggle, edit price, edit stock, duplicate, **delete a draft** (a submitted product cannot be deleted by her)
 - Low-stock highlighting, and "pause all products" for a holiday
 - Rejected products show admin's reason with a fix-and-resubmit button
 

@@ -74,6 +74,12 @@ async function main(): Promise<void> {
       !survivingOrders.some((o) => o.customerId === c.id),
   )
 
+  // Feedback goes with the order it was written on. Left behind, it would be
+  // stars on a shop that no longer exists.
+  const doomedReviews = db.reviews.filter(
+    (r) => seedSellerIds.has(r.sellerId) || doomedOrders.some((o) => o.id === r.orderId),
+  )
+
   const show = (title: string, rows: string[]) => {
     console.log(`  ${title}`)
     console.log('  ' + '-'.repeat(74))
@@ -102,11 +108,14 @@ async function main(): Promise<void> {
   show('DELETING - payments', doomedPayments.map(
     (p) => `${p.id.padEnd(16)} seller=${p.sellerId.padEnd(14)} ${p.status}`,
   ))
+  show('DELETING - reviews', doomedReviews.map(
+    (r) => `${r.id.padEnd(16)} order=${r.orderId.padEnd(10)} ${r.rating}★`,
+  ))
 
   console.log(
     `  SUMMARY  ${seedSellers.length} sellers, ${doomedProducts.length} products, ` +
       `${doomedOrders.length} orders, ${doomedCustomers.length} customers, ` +
-      `${doomedPayments.length} payments`,
+      `${doomedPayments.length} payments, ${doomedReviews.length} reviews`,
   )
   console.log(`           ${realSellers.length} registered seller(s) kept`)
 
@@ -123,6 +132,7 @@ async function main(): Promise<void> {
   db.orders = db.orders.filter((o) => !doomedOrders.includes(o))
   db.customers = db.customers.filter((c) => !doomedCustomers.includes(c))
   db.payments = db.payments.filter((p) => !doomedPayments.includes(p))
+  db.reviews = db.reviews.filter((r) => !doomedReviews.includes(r))
 
   await flush()
   console.log('')

@@ -53,6 +53,12 @@ export interface OrderEvent {
   at: string
   by: 'customer' | 'seller' | 'admin' | 'system'
   note?: string
+  /**
+   * On a CANCELLED event, the code from `orderCancel.ts` - stored as a code so
+   * each reader sees it in their own language. `note` then carries the words
+   * only when the code is "other".
+   */
+  reason?: string
 }
 
 export interface OrderItem {
@@ -95,6 +101,57 @@ export interface Order {
   outsideArea?: boolean
   events: OrderEvent[]
   sourceShareCode?: string
+}
+
+/* ------------------------------------------------------------------ */
+/* Feedback                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One buyer's word on one delivered order. The rules are in `review.ts`.
+ *
+ * Keyed to the ORDER, not the product or the seller: only somebody who has
+ * actually received goods from her may rate her, and one order is one voice.
+ */
+export interface Review {
+  id: string
+  orderId: string
+  sellerId: string
+  customerId: string
+  /**
+   * First name only, copied when written. Everyone can read a review, and a
+   * full name beside a village is enough to find a woman's house.
+   */
+  customerName: string
+  /** 1 to 5. */
+  rating: number
+  comment?: string
+  /** What the order held, copied, so a product page can say what was rated. */
+  items: { productId: string; name: string }[]
+  createdAt: string
+  updatedAt?: string
+  /**
+   * Taken down by an admin - abuse, a phone number, a quarrel that belongs on
+   * a call. Hidden reviews leave every public list and every average.
+   */
+  hidden?: boolean
+  hiddenAt?: string
+  hiddenBy?: string
+  hiddenReason?: string
+}
+
+/** A review as the public sees it: who, how many stars, what they said. */
+export type PublicReview = Pick<
+  Review,
+  'id' | 'orderId' | 'customerName' | 'rating' | 'comment' | 'items' | 'createdAt' | 'updatedAt'
+>
+
+export interface RatingSummary {
+  /** One decimal place; 0 when there is nothing to average. */
+  average: number
+  count: number
+  /** How many reviews gave 1, 2, 3, 4 and 5 stars, in that order. */
+  byStars: [number, number, number, number, number]
 }
 
 /* ------------------------------------------------------------------ */
@@ -145,6 +202,8 @@ export type AdminNoticeKind =
   | 'UNBLOCKED'
   | 'PRODUCT_APPROVED'
   | 'PRODUCT_REJECTED'
+  /** Her shop is open for another six months. `note` carries the new end date (ISO). */
+  | 'SUBSCRIPTION_RENEWED'
 
 export interface AdminNotice {
   id: string
@@ -219,21 +278,50 @@ export interface Seller {
    */
   blockedAt?: string
   blockReason?: string
+  /**
+   * When her shop pauses unless she renews. Six months from the approval that
+   * started or renewed it; absent until her first payment is approved. The
+   * only stored piece of the subscription - see shared/src/subscription.ts.
+   */
+  subscriptionEndsAt?: string
   packsApproved: number
   /**
-   * Listings published over the life of the account, archived ones included.
-   * Counted because archiving frees a slot instantly, so without it the edit
-   * limit is avoided by taking a listing down and putting a new one up.
+   * Legacy and no longer written. It fed a lifetime cap on listings per pack
+   * that existed only because a seller could delete a listing to free its
+   * slot; she cannot any more, so the cap is gone. Old rows still carry it.
    */
   listingsPublished?: number
   /** Admin decisions about her account, newest last. Trimmed on write. */
   notices?: AdminNotice[]
+  /**
+   * Legacy, and never read for display: the API derives both from `reviews`
+   * on every answer (see `summarizeReviews`). A stored average goes stale the
+   * first time an admin hides a review.
+   */
   rating: number
   ratingCount: number
   qrScans: number
   qrOrders: number
   createdAt: string
 }
+
+/**
+ * A seller as ANYONE may see her - the "sold by" card, the shop page, checkout.
+ *
+ * An allow-list, on purpose. The version before this was a deny-list that
+ * named seven private fields and let everything else through, so every field
+ * added to Seller afterwards - admin notices, the reason she was blocked -
+ * went public the day it was added. Adding a field here is now a decision.
+ * `backend/src/db/publicSeller.ts` builds it; `backend/tests/public-seller.test.ts`
+ * holds the list.
+ */
+export type PublicSeller = Pick<
+  Seller,
+  | 'id' | 'womenBizId' | 'name' | 'photo' | 'shopName' | 'shopSlug' | 'village'
+  | 'deliveryFee' | 'freeDeliveryAbove' | 'minOrder' | 'pincodes'
+  | 'upiId' | 'upiQrReady' | 'upiQrUrl'
+  | 'rating' | 'ratingCount'
+>
 
 export type ReadinessBand = 'starter' | 'basic' | 'advanced' | 'digital'
 
@@ -318,6 +406,13 @@ export type PaymentApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface SubscriptionPayment {
   id: string
+  /**
+   * What the ₹50 was for: five more slots, or six more months. Absent on
+   * everything submitted before renewals existed, which were all packs.
+   */
+  kind?: 'PACK' | 'RENEWAL'
+  /** The shop's end date this approval left her with - the renewal history an admin reads. */
+  termEndsAt?: string
   sellerId: string
   sellerName: string
   womenBizId: string
@@ -325,7 +420,13 @@ export interface SubscriptionPayment {
   amount: number
   utr: string
   payerUpi: string
+  /**
+   * Her UPI app's success screen. Required on every submission made while
+   * uploads are switched on; absent only on older rows and when they are off.
+   */
   screenshotUrl?: string
+  /** When she says she paid - read off that screen, and checked against it. */
+  paidAt?: string
   submittedAt: string
   status: PaymentApprovalStatus
   /** Set when the same reference number was already used by someone else. */
@@ -441,7 +542,12 @@ export interface AdminStats {
   gmvMonth: number
   ordersToday: number
   ordersWeek: number
+  /** Approved, not blocked, and inside their subscription - sellers anyone can buy from today. */
   activeSellers: number
+  /** Open, and pausing within RENEW_REMINDER_DAYS unless they renew. */
+  subscriptionsExpiring: number
+  /** Paused: the six months ran out and they have not renewed. */
+  subscriptionsExpired: number
   totalSellers: number
   newRegistrations: number
   pendingPayments: number
@@ -457,7 +563,6 @@ export interface AdminStats {
   /** How many payments that total is made of. */
   approvedPaymentCount: number
   repurchaseRate: number
-  funnel: { mr: string; en: string; v: number }[]
   earningBands: { label: string; v: number }[]
   readinessBands: { band: ReadinessBand; v: number }[]
 }

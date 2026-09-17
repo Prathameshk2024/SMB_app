@@ -36,7 +36,7 @@ export function Home() {
     { to: '/sellers', icon: IconSellers, label: t('nav.sellers'), body: t('home.sectionSellers') },
     { to: '/orders', icon: IconOrders, label: t('nav.orders'), body: t('home.sectionOrders'), badge: s?.stuckOrders },
     { to: '/impact', icon: IconImpact, label: t('nav.impact'), body: t('home.sectionImpact') },
-    { to: '/today', icon: IconToday, label: t('nav.today'), body: t('today.funnel') },
+    { to: '/today', icon: IconToday, label: t('nav.today'), body: t('home.sectionToday') },
   ]
 
   return (
@@ -74,6 +74,11 @@ export function Home() {
             <SectionTitle>{t('today.health')}</SectionTitle>
             <div className="tiles">
               <MiniStat n={s.activeSellers} label={t('today.activeSellers')} />
+              {/* Renewals are hers to pay, not ours to approve, so these are not
+                  in the queue above - but a woman whose shop is about to pause,
+                  or has, is the call a coordinator should be making. */}
+              <MiniStat n={s.subscriptionsExpiring} label={t('today.subsExpiring')} />
+              <MiniStat n={s.subscriptionsExpired} label={t('today.subsExpired')} />
               <MiniStat n={s.newRegistrations} label={t('today.newThisWeek')} />
               <MiniStat n={s.ordersWeek} label={t('today.ordersWeek')} />
               <MiniStat n={rupees(s.womenEarnedMonth)} label={t('today.earnedMonth')} />
@@ -121,7 +126,7 @@ function QueueTile({ n, label, onClick }: { n: number; label: string; onClick: (
 function MiniStat({ n, label }: { n: number | string; label: string }) {
   return (
     <div className="tile">
-      <div className="tile__n" style={{ fontSize: 21 }}>{n}</div>
+      <div className="tile__n tile__n--mini">{n}</div>
       <div className="tile__l">{label}</div>
     </div>
   )

@@ -10,13 +10,13 @@ import { api } from '../../lib/api.js'
 import { categoryPhoto } from '../../lib/categoryPhoto.js'
 import {
   AppBar, Button, Card, EmptyState, Loading, Notice, Pill,
-  Rupees, SectionTitle, Stepper, TextInput, useAsync,
+  Rupees, SectionTitle, TextInput, useAsync,
 } from '../../components/ui.js'
 import {
   IconCart, IconCheck, IconMinus, IconNext, IconPlus, IconProduct, IconSearch,
-  IconStar,
 } from '../../components/icons.js'
 import { PageTour } from '../../components/Walkthrough.js'
+import { RatingLine, RatingSummaryCard, ReviewList } from '../../components/Reviews.js'
 
 /**
  * The picture on a category tile: a photograph where we have one, the emoji
@@ -262,7 +262,6 @@ export function ProductDetail() {
   const t = useT()
   const nav = useNavigate()
   const { add, has, canAdd, sellerName: cartShop } = useCart()
-  const [qty, setQty] = useState(1)
 
   const [data, loading] = useAsync(() => api.product(productId!), [productId])
 
@@ -273,6 +272,10 @@ export function ProductDetail() {
   const sellerId = data?.product.sellerId
   const [more] = useAsync(
     () => (sellerId ? api.catalog({ sellerId }) : Promise.resolve({ products: [] })),
+    [sellerId],
+  )
+  const [feedback] = useAsync(
+    () => (sellerId ? api.shopReviews(sellerId) : Promise.resolve(null)),
     [sellerId],
   )
 
@@ -363,8 +366,33 @@ export function ProductDetail() {
         {seller && (
           <Notice tone="info">
             {t('cus.deliveryFee')}: <Rupees value={seller.deliveryFee} />
-            {seller.freeDeliveryAbove > 0 && <> · ₹{seller.freeDeliveryAbove}+ {t('cart.free')}</>}
+            {seller.freeDeliveryAbove > 0 && <> · <Rupees value={seller.freeDeliveryAbove} />+ {t('cart.free')}</>}
           </Notice>
+        )}
+
+        {/* What her last buyers said, before the buy button - it is the one
+            thing about a village shop a stranger cannot check for themselves.
+            Three here; the shop page has the rest. Reviews that mention THIS
+            product come first. */}
+        {feedback && feedback.summary.count > 0 && (
+          <div>
+            <SectionTitle>{t('rev.title')}</SectionTitle>
+            <div className="stack-sm">
+              <RatingLine average={feedback.summary.average} count={feedback.summary.count} />
+              <ReviewList
+                reviews={[...feedback.reviews]
+                  .sort((a, b) =>
+                    Number(b.items.some((i) => i.productId === product.id)) -
+                    Number(a.items.some((i) => i.productId === product.id)))
+                  .slice(0, 3)}
+              />
+              {feedback.summary.count > 3 && (
+                <Button variant="ghost" onClick={() => nav(`/shop/seller/${product.sellerId}`)}>
+                  {t('rev.seeAll')} <IconNext aria-hidden="true" />
+                </Button>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Three, then the door to the rest. One shop owns the cart now, so
@@ -402,16 +430,15 @@ export function ProductDetail() {
           </>
         ) : (
           <>
-            {!outOfStock && (
-              <div className="row-between">
-                <span style={{ fontWeight: 600 }}>{t('prod.stock')}</span>
-                <Stepper value={qty} onChange={setQty} max={product.madeToOrder ? 20 : product.stock} />
-              </div>
-            )}
+            {/* No quantity row here. It carried `prod.stock` - "how much is
+                left?", the question the SELLER answers when she lists the
+                product - which asked a buyer to declare the shop's stock. One
+                is added, and the quantity is hers to change on the cart line
+                that follows, where the ceiling is the stock she cannot see. */}
             <Button
               disabled={outOfStock}
               onClick={() => {
-                if (add(product, qty, seller?.shopName)) nav('/shop/cart')
+                if (add(product, 1, seller?.shopName)) nav('/shop/cart')
               }}
             >
               {outOfStock ? t('prod.outOfStock') : <><IconCart aria-hidden="true" /> {t('cus.addToCart')}</>}
@@ -438,6 +465,7 @@ export function SellerShop() {
   const nav = useNavigate()
 
   const [data, loading] = useAsync(() => api.catalog({ sellerId }), [sellerId])
+  const [feedback] = useAsync(() => api.shopReviews(sellerId!), [sellerId])
   const products = data?.products ?? []
   const seller = products[0]?.seller
 
@@ -455,9 +483,9 @@ export function SellerShop() {
           <Notice tone="info">
             {t('cus.deliveryFee')}: <Rupees value={seller.deliveryFee ?? 0} />
             {(seller.freeDeliveryAbove ?? 0) > 0 && (
-              <> · ₹{seller.freeDeliveryAbove}+ {t('cart.free')}</>
+              <> · <Rupees value={seller.freeDeliveryAbove ?? 0} />+ {t('cart.free')}</>
             )}
-            {(seller.minOrder ?? 0) > 0 && <> · {t('cart.minOrder')} ₹{seller.minOrder}</>}
+            {(seller.minOrder ?? 0) > 0 && <> · {t('cart.minOrder')} <Rupees value={seller.minOrder ?? 0} /></>}
           </Notice>
         )}
 
@@ -474,6 +502,18 @@ export function SellerShop() {
               ))}
             </div>
           </>
+        )}
+
+        {/* Every review, after the goods: this page is for buying, and the
+            summary on her card above already says how she is rated. */}
+        {feedback && (
+          <div>
+            <SectionTitle>{t('rev.title')}</SectionTitle>
+            <div className="stack-sm">
+              <RatingSummaryCard summary={feedback.summary} />
+              {feedback.reviews.length > 0 && <ReviewList reviews={feedback.reviews} />}
+            </div>
+          </div>
         )}
       </div>
     </>
@@ -494,9 +534,8 @@ function SellerCard({ seller }: { seller: Partial<Seller> }) {
       <div className="tile__body">
         <div className="tile__meta">{t('cus.soldBy')}</div>
         <div className="tile__title">{seller.shopName}</div>
-        <div className="tile__meta">
-          <IconStar aria-hidden="true" /> {seller.rating} ({seller.ratingCount}) · {seller.village}
-        </div>
+        <div className="tile__meta"><RatingLine average={seller.rating} count={seller.ratingCount} /></div>
+        <div className="tile__meta">{seller.village}</div>
         <div className="tiny num dim">{seller.womenBizId}</div>
       </div>
     </div>

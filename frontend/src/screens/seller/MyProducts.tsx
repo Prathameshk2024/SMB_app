@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Product } from '@shared/types.js'
-import { PRODUCT_STATUS_STYLE } from '@shared/seller.js'
+import { PRODUCT_STATUS_STYLE, sellerMayDelete } from '@shared/seller.js'
 import { REJECT_GRACE_HOURS, hoursUntilRemoval } from '@shared/moderation.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import ProductImage from '../../components/ProductImage.js'
+import { SubscriptionNotice } from '../../components/SubscriptionNotice.js'
 import {
   AppBar, Button, Card, ConfirmSheet, EmptyState, Loading, Notice,
   Pill, Rupees, SlotMeter, useAsync,
@@ -20,7 +21,7 @@ export default function MyProducts() {
   const nav = useNavigate()
   const { toast } = useToast()
   const [data, loading, setData] = useAsync(() => api.myProducts(), [])
-  const [toArchive, setToArchive] = useState<Product | null>(null)
+  const [toDelete, setToDelete] = useState<Product | null>(null)
 
   if (loading) {
     return <><AppBar title={t('biz.myProducts')} backTo="/seller" /><div className="screen"><Loading /></div></>
@@ -30,6 +31,7 @@ export default function MyProducts() {
   }
 
   const { products, slots } = data
+  const expired = data.subscription?.state === 'expired'
 
   async function togglePause(p: Product) {
     const res = await api.updateProduct(p.id, {
@@ -39,18 +41,20 @@ export default function MyProducts() {
     toast(t('ok.productUpdated'))
   }
 
-  async function doArchive() {
-    if (!toArchive) return
-    const res = await api.archiveProduct(toArchive.id)
-    setData({ products: products.filter((x) => x.id !== toArchive.id), slots: res.slots })
-    setToArchive(null)
-    toast(t('ok.productRemoved'))
+  async function doDelete() {
+    if (!toDelete) return
+    const res = await api.deleteDraft(toDelete.id)
+    setData({ ...data!, products: products.filter((x) => x.id !== toDelete.id), slots: res.slots })
+    setToDelete(null)
+    toast(t('ok.draftRemoved'))
   }
 
   return (
     <>
       <AppBar title={t('biz.myProducts')} backTo="/seller" />
       <div className="screen stack">
+        <SubscriptionNotice view={data.subscription} />
+
         <Card>
           <SlotMeter
             used={slots.used}
@@ -99,7 +103,14 @@ export default function MyProducts() {
                         <span className="small dim">/ {t(`unit.${p.unit}`)}</span>
                       </div>
                       <div className="wrap-row" style={{ marginTop: 4 }}>
-                        {style && <Pill tone={style.tone} icon={style.icon}>{t(style.labelKey)}</Pill>}
+                        {/* While the shop is paused a LIVE listing is not live
+                            to anyone, so it does not say it is. Its own status
+                            is untouched - it reads LIVE again on renewal. */}
+                        {expired && p.status === 'LIVE' ? (
+                          <Pill tone="warn" icon={PRODUCT_STATUS_STYLE.PAUSED.icon}>{t('sub.pausedPill')}</Pill>
+                        ) : (
+                          style && <Pill tone={style.tone} icon={style.icon}>{t(style.labelKey)}</Pill>
+                        )}
                         <Pill tone={outOfStock ? 'danger' : 'neutral'}>
                           {outOfStock
                             ? t('prod.outOfStock')
@@ -119,6 +130,9 @@ export default function MyProducts() {
                     <div style={{ marginTop: 'var(--s3)' }}>
                       <Notice tone="danger" title={t('prod.rejected')}>
                         {p.rejectReason}
+                        {/* The one way a slot comes back, so say it where
+                            she can see it happened. */}
+                        <div className="small" style={{ marginTop: 4 }}>{t('prod.rejectedSlotFree')}</div>
                         <div className="small" style={{ marginTop: 4 }}>
                           {hoursUntilRemoval(p) == null
                             ? t('prod.rejectedRemoval', { n: REJECT_GRACE_HOURS })
@@ -141,9 +155,14 @@ export default function MyProducts() {
                     >
                       <IconEdit aria-hidden="true" /> {t('common.edit')}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setToArchive(p)}>
-                      <IconTrash aria-hidden="true" /> {t('prod.archive')}
-                    </Button>
+                    {/* No Remove on a submitted listing: it keeps its slot
+                        until an admin rejects it or takes it down. A draft
+                        holds no slot, so that one she can still throw away. */}
+                    {sellerMayDelete(p.status) && (
+                      <Button variant="ghost" size="sm" onClick={() => setToDelete(p)}>
+                        <IconTrash aria-hidden="true" /> {t('prod.deleteDraft')}
+                      </Button>
+                    )}
                   </div>
                 </Card>
               )
@@ -161,13 +180,13 @@ export default function MyProducts() {
 
       {/* Spells out the consequence, never a bare "Are you sure?" */}
       <ConfirmSheet
-        open={!!toArchive}
-        title={toArchive?.name ?? ''}
-        body={t('prod.archiveConfirm')}
-        confirmLabel={t('prod.archive')}
+        open={!!toDelete}
+        title={toDelete?.name || t('prod.draft')}
+        body={t('prod.deleteDraftConfirm')}
+        confirmLabel={t('prod.deleteDraft')}
         tone="danger"
-        onCancel={() => setToArchive(null)}
-        onConfirm={() => void doArchive()}
+        onCancel={() => setToDelete(null)}
+        onConfirm={() => void doDelete()}
       />
     </>
   )

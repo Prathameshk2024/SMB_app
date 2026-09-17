@@ -1,8 +1,13 @@
 import { getToken } from './api.js'
 import { takeRegisterTicket } from './registerTicket.js'
+import {
+  COMPRESSION, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB, fitWithin, qualitySteps, type UploadKind,
+} from './compress.js'
 
 /**
- * Product photo upload.
+ * Every image this app uploads - product photos, her bank's QR, the payment
+ * screenshot she sends the admin - goes through `uploadImage` below, so every
+ * one of them is compressed on the phone before a byte is sent.
  *
  * The file goes straight from the phone to Cloudinary using a signature our
  * server issues, so a 4MB photo never passes through the API.
@@ -10,29 +15,14 @@ import { takeRegisterTicket } from './registerTicket.js'
  * Before it leaves the device it is downscaled and re-encoded. A modern phone
  * camera produces 3-6MB per shot; on a village 4G connection that is close to
  * a minute of uploading, and it is the single most likely place a seller gives
- * up halfway through adding her first product. 1200px at JPEG 0.75 is
- * typically 150-350KB and indistinguishable at the sizes we render.
+ * up halfway through adding her first product.
  */
+
+// The numbers live in compress.ts so tests can reach them without a browser;
+// screens keep importing them from here, as before.
+export { COMPRESSION, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB, type UploadKind }
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
-const MAX_EDGE = 1200
-const QUALITY = 0.75
-
-/**
- * The largest file we will accept off the picker.
- *
- * Everything is downscaled to 1200px before it leaves the phone, so this is
- * not a bandwidth limit - it is a guard against the wrong FILE. A gallery
- * picker will happily hand back a video or a 40MP RAW, and `createImageBitmap`
- * on one of those either takes half a minute or runs the tab out of memory, on
- * exactly the cheap phones this app is for.
- *
- * 8MB clears any phone camera JPEG (3-6MB is typical at 12MP) with room to
- * spare, and sits under Cloudinary's 10MB image ceiling so a file that passes
- * here cannot then be refused at the far end.
- */
-export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024
-export const MAX_UPLOAD_MB = 8
 
 /** Thrown before anything is read, so the message can name the real limit. */
 export class FileTooLargeError extends Error {
@@ -53,36 +43,49 @@ export interface UploadedImage {
 
 export class UploadDisabledError extends Error {}
 
-/** Downscale in a canvas. Returns the original if anything goes wrong. */
-export async function shrinkImage(file: File): Promise<Blob> {
+/**
+ * Downscale and re-encode as JPEG in a canvas. Returns the original if the
+ * phone cannot decode it, or if compressing somehow made it bigger.
+ *
+ * Every image is re-encoded, including small ones. The old shortcut skipped
+ * anything under 600KB, and a phone screenshot is a PNG that is often exactly
+ * that - sent as it was, lossless and several times the size it needed to be.
+ */
+export async function shrinkImage(file: File, kind: UploadKind = 'product'): Promise<Blob> {
   if (!file.type.startsWith('image/')) return file
+  const { maxEdge, quality, targetBytes } = COMPRESSION[kind]
 
   try {
-    const bitmap = await createImageBitmap(file)
-    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
+    // `from-image` applies the camera's EXIF rotation, so a portrait photo is
+    // not uploaded lying on its side.
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const { width, height } = fitWithin(bitmap.width, bitmap.height, maxEdge)
 
-    // Already small enough - re-encoding would only lose quality.
-    if (scale === 1 && file.size < 600_000) {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) {
       bitmap.close?.()
       return file
     }
-
-    const w = Math.round(bitmap.width * scale)
-    const h = Math.round(bitmap.height * scale)
-    const canvas = document.createElement('canvas')
-    canvas.width = w
-    canvas.height = h
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return file
-    ctx.drawImage(bitmap, 0, 0, w, h)
+    // JPEG has no transparency, and a transparent PNG pixel encodes as BLACK.
+    // White first, so a screenshot or a QR with a clear background stays
+    // readable rather than turning into dark text on a black page.
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, width, height)
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(bitmap, 0, 0, width, height)
     bitmap.close?.()
 
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', QUALITY),
-    )
-    // If the re-encode somehow got bigger, keep the original.
-    return blob && blob.size < file.size ? blob : file
+    let best: Blob | null = null
+    for (const q of qualitySteps(quality)) {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', q))
+      if (!blob) break
+      best = blob
+      if (blob.size <= targetBytes) break
+    }
+    return best && best.size < file.size ? best : file
   } catch {
     return file
   }
@@ -98,7 +101,7 @@ interface Signature {
   uploadUrl: string
 }
 
-async function getSignature(kind: 'product' | 'payment'): Promise<Signature> {
+async function getSignature(kind: UploadKind): Promise<Signature> {
   const token = getToken()
 
   /**
@@ -131,7 +134,7 @@ async function getSignature(kind: 'product' | 'payment'): Promise<Signature> {
  */
 export async function uploadImage(
   file: File,
-  opts: { kind?: 'product' | 'payment'; onProgress?: (fraction: number) => void } = {},
+  opts: { kind?: UploadKind; onProgress?: (fraction: number) => void } = {},
 ): Promise<UploadedImage> {
   const { kind = 'product', onProgress } = opts
 
@@ -140,7 +143,7 @@ export async function uploadImage(
   if (!file.type.startsWith('image/')) throw new NotAnImageError(file.type)
   if (file.size > MAX_UPLOAD_BYTES) throw new FileTooLargeError(file.size)
 
-  const blob = await shrinkImage(file)
+  const blob = await shrinkImage(file, kind)
   const sig = await getSignature(kind)
 
   const form = new FormData()

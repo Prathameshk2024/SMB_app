@@ -131,8 +131,8 @@ export function callerSellerId(req: Request): string | undefined {
 /**
  * The client's address, for rate limiting.
  *
- * Requires `app.set('trust proxy', ...)` to be correct, or Render's load
- * balancer makes every request appear to come from one address - at which
+ * Requires `app.set('trust proxy', ...)` to be correct, or Cloud Run's front
+ * end makes every request appear to come from one address - at which
  * point per-IP limits either do nothing or lock out the entire internet at
  * once. See index.ts.
  */

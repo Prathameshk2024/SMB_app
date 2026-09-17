@@ -111,10 +111,6 @@ export function needsSellerAction(order: Order): boolean {
   return (SELLER_ACTIONS[order.status] || []).length > 0
 }
 
-export function customerCanCancel(status: OrderStatus): boolean {
-  return status === 'PLACED' || status === 'ACCEPTED'
-}
-
 export function initialPaymentStatus(mode: PaymentMode): PaymentStatus {
   return mode === 'UPI' ? 'UPI_PENDING' : 'COD_PENDING'
 }

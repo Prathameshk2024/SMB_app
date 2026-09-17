@@ -12,3 +12,4 @@ android/
 backend/data/db.json
 backend/.env.msg91-backup
 backend/data/recovery/
+frontend/.env.msg91-backup

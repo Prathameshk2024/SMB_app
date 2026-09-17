@@ -321,7 +321,7 @@ export function otpProvider(): OtpProvider {
  * ADMIN_PASSWORD used to hold a plaintext password that defaulted to
  * `changeme`. This replaces it, and the difference is not cosmetic: anyone who
  * can read the environment - a log of the deploy config, a screenshot of the
- * Render dashboard, a leaked backup - previously got the password itself.
+ * Cloud Run console, a leaked backup - previously got the password itself.
  *
  * It only works while there is no administrator at all. The first successful
  * sign-in writes a real record and this path closes for good. See

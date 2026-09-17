@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="mr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#7b1e2e" />
+<title>शांताई महिला बाजार</title>
+<!--
+  THE PAGE THE APK SHOWS WHEN THE APP ITSELF CANNOT LOAD.
+
+  The React offline screen only exists once the app has loaded. A WebView that
+  opens the site over the network and finds no network never gets that far -
+  it draws Android's "Web page not available" page with the URL and
+  net::ERR_INTERNET_DISCONNECTED on it. This file ships inside the APK and is
+  shown instead (capacitor.config.json -> server.errorPath).
+
+  So it must stand on its own: no script, style or font from the network,
+  only the icon beside it in the same folder. It cannot know the language she
+  chose - that lives in the site's storage, not here - so it says it in
+  Marathi first and English under it.
+-->
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #f7f0e4;
+    color: #3b2b23;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+      'Noto Sans Devanagari', 'Nirmala UI', 'Mangal', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    display: flex;
+    padding: calc(24px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  main {
+    margin: auto; width: 100%; max-width: 420px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    text-align: center;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #7b1e2e; margin-bottom: 24px; }
+  .brand img { width: 40px; height: 40px; }
+  .icon {
+    width: 96px; height: 96px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: #f8e9e8; color: #7b1e2e;
+  }
+  h1 { margin: 8px 0 0; font-size: 1.75rem; line-height: 1.25; }
+  p { margin: 0; color: #6b584c; max-width: 34ch; }
+  .en { font-size: 1rem; color: #97867a; }
+  button {
+    margin-top: 16px; width: 100%; min-height: 54px;
+    border: 0; border-radius: 10px;
+    background: #7b1e2e; color: #fff;
+    font: inherit; font-weight: 700; line-height: 1.3;
+    padding: 12px 16px; cursor: pointer;
+  }
+  button:active { background: #5c1522; }
+  button:disabled { opacity: 0.45; }
+  .still { min-height: 3em; color: #b3341f; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <img src="icon-192.png" alt="" aria-hidden="true" />
+    <span>शांताई महिला बाजार</span>
+  </div>
+
+  <span class="icon" aria-hidden="true">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="1" y1="1" x2="23" y2="23" />
+      <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+      <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+      <path d="M10.71 5.05A16 16 0 0 1 22.58 9" />
+      <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+      <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+      <line x1="12" y1="20" x2="12.01" y2="20" />
+    </svg>
+  </span>
+
+  <h1>इंटरनेट बंद आहे</h1>
+  <p>मोबाइल डेटा किंवा वाय-फाय चालू करा. इंटरनेट आले की ॲप आपोआप उघडेल.</p>
+  <p class="en">No internet connection. Turn on mobile data or Wi-Fi - the app opens by itself once you are back online.</p>
+
+  <button id="retry" type="button">पुन्हा प्रयत्न करा · Try again</button>
+  <p id="still" class="still" role="status"></p>
+</main>
+
+<script>
+  // Where to go back to. When the APK loads the site over the network, this
+  // is that site; when the app is bundled inside the APK, the error page is
+  // never reached for the app itself and this is not used.
+  var APP_URL = 'https://shantai-mahila-bajar-app-frontend.vercel.app/'
+
+  var retry = document.getElementById('retry')
+  var still = document.getElementById('still')
+
+  function open() { window.location.replace(APP_URL) }
+
+  // She should not have to find the button: the moment data comes back, go.
+  window.addEventListener('online', open)
+
+  retry.addEventListener('click', function () {
+    still.textContent = ''
+    if (navigator.onLine) return open()
+    retry.disabled = true
+    setTimeout(function () {
+      retry.disabled = false
+      if (navigator.onLine) return open()
+      still.textContent = 'अजूनही इंटरनेट नाही. थोड्या वेळाने पुन्हा प्रयत्न करा. · Still no internet.'
+    }, 900)
+  })
+</script>
+</body>
+</html>

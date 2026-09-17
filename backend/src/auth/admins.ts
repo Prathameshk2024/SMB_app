@@ -116,7 +116,7 @@ export function authenticateAdmin(db: Db, email: string, password: string): Admi
 /**
  * FIRST ADMIN, ON A HOST WITH NO SHELL
  * ====================================
- * Render's free tier gives no shell, so `npm run admin` cannot be used to
+ * Cloud Run gives no shell, so `npm run admin` cannot be used to
  * create the first account on a fresh deployment - and an API with no way to
  * make an administrator is an API nobody can administer.
  *

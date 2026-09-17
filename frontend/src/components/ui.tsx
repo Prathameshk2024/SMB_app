@@ -518,7 +518,7 @@ export function OtpInput({
 }
 
 export function Rupees({ value, className = '' }: { value: number; className?: string }) {
-  return <span className={`num ${className}`}>₹{Number(value || 0).toLocaleString('en-IN')}</span>
+  return <span className={`num money ${className}`}>₹{Number(value || 0).toLocaleString('en-IN')}</span>
 }
 
 /**
@@ -602,7 +602,7 @@ export function useAsync<T>(
  * the whole point: the clipboard is invisible, so without it a copy the
  * browser refused looks exactly like one that worked.
  */
-export function CopyValue({ value }: { value: string }) {
+export function CopyValue({ value, onCopied }: { value: string; onCopied?: () => void }) {
   const t = useT()
   const { toast } = useToast()
   if (!value) return null
@@ -622,7 +622,7 @@ export function CopyValue({ value }: { value: string }) {
         onClick={() => {
           navigator.clipboard
             .writeText(value)
-            .then(() => toast(t('ok.upiCopied')))
+            .then(() => { toast(t('ok.upiCopied')); onCopied?.() })
             .catch(() => toast(t('err.copyFailed')))
         }}
       >

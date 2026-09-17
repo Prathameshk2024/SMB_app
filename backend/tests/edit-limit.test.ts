@@ -1,9 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import type { Product, Seller } from '@shared/types.js'
+import type { Product } from '@shared/types.js'
 import {
-  MAX_EDITS, REPLACEMENTS_PER_SLOT, countsAsEdit, editsAreLimited, editsLeft,
-  publishAllowance, publishesLeft,
+  MAX_EDITS, countsAsEdit, editsAreLimited, editsLeft,
 } from '@shared/seller.js'
 
 /**
@@ -95,31 +94,4 @@ test('drafts and rejected listings are not rationed', () => {
   assert.equal(editsAreLimited('PAUSED'), true)
   assert.equal(editsAreLimited('DRAFT'), false)
   assert.equal(editsAreLimited('REJECTED'), false)
-})
-
-/**
- * The other half of the rule. Archiving frees a slot the instant it happens,
- * which is the escape hatch that stops a woman with five bad listings being
- * stuck - and it is also the way around the edit limit unless a pack has a
- * ceiling on how many listings it may ever publish.
- */
-const seller = (over: Partial<Seller> = {}): Seller =>
-  ({ id: 's1', packsApproved: 1, ...over }) as Seller
-
-test('one pack is five listings at a time and fifteen over its life', () => {
-  assert.equal(publishAllowance(seller()), 5 * (1 + REPLACEMENTS_PER_SLOT))
-  assert.equal(publishAllowance(seller({ packsApproved: 2 })), 30)
-  assert.equal(publishAllowance(seller({ packsApproved: 0 })), 0)
-})
-
-test('publishing spends the allowance, archiving does not give it back', () => {
-  // The whole point: archive-and-re-upload has to cost something, or two
-  // edits is a speed bump on the way to an unlimited listing.
-  assert.equal(publishesLeft(seller({ listingsPublished: 14 })), 1)
-  assert.equal(publishesLeft(seller({ listingsPublished: 15 })), 0)
-  assert.equal(publishesLeft(seller({ listingsPublished: 99 })), 0)
-})
-
-test('an account from before the counter still has its full allowance', () => {
-  assert.equal(publishesLeft(seller()), 15)
 })

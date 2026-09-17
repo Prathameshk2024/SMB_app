@@ -4,10 +4,12 @@ import type { AdminNotice, DigitalProfile, SubscriptionPayment } from '@shared/t
 import { BAND_LABEL, MAX_SCORE, SELF_REPORTED_FACTORS } from '@shared/readiness.js'
 import { useI18n, useT } from '../i18n/I18nProvider.js'
 import { api, type SellerDetail as Detail } from '../lib/api.js'
-import { isStuck, maskedLabel, rupees, when } from '../lib/format.js'
+import { dateOnly, isStuck, maskedLabel, rupees, when } from '../lib/format.js'
+import { PaymentKindPill, SubscriptionPill } from '../components/Subscription.js'
 import { TopBar } from '../components/Shell.js'
 import { SellerActions, StatusPill } from '../components/SellerActions.js'
 import { ProductCard } from './Products.js'
+import { ReviewTable, SummaryText } from './Reviews.js'
 import { IconNo, IconProducts, IconYes } from '../components/icons.js'
 import {
   Card, CopyValue, EmptyState, ErrorNote, Loading, Notice, Pill, SectionTitle, useAsync,
@@ -79,6 +81,7 @@ export function SellerDetail() {
 
         <Listings detail={data} onDone={reload} />
         <Orders detail={data} />
+        <Feedback detail={data} onDone={reload} />
       </div>
     </>
   )
@@ -101,6 +104,7 @@ function Identity({ detail, onDone }: { detail: Detail; onDone: () => void }) {
           <div className="row wrap" style={{ gap: 8 }}>
             <span className="strong" style={{ fontSize: 17 }}>{seller.name}</span>
             <StatusPill status={seller.status} />
+            {seller.status === 'ACTIVE' && <SubscriptionPill view={seller.subscription} />}
             {!seller.isOpen && <Pill tone="warn">{t('sd.shopClosed')}</Pill>}
           </div>
 
@@ -187,7 +191,7 @@ function Numbers({ detail }: { detail: Detail }) {
 function Tile({ n, label }: { n: number | string; label: string }) {
   return (
     <div className="tile">
-      <div className="tile__n" style={{ fontSize: 21 }}>{n}</div>
+      <div className="tile__n tile__n--mini">{n}</div>
       <div className="tile__l">{label}</div>
     </div>
   )
@@ -365,7 +369,12 @@ function Decisions({
                 {n.n != null && <span className="num small dim">{n.n}</span>}
                 <span className="small dim-2">{when(n.at)}</span>
               </div>
-              {n.note && <div className="small dim">{n.note}</div>}
+              {/* A renewal's note is the date it now runs to, stored as ISO. */}
+              {n.note && (
+                <div className="small dim">
+                  {n.kind === 'SUBSCRIPTION_RENEWED' ? t('pay.termUntil', { date: dateOnly(n.note) }) : n.note}
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -381,11 +390,16 @@ function Decisions({
             <li key={p.id}>
               <div className="row" style={{ gap: 8 }}>
                 <span className="num small">{rupees(p.amount)}</span>
+                <PaymentKindPill kind={p.kind} />
                 <Pill tone={p.status === 'APPROVED' ? 'ok' : p.status === 'REJECTED' ? 'danger' : 'warn'}>
                   {p.status}
                 </Pill>
                 <span className="small dim-2">{when(p.submittedAt)}</span>
               </div>
+              {/* The renewal history: what date each approval left her shop open until. */}
+              {p.termEndsAt && (
+                <div className="small dim">{t('pay.termUntil', { date: dateOnly(p.termEndsAt) })}</div>
+              )}
               {p.utr && <div className="small dim mono">UTR {p.utr}</div>}
               {p.rejectReason && (
                 <div className="small" style={{ color: 'var(--danger)' }}>
@@ -481,6 +495,30 @@ function Orders({ detail }: { detail: Detail }) {
         </div>
       </Card>
       <div className="small dim-2" style={{ marginTop: 8 }}>{t('or.customerHiddenNote')}</div>
+    </section>
+  )
+}
+
+/**
+ * What her buyers said, hidden reviews included and marked. Before deciding
+ * anything about her account, an admin should read this: a run of low ratings
+ * is a reason to call her, and a reason nobody would otherwise see.
+ */
+function Feedback({ detail, onDone }: { detail: Detail; onDone: () => void }) {
+  const t = useT()
+  const { reviews, rating } = detail
+
+  return (
+    <section>
+      <SectionTitle>{t('sd.reviews')} ({reviews.length})</SectionTitle>
+      {reviews.length === 0 ? (
+        <Card><EmptyState title={t('rv.none')} /></Card>
+      ) : (
+        <div className="stack-sm">
+          <SummaryText summary={rating} />
+          <ReviewTable reviews={reviews} onChanged={onDone} />
+        </div>
+      )}
     </section>
   )
 }

@@ -120,13 +120,6 @@ export function Today() {
           </div>
         </section>
 
-        <section>
-          <SectionTitle>{t('today.funnel')}</SectionTitle>
-          <Card>
-            <Funnel steps={s.funnel} />
-          </Card>
-        </section>
-
       </div>
     </>
   )
@@ -153,71 +146,6 @@ function Stat({ n, label }: { n: number | string; label: string }) {
     <div className="tile">
       <div className="tile__n">{n}</div>
       <div className="tile__l">{label}</div>
-    </div>
-  )
-}
-
-/**
- * Registered -> paid -> approved -> first product -> first order.
- *
- * The question this answers is not "how many at each stage" - the numbers on
- * the right say that - it is WHERE PEOPLE ARE LOST. So each bar is drawn as a
- * share of the FIRST stage, and the gap between two bars carries the drop-off
- * between them. That is the figure a programme manager reports, and it used to
- * require reading two bars and doing the arithmetic.
- *
- * One sequential ramp, light to dark, because the stages are ordered. The old
- * version painted four bars maroon and the last one gold, which read as a
- * status change rather than as the end of a sequence.
- *
- * A stage LARGER than the first is possible and is not hidden: payments are
- * counted per payment, so a woman who pays twice appears twice. The bar fills
- * the track and the share is still printed, so the anomaly is visible rather
- * than clipped into looking like a clean 100%.
- */
-function Funnel({ steps }: { steps: { mr: string; en: string; v: number }[] }) {
-  // The API sends both languages for these labels, so the console picks one
-  // rather than translating - the wording stays owned by a single place.
-  const { lang } = useI18n()
-  const first = steps[0]?.v ?? 0
-
-  return (
-    <div className="funnel">
-      {steps.map((step, i) => {
-        const share = first > 0 ? step.v / first : 0
-        const prev = i > 0 ? steps[i - 1]!.v : null
-        const lost = prev !== null && prev > 0 ? prev - step.v : 0
-        const lostPct = prev !== null && prev > 0 ? Math.round((lost / prev) * 100) : 0
-
-        return (
-          <div key={step.en} style={{ display: 'contents' }}>
-            {i > 0 && (
-              <div className={`funnel__drop ${lostPct >= 50 ? 'funnel__drop--bad' : ''}`}>
-                {lost > 0 ? `- ${lost} (${lostPct}%)` : lost < 0 ? `+ ${-lost}` : '-'}
-              </div>
-            )}
-
-            <div className="funnel__row">
-              <div className="funnel__name">{lang === 'mr' ? step.mr : step.en}</div>
-              <div className="funnel__track">
-                <div
-                  className={`funnel__fill ${share >= 1 ? 'funnel__fill--over' : ''}`}
-                  style={{
-                    width: `${Math.min(100, Math.round(share * 100))}%`,
-                    background: RAMP_MAROON[
-                      Math.round((i * (RAMP_MAROON.length - 1)) / Math.max(1, steps.length - 1))
-                    ],
-                  }}
-                />
-              </div>
-              <div className="funnel__n">
-                <span className="funnel__v">{step.v}</span>
-                <span className="funnel__pct">{Math.round(share * 100)}%</span>
-              </div>
-            </div>
-          </div>
-        )
-      })}
     </div>
   )
 }

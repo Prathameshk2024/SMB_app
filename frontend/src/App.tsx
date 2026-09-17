@@ -11,6 +11,7 @@ import { liveTicket } from './lib/registerTicket.js'
 import { PincodeProvider } from './store/PincodeContext.js'
 import { recallScroll, rememberScroll } from './lib/scrollMemory.js'
 import { CustomerLayout, SellerLayout } from './components/layouts.js'
+import OfflineScreen from './components/OfflineScreen.js'
 
 import Landing from './screens/landing/Landing.js'
 import { OtpScreen, PhoneScreen } from './screens/auth/Auth.js'
@@ -27,6 +28,7 @@ import { SellerOrderDetail, SellerOrders } from './screens/seller/Orders.js'
 import { PaymentWaiting, Subscription } from './screens/seller/Subscription.js'
 import { SellerGrowth, SellerHelp, SellerProfile } from './screens/seller/Misc.js'
 import { MyBuyers } from './screens/seller/MyBuyers.js'
+import { SellerReviews } from './screens/seller/Reviews.js'
 import PaymentQr from './screens/seller/PaymentQr.js'
 
 import {
@@ -137,6 +139,7 @@ export default function App() {
           <PincodeProvider>
           <Router>
             <ScrollMemory />
+            <OfflineScreen />
             <Routes>
               {/* ---- public ---------------------------------------- */}
               {/* The landing page stays reachable while signed in. It used to
@@ -183,6 +186,7 @@ export default function App() {
                 <Route path="help" element={<SellerHelp />} />
                 <Route path="growth" element={<SellerGrowth />} />
                 <Route path="buyers" element={<MyBuyers />} />
+                <Route path="reviews" element={<SellerReviews />} />
                 <Route path="payment" element={<PaymentQr />} />
               </Route>
 

@@ -171,7 +171,7 @@ export function SellerProfile() {
 
       <ConfirmSheet
         open={logoutOpen}
-        title={t('prof.logout')}
+        title={t('prof.logoutConfirmTitle')}
         body={t('prof.logoutConfirm')}
         confirmLabel={t('prof.logout')}
         tone="danger"
@@ -290,7 +290,7 @@ export function SellerGrowth() {
           <div className="row" style={{ alignItems: 'baseline', gap: 'var(--s3)', flexWrap: 'wrap' }}>
             <span className="hero-num"><Rupees value={total} /></span>
             <span style={{ color: up ? 'var(--ok)' : 'var(--danger)', fontWeight: 700 }}>
-              {up ? <IconUp aria-hidden="true" /> : <IconDown aria-hidden="true" />} ₹{Math.abs(diff)} {up ? t('grow.more') : t('grow.less')}
+              {up ? <IconUp aria-hidden="true" /> : <IconDown aria-hidden="true" />} <Rupees value={Math.abs(diff)} /> {up ? t('grow.more') : t('grow.less')}
             </span>
           </div>
 

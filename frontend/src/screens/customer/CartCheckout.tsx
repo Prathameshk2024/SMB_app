@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { Address, Seller } from '@shared/types.js'
+import type { Address, Review, Seller } from '@shared/types.js'
+import { canReview } from '@shared/review.js'
+import { OrderReview } from '../../components/Reviews.js'
 import {
   STATUS_STYLE, awaitingCustomerPayment, statusLabelKey,
 } from '@shared/orderFlow.js'
@@ -13,18 +15,21 @@ import { usePincode } from '../../store/PincodeContext.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
-import { PayButton } from '../../components/PayButton.js'
+import { PaySteps, SaveQrButton } from '../../components/PayFromPhone.js'
+import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
+import { customerCanCancel, sellerCanCancel } from '@shared/orderCancel.js'
+import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
 import { Avatar } from '../../components/Avatar.js'
 import { AddressForm } from '../../components/AddressForm.js'
 import {
-  AppBar, Button, Card, Choice, CopyValue, EmptyState, Field, LanguagePicker, Loading,
+  AppBar, Button, Card, Choice, ConfirmSheet, CopyValue, EmptyState, Field, LanguagePicker, Loading,
   Notice, Pill, Rupees, SectionTitle, Stepper, TextInput, VoiceInput, useAsync,
 } from '../../components/ui.js'
 import { Timeline } from '../seller/Orders.js'
 import { ProductCard } from './Browse.js'
 import {
   IconAddressHome, IconAddressOther, IconCall, IconCart, IconCash, IconChevron,
-  IconNext, IconOrders, IconPlus, IconProfile, IconUpi, IconWhatsapp,
+  IconNext, IconOrders, IconPlus, IconProfile, IconStar, IconUpi, IconWhatsapp,
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
 
@@ -133,19 +138,28 @@ export function Cart() {
             */}
             <div className="stack-sm">
               {g.items.map((i) => (
-                <div key={i.productId} className="row-between">
-                  <div className="row">
-                    <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>{i.emoji}</span>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>{i.name}</div>
-                      <div className="small dim">
-                        <span className="num">{i.qty}</span> {t(`unit.${i.unit}`)}
-                        {' × '}<Rupees value={i.price} />
+                /*
+                  Two rows, not one. Name, line total and a 132px stepper do
+                  not fit across a 360px phone: the total split ("₹1,35" over
+                  "0"), and holding the total whole squeezed a long name to a
+                  few letters a line. The stepper takes its own row, under the
+                  figure it changes.
+                */
+                <div key={i.productId} className="stack-sm">
+                  <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                    <div className="row grow">
+                      <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>{i.emoji}</span>
+                      <div className="grow">
+                        <div style={{ fontWeight: 600 }}>{i.name}</div>
+                        <div className="small dim">
+                          <span className="num">{i.qty}</span> {t(`unit.${i.unit}`)}
+                          {' × '}<Rupees value={i.price} />
+                        </div>
                       </div>
                     </div>
+                    <strong className="num" style={{ flex: 'none' }}><Rupees value={i.price * i.qty} /></strong>
                   </div>
-                  <div className="row" style={{ gap: 'var(--s3)' }}>
-                    <strong className="num"><Rupees value={i.price * i.qty} /></strong>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     {/* min 0: the last tap on a line of one takes it out,
                         which is how she empties a cart to reach another shop. */}
                     <Stepper
@@ -468,6 +482,7 @@ export function CustomerOrders() {
   const nav = useNavigate()
   const [data, loading] = useAsync(() => api.myOrders(), [])
   const orders = data?.orders ?? []
+  const reviewed = new Set(data?.reviewedOrderIds ?? [])
 
   return (
     <>
@@ -484,10 +499,15 @@ export function CustomerOrders() {
               <div className="tile__body">
                 <div className="tile__title">{o.items.map((i) => i.name).join(', ')}</div>
                 <div className="tile__meta">{o.id}</div>
-                <div style={{ marginTop: 4 }}>
+                <div className="wrap-row" style={{ marginTop: 4 }}>
                   <Pill tone={STATUS_STYLE[o.status].tone} icon={STATUS_STYLE[o.status].icon}>
                     {t(statusLabelKey(o.status))}
                   </Pill>
+                  {/* Asked for on the list, not only inside the order: a buyer
+                      rarely reopens something that has already arrived. */}
+                  {canReview(o) && !reviewed.has(o.id) && (
+                    <Pill tone="warn" icon={<IconStar aria-hidden="true" />}>{t('rev.giveFeedback')}</Pill>
+                  )}
                 </div>
               </div>
               <div className="tile__price"><Rupees value={o.total} /></div>
@@ -521,13 +541,23 @@ export function TrackOrder() {
     box?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     box?.focus({ preventScroll: true })
   }
+  const waitForReturn = useReturnFromApp(askForUtr)
   const [paying, setPaying] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
 
   if (loading) return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><Loading /></div></>
   if (!data) return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><EmptyState title="—" /></div></>
 
   const order = data.order
   const seller = data.seller
+  const orderLink = seller?.upiId
+    ? buildUpiLink({
+        upiId: seller.upiId,
+        name: seller.shopName,
+        amount: order.total,
+        note: `Shantai Mahila Bazar ${order.id}`,
+      })
+    : ''
 
   async function pay() {
     // The same check the server runs, so she is told what is wrong with the
@@ -552,9 +582,27 @@ export function TrackOrder() {
 
   return (
     <>
+      <CancelOrderSheet
+        order={order}
+        by="customer"
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onCancelled={(o) => {
+          setData({ ...data, order: o })
+          toast(t('ended.youCancelled'))
+        }}
+      />
       <AppBar title={`${t('ord.order')} ${order.id}`} onBack={() => nav(-1)} />
       <div className="screen stack">
         <Card><Timeline order={order} /></Card>
+
+        {/* Straight under the timeline that just turned green: the moment the
+            goods arrive is the moment there is something to say about them. */}
+        <OrderReview
+          order={order}
+          review={data.review as Review | undefined}
+          onSaved={(review) => setData({ ...data, review })}
+        />
 
         {/* The customer's number is on the ORDER, never on the catalogue: it appears once
             there is a transaction between them, and only to the person who
@@ -594,6 +642,20 @@ export function TrackOrder() {
           <Notice tone="info" title={t('cus.payAfterAcceptTitle')}>{t('cus.payAfterAccept')}</Notice>
         )}
 
+        <OrderEndedNotice order={order} viewer="customer" />
+        <RefundNotice order={order} viewer="customer" />
+
+        {/* Backing out is free until the seller says yes: nothing is paid and
+            nothing is cooking. After that the button is gone and the screen
+            says who to ring instead, rather than leaving her to wonder where
+            it went - the call button is right above. */}
+        {customerCanCancel(order.status) && (
+          <Button variant="ghost" onClick={() => setCancelOpen(true)}>{t('cancel.button')}</Button>
+        )}
+        {sellerCanCancel(order.status) && (
+          <p className="small dim">{t('cancel.cus.afterAccept')}</p>
+        )}
+
         {awaitingCustomerPayment(order) && (
           <Card>
             <SectionTitle>{t('cus.payNowTitle')}</SectionTitle>
@@ -618,38 +680,22 @@ export function TrackOrder() {
               )}
               {seller?.upiId ? (
                 <>
-                  {/* One phone cannot scan its own screen. This opens whichever
-                      UPI app she has, with the shop, the amount and the order
-                      id already in it; the QR below is for a second handset. */}
-                  <PayButton
-                    link={buildUpiLink({
-                      upiId: seller.upiId,
-                      name: seller.shopName,
-                      amount: order.total,
-                      note: `Shantai Mahila Bazar ${order.id}`,
-                      ref: order.id,
-                    })}
-                    amount={order.total}
-                    onReturn={askForUtr}
+                  <QrCode value={orderLink} size={170} label={t('cus.payTo')} />
+                  {/* One phone cannot scan its own screen, and a pay link to a
+                      personal UPI ID is declined by PhonePe and Google Pay. A
+                      QR saved to the gallery and scanned from inside her UPI
+                      app is a payment those apps accept, amount included. */}
+                  <SaveQrButton
+                    link={orderLink}
+                    fileName={`shantai-${order.id}.png`}
+                    onSaved={waitForReturn}
                   />
-                  <div className="small dim center">{t('pay.orScan')}</div>
-
-                  <QrCode
-                    value={buildUpiLink({
-                      upiId: seller.upiId,
-                      name: seller.shopName,
-                      amount: order.total,
-                      note: `Shantai Mahila Bazar ${order.id}`,
-                      ref: order.id,
-                    })}
-                    size={170}
-                    label={t('cus.payTo')}
-                  />
-                  {/* Copyable, not just printed. Paying from this same phone
-                      means there is no second screen to scan the QR with, so
-                      the ID has to be retyped into the bank app - and a UPI ID
-                      wrong by one character pays a stranger with no way back. */}
-                  <CopyValue value={seller.upiId} />
+                  <PaySteps />
+                  {/* The other route those apps accept: paste the ID. Copyable,
+                      not just printed - a UPI ID wrong by one character pays a
+                      stranger with no way back. */}
+                  <div className="dim center">{t('pay.orUpiId')}</div>
+                  <CopyValue value={seller.upiId} onCopied={waitForReturn} />
                 </>
               ) : (
                 <Notice tone="warn">{t('qrpay.notSetUp')}</Notice>
@@ -718,6 +764,7 @@ export function CustomerProfile() {
   const [editing, setEditing] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const [logoutOpen, setLogoutOpen] = useState(false)
 
   const customer = data?.customer
   const addresses = customer?.addresses ?? []
@@ -895,10 +942,23 @@ export function CustomerProfile() {
           <LanguagePicker />
         </Card>
 
-        <Button variant="ghost" onClick={() => { signOut(); nav('/', { replace: true }) }}>
+        <Button variant="ghost" onClick={() => setLogoutOpen(true)}>
           {t('prof.logout')}
         </Button>
       </div>
+
+      {/* The same step the seller gets. Getting back in costs an SMS code, and
+          the one worry a shopper has about leaving - "will my cart go?" - is
+          answered before she decides: it stays on this phone. */}
+      <ConfirmSheet
+        open={logoutOpen}
+        title={t('prof.logoutConfirmTitle')}
+        body={t('prof.logoutConfirmCustomer')}
+        confirmLabel={t('prof.logout')}
+        tone="danger"
+        onCancel={() => setLogoutOpen(false)}
+        onConfirm={() => { signOut(); nav('/', { replace: true }) }}
+      />
 
       <PageTour id="shop.profile" />
     </>
