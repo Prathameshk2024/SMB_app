@@ -9,9 +9,12 @@ import { IconCheck, IconOffline } from './icons.js'
  *
  * Without this a dropped connection surfaced as whatever the current screen
  * did with a failed fetch - a spinner that never ends, or an error that
- * reads like the app is broken - and inside the APK, on a cold start, as
- * Android's own "Web page not available" with a URL and `net::ERR_…` on it.
- * Neither tells a woman the one thing she can act on: turn data back on.
+ * reads like the app is broken. That tells a woman nothing she can act on,
+ * and the one thing she can do is turn data back on.
+ *
+ * Only a connection lost AFTER the site loaded reaches this. With no network
+ * at launch the APK never loads the site at all, so that screen belongs to the
+ * wrapper (`renderError` in its `app/index.tsx`), not to this file.
  *
  * It is drawn OVER the app, never instead of it. The routes underneath stay
  * mounted, so a half-filled form or the product wizard is exactly where she

@@ -85,8 +85,14 @@ this. Do it when nobody is placing orders, not in the evening.
 
 Set these on the service (Console → *Edit & deploy new revision* → *Variables
 & Secrets*). Cloud Run sets `PORT` itself and `config.ts` reads it — do not set
-it. The four marked secret belong in Secret Manager rather than as plain
-variables, where anyone with viewer access to the project can read them.
+it. The four marked secret are held in **Secret Manager** and exposed to the
+service as environment variables, not typed in as plain values — a plain
+variable is readable by anyone with viewer access to the project.
+
+Two things follow from that. The service's runtime service account needs
+`roles/secretmanager.secretAccessor` on each secret, or the revision fails to
+start. And a secret is read when an instance starts, so adding a new version
+changes nothing until the next revision is deployed.
 
 | Variable | Notes |
 |---|---|
@@ -268,6 +274,7 @@ passes:
 ## 5. Before real users
 
 - [ ] `SESSION_SECRET` set to a fresh random value — changing it later signs every user out
+- [ ] `SESSION_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `CLOUDINARY_URL` and `MSG91_AUTH_KEY` come from Secret Manager, not plain variables
 - [ ] MSG91 configured — **the API refuses to boot in production without it**, because demo mode returns the login code in the HTTP response
 - [ ] `VITE_MSG91_WIDGET_ID` + `VITE_MSG91_TOKEN_AUTH` set on the Vercel frontend project, and the Vercel URL added to the widget's allowed domains
 - [ ] `MSG91_AUTH_KEY` appears **only** on Cloud Run, never in a `VITE_*` variable

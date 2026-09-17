@@ -475,16 +475,18 @@ The service needs two settings that are not Cloud Run's defaults, and neither is
 - **Maximum instances 1.** See *Persistence* above. The default is 100.
 - **CPU always allocated** (`--no-cpu-throttling`). `save()` writes 400ms *after* the response has gone, and by default Cloud Run takes the CPU away the moment a response is sent — the write then waits for the next request, or for the `SIGTERM` flush when the instance is stopped.
 
+`SESSION_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `CLOUDINARY_URL` and `MSG91_AUTH_KEY` reach the service from **Secret Manager**, not as plain variables; a new secret version takes effect only on the next revision.
+
 How the container is built is not recorded in this repo: there is no Dockerfile and no `cloudbuild.yaml`. `docs/DEPLOY.md` says so, and is where that command belongs once somebody writes it down.
 
 **Both apps route in the browser, so both need `vercel.json`** — one catch-all rewrite to `index.html`, already committed in each folder. Without it every URL but the home page 404s on reload, which is the first thing anyone does with a link they were sent.
 
-**Neither Vite config sets `base`, and neither should.** The default absolute `/assets/…` is the only path right at every route depth: a relative one under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. A `--mode capacitor` build with `base: './'` and `cap:*` scripts existed for a Capacitor APK that never shipped, and were removed.
+**Neither Vite config sets `base`, and neither should.** The default absolute `/assets/…` is the only path right at every route depth: a relative one under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. A `--mode capacitor` build with `base: './'`, `cap:*` scripts, `capacitor.config.json` and the `offline.html` its `errorPath` named all existed for a Capacitor APK that never shipped, and were removed. Nothing in the repo is Capacitor now; do not add a file that only a Capacitor build would read.
 
 **The Android APK is a React Native WebView, not a build of this repo.** It is an Expo project kept in its own folder (`appgold-main`, outside this repository; `app/index.tsx` is the whole app), and its one screen loads the production frontend, `https://shantai-mahila-bajar-app-frontend.vercel.app/`, over the network. `docs/DEPLOY.md` §6 has the detail; what matters when changing code here:
 
 - **A Vercel deploy of `frontend/` is an APK update.** The APK is rebuilt only when the wrapper changes — or that URL does, because it is hard-coded there.
-- **The APK needs the network to open at all.** Nothing is bundled into it, so "works offline in the APK" is never a reason for a choice in `frontend/`.
+- **The APK needs the network to open at all.** Nothing is bundled into it, so "works offline in the APK" is never a reason for a choice in `frontend/`. A phone with no network at launch never reaches this site, so that screen is the wrapper's (`renderError` in `app/index.tsx`); once the site has loaded, `components/OfflineScreen.tsx` covers a connection that drops.
 - **Its origin is that Vercel URL**, so the `CORS_ORIGIN` entry and MSG91's allowed domain for the web app already cover it.
 - **Its WebView draws under Android's navigation bar and reports no safe-area inset.** `--safe-b` in `theme.css` is the larger of `env(safe-area-inset-bottom)` and `--app-inset-b`, which `lib/appInsets.ts` sets before the first render: the wrapper's measured value if it sends `window.ShantaiInsets`, otherwise 48px inside an Android WebView, otherwise 0. Anything pinned to the bottom edge takes its room from `--safe-b`, never from `env()` directly. `docs/DEPLOY.md` §6 has the wrapper side.
 - **It is Android System WebView, not Chrome.** A web API that works in the browser still has to be tried on a phone inside the APK — `navigator.share` is absent there. Voice input and the copy button were checked inside it on 15 September 2026. Its Android permissions, `RECORD_AUDIO` for the mic among them, are declared in the wrapper, not here.
