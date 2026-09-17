@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (283) + frontend (100) + admin (37) tests
+npm test               # backend (285) + frontend (100) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -111,6 +111,8 @@ PLACED → ACCEPTED → PACKED → OUT_FOR_DELIVERY → DELIVERED → COMPLETED
 ```
 
 Locked at six states. Payment is still a separate axis rather than a seventh state, but it is no longer independent of the walk: **a UPI order stops at `PACKED` until the seller says the money arrived.** The backend validates transitions with `canTransition()`; the frontend draws its buttons from `SELLER_ACTIONS`. Neither hard-codes a status string, and new code should not either.
+
+**The buyer sees four stages, not five states** — `BUYER_STAGES` and `buyerStageIndex()` in `orderFlow.ts`, drawn by `OrderStatusBox` / `BuyerTracker` in `frontend/src/components/OrderTracker.tsx`: Order confirmed (`ACCEPTED`), Shipped (`PACKED`), Out for delivery (`OUT_FOR_DELIVERY`), Delivered — a bold title and the day, green dot and green line for every stage reached, red for an order that ended (showing only the stages it passed). The order screen opens with the product lines, the order number (copyable) and a one-line status box that expands into the tracker. The seller's screens keep all five states (`Timeline` in `screens/seller/Orders.tsx`). My Orders has three tabs — active, completed (delivered), cancelled.
 
 ### Money after acceptance, not before
 
@@ -335,18 +337,19 @@ Known gap: **the server never checks `categoryId` against this list** — `produ
 
 A listing that still has no picture — an old one, or Cloudinary off — falls back to a photograph of its **category**, never of a product: `frontend/src/lib/categoryPhoto.ts`, the same bundled files the landing page already ships, so it costs no new bytes. A generic jar of pickle above a seller's name is honest about being a category picture; a specific-looking photo of someone else's pickle is not. Categories with no honest match (beauty, farm produce, jewellery) are absent on purpose and keep the emoji — a wrong photo is worse than none.
 
-### Feedback
+### Feedback: products are rated, sellers are not
 
-`shared/src/review.ts` is the rule, `backend/src/db/reviews.ts` applies it, and `backend/tests/reviews.test.ts` holds it. A village seller has nothing a stranger can check except what her last buyers said, so every rule here is about keeping that worth reading.
+`shared/src/review.ts` is the rule, `backend/src/db/reviews.ts` applies it, `backend/tests/reviews.test.ts` holds it, and `RateOrderGate` in `frontend/src/components/Reviews.tsx` is the screen.
 
-- **Only the buyer on a `DELIVERED` order**, through `POST /orders/:id/review`. No order, no review — that is what stops a rival's one-stars and a seller's own five-stars.
-- **One order, one voice.** Writing again replaces the review; it never adds a second. Allowed for `REVIEW_WINDOW_DAYS` (30) after delivery, so a quarrel months later cannot reach her rating.
-- **Stars required, words optional** (max 500). A tap is a complete review. Every row of stars prints its number and a word (`rev.word.N`) — never stars alone.
-- **First name only in public** (`publicName`, copied at write time). Her card already prints her village; a full name beside a village is an address. `toPublicReview` strips `customerId` and every moderation field.
-- **The rating is derived, never stored.** `Seller.rating`/`ratingCount` are legacy; the catalogue overwrites them from `reviews` on every answer. A stored average goes stale the moment an admin hides a review.
-- **Hide is the only admin action** (`POST /admin/reviews/:id/hide`, reason required and kept). Editing a buyer's words would make every review something the platform might have written. A hidden review leaves the public list and the average; editing it does not put it back up; the buyer sees that it was hidden, the seller stops seeing it.
-- **Where it shows:** the buyer's order screen (asks, straight under the timeline) and a "leave a review" pill on their order list · the product page (three, ones mentioning that product first) and the shop page (summary + all) · her home card, `/seller/reviews` and her order screen · the admin **Reviews** screen (low-ratings and hidden filters) and each seller's page. Public reviews are gated like her window: a blocked seller's reviews 404 with her shop, a merely closed shop keeps them.
-- `reviews` is a Firestore collection like the others and is **never seeded** — invented praise in front of real customers is the one thing this exists to rule out. `purge:demo` removes reviews on the orders it removes.
+- **One review per product per delivered order**, written by the buyer on that order through `POST /orders/:id/review` with `{ ratings: [{ productId, rating, comment? }] }`. **Every product on the order, all at once** (`ratingsProblem`) — a product listed twice is rated once. No order, no review: that stops a rival's one-stars and a seller's own five-stars. Rating again replaces that product's review on that order.
+- **Stars required, words optional** (max 500). Every row of stars prints its number and a word (`rev.word.N`) — never stars alone.
+- **The buyer cannot skip it.** While any delivered order inside `REVIEW_WINDOW_DAYS` (30) is unrated (`needsRating`; the server lists them as `toRate` on `/orders/mine`), `RateOrderGate` covers the whole customer app, bottom tabs included, with no close button; `CustomerLayout` makes everything behind it `inert`. Rating one brings up the next. It checks on open, on return to the app, every two minutes, and on navigation (at most every 30 s). The server enforces the same rule: `POST /orders` answers 409 while any are waiting. Orders older than the window are never asked about.
+- **No seller score anywhere public.** `PublicSeller` carries no rating; `Seller.rating`/`ratingCount` are legacy and never read. Each catalogue product carries its own `rating`/`ratingCount`, derived from `reviews` on every request (`ratingsByProduct`) — a stored average goes stale the moment an admin hides a review. `GET /catalog/products/:id/reviews` is public exactly as far as the product is (`publiclyVisible`, same 404).
+- **First name only in public** (`publicName`, copied at write time). `toPublicReview` strips `customerId`, `sellerId` and every moderation field. Each review copies `productName`, so a deleted listing's reviews stay readable.
+- **Hide is the only admin action** (`POST /admin/reviews/:id/hide`, reason required and kept). A hidden review leaves the product's list and average; editing it does not bring it back; the buyer sees that it was hidden, the seller stops seeing it.
+- **Where it shows:** product cards (stars only when there are some) and the product page (summary + every review) · the buyer's order screen (what they gave, with "change" inside the window) · her home card (a count, not a score), `/seller/reviews` and her order screen, each review naming its product · the admin **Reviews** screen (product column; low-ratings and hidden filters) and each seller's page.
+- **Older whole-order reviews** are split once at boot (`splitOrderReviews`): the same stars and words on every product that order held, the original document kept for the first product and new ones added — nothing deleted.
+- `reviews` is a Firestore collection like the others and is **never seeded**. `purge:demo` removes reviews on the orders it removes.
 
 ### The updates list
 
@@ -455,7 +458,7 @@ From spec section 6, encoded in `frontend/src/styles/theme.css`:
 
 Voice input (`frontend/src/lib/useVoiceInput.ts`) wraps the Web Speech API and is an **addition** — the keyboard is never removed, and the mic simply does not render where speech is unsupported. Every `VoiceInput` owns its own mic and dictates into itself; there is no app-wide microphone.
 
-Icons come from `react-icons` through `frontend/src/components/icons.tsx`, which is the only file that names a vendor icon. Emoji that survive are **data** — a seller's avatar, the veg/non-veg marks — not chrome. Category tiles and photo-less product cards are photographs now, not emoji (see *Product photos*).
+Icons come from `react-icons` through `frontend/src/components/icons.tsx` (and `admin/src/components/icons.tsx`), the only files that name a vendor icon. **No emoji is shown anywhere in the three apps.** `STATUS_STYLE` and `PRODUCT_STATUS_STYLE` carry an icon *name* (`StatusIconName`, `ProductStatusIconName`) that `StatusIcon` / `ProductStatusIcon` draw; a product or order line with no photo shows `IconProduct`; veg/non-veg is `VegMark`, drawn in CSS like the printed FSSAI mark; done screens show a green tick. `Product.emoji` and `Category.icon` are still stored but never rendered. The only marks of that kind left are a tick and a cross — as icons.
 
 The brand mark is a portrait of कै. शांताबाई (काकी) सिद्रामप्पा आलुरे, the woman the market is named for. `frontend/src/assets/logo.png` and `admin/src/assets/logo.png` are the same mark; both apps also carry it as a favicon from their `public/` folder. It already contains its own gold ring, so never give it a border or a background — either prints a second ring.
 

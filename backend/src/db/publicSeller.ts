@@ -1,4 +1,4 @@
-import type { PublicSeller, RatingSummary, Seller } from '@shared/types.js'
+import type { PublicSeller, Seller } from '@shared/types.js'
 
 /**
  * THE ONLY SHAPE OF A SELLER THAT LEAVES THE API UNAUTHENTICATED.
@@ -14,12 +14,13 @@ import type { PublicSeller, RatingSummary, Seller } from '@shared/types.js'
  *    choosing between, and what the law wants beside a food listing.
  *  - delivery terms and pincodes - checkout needs them to price and warn.
  *  - UPI ID, QR image and whether it is set up - the thing a buyer pays to.
- *  - rating, derived from reviews by the caller, never the stored fields.
+ *
+ * No rating: sellers are not rated, their products are (see Review).
  *
  * Her phone number is NOT here. A buyer gets it on their own order, from the
  * moment the order exists (see GET /orders/:id), and nowhere else.
  */
-export function publicSeller(s: Seller, rating: RatingSummary): PublicSeller {
+export function publicSeller(s: Seller): PublicSeller {
   return {
     id: s.id,
     womenBizId: s.womenBizId,
@@ -35,7 +36,5 @@ export function publicSeller(s: Seller, rating: RatingSummary): PublicSeller {
     upiId: s.upiId,
     upiQrReady: s.upiQrReady,
     upiQrUrl: s.upiQrUrl,
-    rating: rating.average,
-    ratingCount: rating.count,
   }
 }

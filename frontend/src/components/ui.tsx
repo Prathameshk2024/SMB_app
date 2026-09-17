@@ -623,7 +623,14 @@ export function useAsync<T>(
  * the whole point: the clipboard is invisible, so without it a copy the
  * browser refused looks exactly like one that worked.
  */
-export function CopyValue({ value, onCopied }: { value: string; onCopied?: () => void }) {
+export function CopyValue({
+  value, onCopied, copiedText,
+}: {
+  value: string
+  onCopied?: () => void
+  /** The toast. Defaults to "UPI ID copied", which is what this was built for. */
+  copiedText?: string
+}) {
   const t = useT()
   const { toast } = useToast()
   if (!value) return null
@@ -643,7 +650,7 @@ export function CopyValue({ value, onCopied }: { value: string; onCopied?: () =>
         onClick={() => {
           navigator.clipboard
             .writeText(value)
-            .then(() => { toast(t('ok.upiCopied')); onCopied?.() })
+            .then(() => { toast(copiedText ?? t('ok.upiCopied')); onCopied?.() })
             .catch(() => toast(t('err.copyFailed')))
         }}
       >

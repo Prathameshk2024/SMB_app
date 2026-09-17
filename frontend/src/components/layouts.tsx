@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useT } from '../i18n/I18nProvider.js'
 import { useCart } from '../store/CartContext.js'
@@ -5,6 +6,7 @@ import {
   IconAddProduct, IconBusiness, IconCart, IconCategories, IconExplore,
   IconHelp, IconProfile, type IconType,
 } from './icons.js'
+import { RateOrderGate } from './Reviews.js'
 
 /**
  * Four bottom tabs, one level deep, icon AND word together.
@@ -61,17 +63,34 @@ export function SellerLayout() {
 export function CustomerLayout() {
   const t = useT()
   const { count } = useCart()
+
+  /**
+   * While a delivered order waits for its rating, everything under the rating
+   * screen is `inert`: not clickable, not focusable, not read out. Covering it
+   * is not enough on its own - a keyboard or a screen reader would still reach
+   * the tabs behind. See RateOrderGate.
+   */
+  const [blocked, setBlocked] = useState(false)
+  const onBlockingChange = useCallback((b: boolean) => setBlocked(b), [])
+  const behind = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (behind.current) behind.current.inert = blocked
+  }, [blocked])
+
   return (
     <div className="app-shell app-shell--nav">
-      <Outlet />
-      <BottomNav
-        items={[
-          { to: '/shop', end: true, icon: IconExplore, label: t('nav.explore') },
-          { to: '/shop/categories', icon: IconCategories, label: t('nav.categories') },
-          { to: '/shop/cart', icon: IconCart, label: t('nav.cart'), badge: count },
-          { to: '/shop/profile', icon: IconProfile, label: t('nav.myProfile') },
-        ]}
-      />
+      <div ref={behind} aria-hidden={blocked || undefined} style={{ display: 'contents' }}>
+        <Outlet />
+        <BottomNav
+          items={[
+            { to: '/shop', end: true, icon: IconExplore, label: t('nav.explore') },
+            { to: '/shop/categories', icon: IconCategories, label: t('nav.categories') },
+            { to: '/shop/cart', icon: IconCart, label: t('nav.cart'), badge: count },
+            { to: '/shop/profile', icon: IconProfile, label: t('nav.myProfile') },
+          ]}
+        />
+      </div>
+      <RateOrderGate onBlockingChange={onBlockingChange} />
     </div>
   )
 }

@@ -16,7 +16,7 @@ import {
   Loading, Notice, Rupees, TextInput, VoiceInput, useAsync,
 } from '../../components/ui.js'
 import {
-  IconBack, IconFood, IconLock, IconNext, IconProduct, IconWaiting,
+  IconBack, IconFood, IconLock, IconNext, IconProduct, IconWaiting, VegMark,
 } from '../../components/icons.js'
 import { PageTour } from '../../components/Walkthrough.js'
 
@@ -319,7 +319,7 @@ export default function UploadProduct() {
                     className={`chip ${d.categoryId === c.id ? 'chip--on' : ''}`}
                     onClick={() => set('categoryId', c.id)}
                   >
-                    {c.icon} {lang === 'mr' ? c.mr : c.en}
+                    {lang === 'mr' ? c.mr : c.en}
                   </button>
                 ))}
               </div>
@@ -340,8 +340,8 @@ export default function UploadProduct() {
 
                 <Field label={t('prod.vegType')} error={errors.vegType} required>
                   <div className="yesno">
-                    <Choice selected={d.vegType === 'veg'} onSelect={() => set('vegType', 'veg')} icon="🟢" title={t('prod.veg')} />
-                    <Choice selected={d.vegType === 'nonveg'} onSelect={() => set('vegType', 'nonveg')} icon="🔴" title={t('prod.nonveg')} />
+                    <Choice selected={d.vegType === 'veg'} onSelect={() => set('vegType', 'veg')} icon={<VegMark type="veg" />} title={t('prod.veg')} />
+                    <Choice selected={d.vegType === 'nonveg'} onSelect={() => set('vegType', 'nonveg')} icon={<VegMark type="nonveg" />} title={t('prod.nonveg')} />
                   </div>
                 </Field>
               </>
@@ -467,7 +467,6 @@ export default function UploadProduct() {
               <div className="row" style={{ alignItems: 'flex-start' }}>
                 <ProductImage
                   src={d.imageUrl || undefined}
-                  emoji="📦"
                   categoryId={d.categoryId}
                   size={80}
                   className="tile__img"
@@ -480,7 +479,7 @@ export default function UploadProduct() {
                   </div>
                   {d.isFood && d.vegType && (
                     <span className={`pill pill--${d.vegType === 'veg' ? 'ok' : 'danger'}`}>
-                      {d.vegType === 'veg' ? '🟢' : '🔴'}{' '}
+                      <VegMark type={d.vegType} />{' '}
                       {d.vegType === 'veg' ? t('prod.veg') : t('prod.nonveg')}
                     </span>
                   )}

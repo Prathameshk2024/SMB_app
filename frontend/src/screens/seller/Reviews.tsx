@@ -1,21 +1,22 @@
 import { useT } from '../../i18n/I18nProvider.js'
 import { api } from '../../lib/api.js'
 import { AppBar, Card, EmptyState, Loading, Notice, useAsync } from '../../components/ui.js'
-import { RatingSummaryCard, ReviewList } from '../../components/Reviews.js'
+import { ReviewList } from '../../components/Reviews.js'
 import { IconStar } from '../../components/icons.js'
 
 /**
- * WHAT HER BUYERS SAID.
+ * WHAT BUYERS SAID ABOUT HER PRODUCTS.
  *
- * Exactly the list a customer reads on her shop page - no more, no less - so
- * nothing she finds there is a surprise. She cannot reply or remove anything:
- * a review a seller could delete would be worth nothing to the next buyer. If
- * one is abusive, the admin can take it down, and the line under the list
- * says who to ask.
+ * Each review names the product it is about, newest first - the same words a
+ * customer reads on that product's page. There is no overall score: sellers
+ * are not rated, products are. She cannot reply or remove anything, because a
+ * review a seller could delete would be worth nothing to the next buyer; the
+ * line under the list says who to ask about an abusive one.
  */
 export function SellerReviews() {
   const t = useT()
   const [data, loading] = useAsync(() => api.myReviews(), [])
+  const reviews = data?.reviews ?? []
 
   return (
     <>
@@ -23,14 +24,13 @@ export function SellerReviews() {
       <div className="screen stack">
         {loading ? (
           <Loading />
-        ) : !data || data.summary.count === 0 ? (
+        ) : reviews.length === 0 ? (
           <Card>
             <EmptyState icon={IconStar} title={t('rev.sellerEmpty')} body={t('rev.sellerEmptySub')} />
           </Card>
         ) : (
           <>
-            <RatingSummaryCard summary={data.summary} />
-            <ReviewList reviews={data.reviews} />
+            <ReviewList reviews={reviews} showProduct />
             <Notice tone="info">{t('rev.sellerHelp')}</Notice>
           </>
         )}

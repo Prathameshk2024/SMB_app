@@ -1,106 +1,166 @@
-import type { Order, PublicReview, RatingSummary, Review } from '@shared/types.js'
+import type {
+  Order, ProductRatingInput, PublicReview, RatingSummary, Review,
+} from '@shared/types.js'
 import {
-  canReview, publicName, reviewProblem, summarizeReviews, toPublicReview,
+  canReview, needsRating, orderProducts, publicName, ratingsProblem, summarizeReviews,
+  toPublicReview,
 } from '@shared/review.js'
 import type { Db } from './seed.js'
 import { newId } from './ids.js'
 
-export type ReviewResult =
-  | { ok: true; review: Review; created: boolean }
+export type RatingResult =
+  | { ok: true; reviews: Review[] }
   | { ok: false; status: number; error: string; messageMr: string }
 
 /**
- * Write the buyer's feedback on one of their own orders.
+ * Write the buyer's ratings for every product on one of their own orders.
  *
  * Kept out of the route so the rules can be tested without a server. The
- * caller has already found the order under THIS customer's id, so ownership
- * is settled; this decides whether feedback is allowed now, and whether it is
- * complete.
+ * caller has already found the order under THIS customer's id.
  *
- * Writing again REPLACES the review on that order. The moderation fields are
- * left exactly as they were: a buyer whose review was taken down does not get
- * it back up by editing a word.
+ * All products at once, or nothing - see `ratingsProblem`. Rating a product
+ * again on the same order REPLACES that review; its moderation fields are left
+ * alone, so a review an admin hid does not come back by being edited.
  */
-export function writeReview(
+export function writeRatings(
   db: Pick<Db, 'reviews'>,
   order: Order,
-  body: { rating?: unknown; comment?: unknown },
+  ratings: unknown,
   now = new Date(),
-): ReviewResult {
+): RatingResult {
   if (order.status !== 'DELIVERED') {
     return {
-      ok: false, status: 409, error: 'Only a delivered order can be reviewed',
+      ok: false, status: 409, error: 'Only a delivered order can be rated',
       messageMr: 'ऑर्डर पोहोचल्यानंतरच अभिप्राय देता येतो',
     }
   }
   if (!canReview(order, now.getTime())) {
     return {
-      ok: false, status: 409, error: 'The feedback window for this order has closed',
+      ok: false, status: 409, error: 'The rating window for this order has closed',
       messageMr: 'या ऑर्डरसाठी अभिप्राय देण्याची मुदत संपली आहे',
     }
   }
+  const problem = ratingsProblem(order, ratings)
+  if (problem) return { ok: false, status: 400, error: 'Invalid ratings', messageMr: problem }
 
-  const problem = reviewProblem(body.rating, body.comment)
-  if (problem) return { ok: false, status: 400, error: 'Invalid review', messageMr: problem }
-
-  const rating = body.rating as number
-  const comment = typeof body.comment === 'string' && body.comment.trim() ? body.comment.trim() : undefined
   const at = now.toISOString()
+  const names = new Map(orderProducts(order).map((p) => [p.productId, p.name]))
+  const written: Review[] = []
 
-  const existing = db.reviews.find((r) => r.orderId === order.id)
-  if (existing) {
-    existing.rating = rating
-    existing.comment = comment
-    existing.updatedAt = at
-    return { ok: true, review: existing, created: false }
+  for (const r of ratings as ProductRatingInput[]) {
+    const comment = typeof r.comment === 'string' && r.comment.trim() ? r.comment.trim() : undefined
+    const existing = db.reviews.find((x) => x.orderId === order.id && x.productId === r.productId)
+    if (existing) {
+      existing.rating = r.rating
+      existing.comment = comment
+      existing.updatedAt = at
+      written.push(existing)
+      continue
+    }
+    const review: Review = {
+      id: newId('rv'),
+      orderId: order.id,
+      productId: r.productId,
+      productName: names.get(r.productId) ?? '',
+      sellerId: order.sellerId,
+      customerId: order.customerId,
+      customerName: publicName(order.customerName),
+      rating: r.rating,
+      comment,
+      createdAt: at,
+    }
+    db.reviews.unshift(review)
+    written.push(review)
   }
-
-  const review: Review = {
-    id: newId('rv'),
-    orderId: order.id,
-    sellerId: order.sellerId,
-    customerId: order.customerId,
-    customerName: publicName(order.customerName),
-    rating,
-    comment,
-    items: order.items.map((i) => ({ productId: i.productId, name: i.name })),
-    createdAt: at,
-  }
-  db.reviews.unshift(review)
-  return { ok: true, review, created: true }
+  return { ok: true, reviews: written }
 }
 
-/** What anyone may read about one shop: visible reviews, newest first, and the stars. */
-export function publicReviewsFor(
+/** Visible reviews, newest first, public copies. */
+function visible(list: Review[]): PublicReview[] {
+  return list
+    .filter((r) => !r.hidden)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .map(toPublicReview)
+}
+
+/** What anyone may read about one product: its visible reviews and its stars. */
+export function productReviewsFor(
   db: Pick<Db, 'reviews'>,
-  sellerId: string,
+  productId: string,
 ): { reviews: PublicReview[]; summary: RatingSummary } {
-  const mine = db.reviews.filter((r) => r.sellerId === sellerId)
-  return {
-    reviews: mine
-      .filter((r) => !r.hidden)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .map(toPublicReview),
-    summary: summarizeReviews(mine),
-  }
+  const mine = db.reviews.filter((r) => r.productId === productId)
+  return { reviews: visible(mine), summary: summarizeReviews(mine) }
+}
+
+/** Every visible review of a seller's products - her own list, never a public score. */
+export function sellerProductReviews(db: Pick<Db, 'reviews'>, sellerId: string): PublicReview[] {
+  return visible(db.reviews.filter((r) => r.sellerId === sellerId))
 }
 
 /**
- * Stars for every seller in one pass.
- *
- * The catalogue prints a rating on every product card, and looking reviews up
- * seller by seller inside that loop would be one scan of `reviews` per card.
+ * Stars for every product in one pass. The catalogue prints a rating on every
+ * product card, and a scan of `reviews` per card would not be.
  */
-export function ratingsBySeller(db: Pick<Db, 'reviews'>): Map<string, RatingSummary> {
+export function ratingsByProduct(db: Pick<Db, 'reviews'>): Map<string, RatingSummary> {
   const grouped = new Map<string, Review[]>()
   for (const r of db.reviews) {
-    const list = grouped.get(r.sellerId)
+    const list = grouped.get(r.productId)
     if (list) list.push(r)
-    else grouped.set(r.sellerId, [r])
+    else grouped.set(r.productId, [r])
   }
   const out = new Map<string, RatingSummary>()
-  for (const [sellerId, list] of grouped) out.set(sellerId, summarizeReviews(list))
+  for (const [id, list] of grouped) out.set(id, summarizeReviews(list))
   return out
 }
 
 export const NO_RATING: RatingSummary = { average: 0, count: 0, byStars: [0, 0, 0, 0, 0] }
+
+/**
+ * The customer's delivered orders still waiting for a rating, newest delivery
+ * first. The gate in her app shows the first of these and does not let go
+ * until the list is empty.
+ */
+export function ordersToRate(
+  db: Pick<Db, 'reviews'>,
+  orders: Order[],
+  now = Date.now(),
+): string[] {
+  const mine = db.reviews.filter((r) => orders.some((o) => o.id === r.orderId))
+  return orders
+    .filter((o) => needsRating(o, mine, now))
+    .sort((a, b) => b.placedAt.localeCompare(a.placedAt))
+    .map((o) => o.id)
+}
+
+/**
+ * Reviews written before products were rated one by one.
+ *
+ * Those were a single rating for a whole order. Each becomes a review of every
+ * product that order held, with the same stars and words - the buyer said it
+ * about all of them. The existing document is kept for the first product and
+ * new ones are added for the rest, so nothing is deleted: a persist that
+ * deletes most of a collection is refused by the bulk-delete guard, and would
+ * be the wrong shape of change anyway.
+ *
+ * Idempotent: a review that already names a product is left alone.
+ */
+export function splitOrderReviews(db: Pick<Db, 'reviews' | 'orders'>): number {
+  let changed = 0
+  const legacy = db.reviews.filter((r) => !r.productId) as (Review & {
+    items?: { productId: string; name: string }[]
+  })[]
+  for (const r of legacy) {
+    const order = db.orders.find((o) => o.id === r.orderId)
+    const products = r.items?.length ? r.items : order ? orderProducts(order) : []
+    const [first, ...rest] = products
+    if (!first) continue
+    r.productId = first.productId
+    r.productName = first.name
+    delete r.items
+    for (const p of rest) {
+      db.reviews.push({ ...r, id: newId('rv'), productId: p.productId, productName: p.name })
+    }
+    changed += 1
+  }
+  return changed
+}

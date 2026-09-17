@@ -10,7 +10,7 @@ import { makeShopSlug, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import { computeReadiness, readinessBand, recomputeForSeller } from '@shared/readiness.js'
 import { getDb, newId, save } from '../db/store.js'
 import { buyersForSeller } from '../db/customers.js'
-import { publicReviewsFor } from '../db/reviews.js'
+import { sellerProductReviews } from '../db/reviews.js'
 import { publicSeller } from '../db/publicSeller.js'
 import {
   type PaymentKind, canSellNow, payableKinds, paymentKindProblem, subscriptionView,
@@ -270,13 +270,12 @@ sellersRouter.get('/me/buyers', requireRole('seller'), (req, res) => {
 })
 
 /**
- * What her buyers said, exactly as the public reads it - including while she
- * is blocked or not yet approved, when the public route answers 404. She reads
- * the same list a customer would, so nothing on her screen is a surprise on
- * her shop page.
+ * What her buyers said about her products, each review naming the product -
+ * exactly the words the public reads on those products, and nothing hidden.
+ * No overall score: sellers are not rated, products are.
  */
 sellersRouter.get('/me/reviews', requireRole('seller'), (req, res) => {
-  res.json(publicReviewsFor(getDb(), req.auth!.sellerId!))
+  res.json({ reviews: sellerProductReviews(getDb(), req.auth!.sellerId!) })
 })
 
 sellersRouter.patch('/me', requireRole('seller'), (req, res) => {
@@ -355,7 +354,7 @@ sellersRouter.get('/:id', (req, res) => {
   }
   // The same allow-listed card the catalogue sends. This used to strip seven
   // named fields and pass everything else, including her admin notices.
-  res.json({ seller: publicSeller(seller, publicReviewsFor(getDb(), seller.id).summary) })
+  res.json({ seller: publicSeller(seller) })
 })
 
 /* ------------------------------------------------------------------ */

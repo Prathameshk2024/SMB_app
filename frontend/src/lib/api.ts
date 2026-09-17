@@ -1,6 +1,7 @@
 import type {
   Address, AdminPaymentAccount, Category, Customer, DigitalProfile, Order, Product,
-  PublicReview, PublicSeller, RatingSummary, Review, Seller, SellerGroup, SellerWeek, Session,
+  ProductRatingInput, PublicReview, PublicSeller, RatingSummary, Review, Seller, SellerGroup,
+  SellerWeek, Session,
   SubscriptionPayment,
 } from '@shared/types.js'
 import type { SlotInfo } from '@shared/seller.js'
@@ -281,13 +282,17 @@ export const api = {
     const qs = new URLSearchParams()
     for (const [k, v] of Object.entries(params)) if (v) qs.set(k, v)
     const s = qs.toString()
-    return get<{ products: (Product & { seller?: PublicSeller })[] }>(
+    return get<{ products: CatalogProduct[] }>(
       `/catalog/products${s ? `?${s}` : ''}`,
     )
   },
 
   /** `seller` is the public card only - never her phone. See db/publicSeller.ts. */
-  product: (id: string) => get<{ product: Product; seller?: PublicSeller }>(`/catalog/products/${id}`),
+  product: (id: string) => get<{ product: CatalogProduct; seller?: PublicSeller }>(`/catalog/products/${id}`),
+
+  /** What buyers said about one product. Public, as far as the product is. */
+  productReviews: (id: string) =>
+    get<{ reviews: PublicReview[]; summary: RatingSummary }>(`/catalog/products/${id}/reviews`),
 
   /** Is this pincode covered by any open seller? Derived, never a static list. */
   serviceability: (pincode: string) =>
@@ -321,28 +326,25 @@ export const api = {
 
   /* ---------------- orders ---------------- */
 
-  /** `reviewedOrderIds` comes back for a customer only. */
-  myOrders: () => get<{ orders: Order[]; reviewedOrderIds?: string[] }>('/orders/mine'),
+  /**
+   * `toRate` comes back for a customer only: her delivered orders still
+   * waiting for a rating, newest first. The app does not let her past them.
+   */
+  myOrders: () => get<{ orders: Order[]; toRate?: string[] }>('/orders/mine'),
 
   /**
-   * `review` is the buyer's own in full (so a hidden one can say so), and the
-   * public copy for the seller - absent for her once an admin has hidden it.
+   * `reviews` is one per rated product: the buyer's own in full (so a hidden
+   * one can say so), the public copies for the seller, hidden ones left out.
    */
   order: (id: string) =>
-    get<{ order: Order; seller?: Partial<Seller>; review?: Review | PublicReview }>(`/orders/${id}`),
+    get<{ order: Order; seller?: Partial<Seller>; reviews: (Review | PublicReview)[] }>(`/orders/${id}`),
 
-  /** Written, or written again - one review per delivered order. */
-  reviewOrder: (id: string, rating: number, comment?: string) =>
-    post<{ review: Review }>(`/orders/${id}/review`, { rating, comment }),
+  /** Every product on a delivered order, rated at once - given, or given again. */
+  reviewOrder: (id: string, ratings: ProductRatingInput[]) =>
+    post<{ reviews: Review[] }>(`/orders/${id}/review`, { ratings }),
 
-  /* ---------------- feedback ---------------- */
-
-  /** What buyers said about one shop. Public. */
-  shopReviews: (sellerId: string) =>
-    get<{ reviews: PublicReview[]; summary: RatingSummary }>(`/catalog/sellers/${sellerId}/reviews`),
-
-  /** Her own reviews - the public list, readable even while she is not public. */
-  myReviews: () => get<{ reviews: PublicReview[]; summary: RatingSummary }>('/sellers/me/reviews'),
+  /** Every visible review of her products, each naming the product. No overall score. */
+  myReviews: () => get<{ reviews: PublicReview[] }>('/sellers/me/reviews'),
 
   placeOrders: (body: {
     address: { line: string; landmark?: string; pincode: string }
@@ -367,6 +369,14 @@ export const api = {
   /* ---------------- analytics ---------------- */
 
   sellerWeek: (id: string) => get<{ week: SellerWeek | null }>(`/analytics/seller/${id}/week`),
+}
+
+/** A product as the catalogue sends it: its seller's public card and its own stars. */
+export type CatalogProduct = Product & {
+  seller?: PublicSeller
+  /** Worked out from reviews on every request; 0 with none. */
+  rating?: number
+  ratingCount?: number
 }
 
 /** One row of the seller's "My Buyers" screen. Derived server-side. */

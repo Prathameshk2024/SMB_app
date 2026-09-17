@@ -14,8 +14,10 @@ import {
   AppBar, Button, Card, Choice, ConfirmSheet, EmptyState,
   Loading, Notice, Pill, Rupees, SectionTitle, useAsync,
 } from '../../components/ui.js'
-import { ReviewItem } from '../../components/Reviews.js'
-import { IconCall, IconCheck, IconMap, IconOrders } from '../../components/icons.js'
+import { ReviewList } from '../../components/Reviews.js'
+import {
+  IconCall, IconCheck, IconMap, IconOrders, IconProduct, StatusIcon,
+} from '../../components/icons.js'
 
 const TABS: { id: string; labelKey: string; statuses?: OrderStatus[] }[] = [
   { id: 'action', labelKey: 'biz.needsAction' },
@@ -67,12 +69,12 @@ export function SellerOrders() {
         ) : (
           list.map((o) => (
             <button key={o.id} className="tile" onClick={() => nav(`/seller/orders/${o.id}`)}>
-              <div className="tile__img" aria-hidden="true">{STATUS_STYLE[o.status].icon}</div>
+              <div className="tile__img" aria-hidden="true"><StatusIcon name={STATUS_STYLE[o.status].icon} /></div>
               <div className="tile__body">
                 <div className="tile__title">{o.customerName}</div>
                 <div className="tile__meta">{o.id} · {o.items.length} {t('ord.items')}</div>
                 <div className="wrap-row" style={{ marginTop: 2 }}>
-                  <Pill tone={STATUS_STYLE[o.status].tone} icon={STATUS_STYLE[o.status].icon}>
+                  <Pill tone={STATUS_STYLE[o.status].tone} icon={<StatusIcon name={STATUS_STYLE[o.status].icon} />}>
                     {t(statusLabelKey(o.status))}
                   </Pill>
                 </div>
@@ -158,19 +160,19 @@ export function SellerOrderDetail() {
 
       <div className="screen stack">
         <div className="row-between">
-          <Pill tone={style.tone} icon={style.icon}>{t(statusLabelKey(order.status))}</Pill>
+          <Pill tone={style.tone} icon={<StatusIcon name={style.icon} />}>{t(statusLabelKey(order.status))}</Pill>
           <strong style={{ fontSize: 'var(--t-lg)' }}><Rupees value={order.total} /></strong>
         </div>
 
         <OrderEndedNotice order={order} viewer="seller" />
         <RefundNotice order={order} viewer="seller" />
 
-        {/* What this buyer said about this order, where she can match it to
-            the goods she sent. Read-only: see screens/seller/Reviews.tsx. */}
-        {data.review && (
+        {/* What this buyer said about each product on the order, where she
+            can match it to what she sent. Read-only: see seller/Reviews.tsx. */}
+        {data.reviews?.length > 0 && (
           <div>
             <SectionTitle>{t('rev.fromBuyer')}</SectionTitle>
-            <Card><ReviewItem review={data.review} /></Card>
+            <ReviewList reviews={data.reviews} showProduct />
           </div>
         )}
 
@@ -218,7 +220,7 @@ export function SellerOrderDetail() {
             {order.items.map((i) => (
               <div key={i.productId} className="row-between">
                 <div className="row">
-                  <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>{i.emoji}</span>
+                  <span className="lineicon" aria-hidden="true"><IconProduct /></span>
                   <div>
                     <div style={{ fontWeight: 600 }}>{i.name}</div>
                     <div className="small dim num">{i.qty} × <Rupees value={i.price} /></div>
@@ -364,7 +366,7 @@ export function Timeline({ order }: { order: Order }) {
         return (
           <div key={s} className={`tl ${cls}`}>
             <div className="tl__dot" aria-hidden="true">
-              {i < current ? <IconCheck aria-hidden="true" /> : i === current ? STATUS_STYLE[s].icon : ''}
+              {i < current ? <IconCheck aria-hidden="true" /> : i === current ? <StatusIcon name={STATUS_STYLE[s].icon} /> : ''}
             </div>
             <div>
               <div className="tl__label">{t(statusLabelKey(s))}</div>

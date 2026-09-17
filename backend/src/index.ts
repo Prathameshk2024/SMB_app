@@ -21,6 +21,7 @@ import {
 import { sellerWeek } from './db/analytics.js'
 import { purgeArchived, purgeExpiredRejections } from './db/moderation.js'
 import { backfillSubscriptionTerms } from './db/subscription.js'
+import { splitOrderReviews } from './db/reviews.js'
 
 const app = express()
 const PORT = CONFIG_PORT
@@ -196,6 +197,12 @@ async function main() {
   const terms = backfillSubscriptionTerms(getDb())
   if (terms > 0) {
     console.log(`[subscription] gave ${terms} existing seller(s) a six-month term`)
+    save()
+  }
+  // Reviews from when a whole order got one rating become one per product.
+  const split = splitOrderReviews(getDb())
+  if (split > 0) {
+    console.log(`[reviews] split ${split} order review(s) into per-product ratings`)
     save()
   }
   startHousekeeping()

@@ -9,7 +9,7 @@ import { normalizeUtr, utrProblem } from '@shared/payment.js'
 import { getDb, save } from '../db/store.js'
 import { recordOrderCustomer } from '../db/customers.js'
 import { cancelOrder } from '../db/orderCancel.js'
-import { writeReview } from '../db/reviews.js'
+import { ordersToRate, writeRatings } from '../db/reviews.js'
 import { toPublicReview } from '@shared/review.js'
 import { canSellNow } from '@shared/subscription.js'
 import { newShortId } from '../db/ids.js'
@@ -31,12 +31,9 @@ ordersRouter.get('/mine', requireRole('seller', 'customer'), (req, res) => {
 
   res.json({
     orders: [...list].sort((a, b) => b.placedAt.localeCompare(a.placedAt)),
-    // Which of her delivered orders she has already given feedback on, so the
-    // list can ask for it on the ones she has not - without a request per row.
-    reviewedOrderIds:
-      auth.role === 'customer'
-        ? db.reviews.filter((r) => r.customerId === auth.customerId).map((r) => r.orderId)
-        : undefined,
+    // Her delivered orders still waiting for a rating. Her app will not let
+    // her go on until this is empty - see RateOrderGate.
+    toRate: auth.role === 'customer' ? ordersToRate(db, list) : undefined,
   })
 })
 
@@ -73,15 +70,16 @@ ordersRouter.get('/:id', requireRole('seller', 'customer'), (req, res) => {
    */
   const seller = db.sellers.find((s) => s.id === order.sellerId)
 
-  // The buyer sees their own review whatever became of it, so a hidden one
-  // can say so. The seller sees it only while it is up: a review an admin
-  // took down is not something she should keep reading on her order screen.
-  const found = db.reviews.find((r) => r.orderId === order.id)
-  const review = found && (auth.role === 'customer' || !found.hidden) ? found : undefined
+  // One review per product on this order. The buyer sees their own whatever
+  // became of them, so a hidden one can say so. The seller sees only those
+  // still up: a review an admin took down is not hers to keep reading.
+  const reviews = db.reviews
+    .filter((r) => r.orderId === order.id && (auth.role === 'customer' || !r.hidden))
+    .map((r) => (auth.role === 'customer' ? r : toPublicReview(r)))
 
   res.json({
     order,
-    review: review && (auth.role === 'customer' ? review : toPublicReview(review)),
+    reviews,
     seller: seller && {
       id: seller.id,
       womenBizId: seller.womenBizId,
@@ -118,6 +116,18 @@ ordersRouter.post('/', requireRole('customer'), (req, res) => {
   }
   if (!b.address?.pincode) {
     res.status(400).json({ error: 'Address required', messageMr: 'पत्ता निवडा' })
+    return
+  }
+
+  // Rating what arrived comes first. Her app will not let her past the rating
+  // screen; this is the same rule where the app cannot be talked round.
+  const unrated = ordersToRate(db, db.orders.filter((o) => o.customerId === auth.customerId))
+  if (unrated.length) {
+    res.status(409).json({
+      error: 'Rate your delivered order first',
+      messageMr: 'आधी मिळालेल्या वस्तूंना तारे द्या',
+      toRate: unrated,
+    })
     return
   }
 
@@ -374,7 +384,8 @@ ordersRouter.post('/:id/pay', requireRole('customer'), (req, res) => {
 })
 
 /**
- * The buyer's feedback on a delivered order - written, or written again.
+ * The buyer rating every product on a delivered order - given, or given again.
+ * Body: `{ ratings: [{ productId, rating, comment? }] }`, one per product.
  * The rules are in `db/reviews.ts` and `shared/review.ts`.
  */
 ordersRouter.post('/:id/review', requireRole('customer'), (req, res) => {
@@ -387,14 +398,14 @@ ordersRouter.post('/:id/review', requireRole('customer'), (req, res) => {
     return
   }
 
-  const result = writeReview(db, order, req.body ?? {})
+  const result = writeRatings(db, order, req.body?.ratings)
   if (!result.ok) {
     res.status(result.status).json({ error: result.error, messageMr: result.messageMr })
     return
   }
 
   save()
-  res.status(result.created ? 201 : 200).json({ review: result.review })
+  res.json({ reviews: result.reviews })
 })
 
 ordersRouter.post('/:id/confirm-payment', requireRole('seller'), (req, res) => {

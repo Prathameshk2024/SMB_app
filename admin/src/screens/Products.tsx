@@ -232,5 +232,5 @@ function ProductThumb({ product }: { product: ProductRow }) {
   if (product.imageUrl) {
     return <img src={product.imageUrl} alt="" style={box} loading="lazy" />
   }
-  return <div style={box} aria-hidden="true">{product.emoji || '📦'}</div>
+  return <div style={box} aria-hidden="true"><IconProducts /></div>
 }

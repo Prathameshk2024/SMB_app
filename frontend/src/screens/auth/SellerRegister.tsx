@@ -22,7 +22,7 @@ import {
   TextInput, VoiceInput, YesNo,
 } from '../../components/ui.js'
 import {
-  IconBack, IconCheck, IconGroup, IconIndividual, IconNext, IconWarn,
+  IconAllClear, IconBack, IconCheck, IconGroup, IconIndividual, IconNext, IconWarn,
 } from '../../components/icons.js'
 
 /**
@@ -232,7 +232,7 @@ export default function SellerRegister() {
       <div className="app-shell">
         <div className="screen screen--nonav stack">
           <div className="center stack-sm" style={{ paddingTop: 'var(--s5)' }}>
-            <div style={{ fontSize: '3.5rem' }} aria-hidden="true">🎉</div>
+            <div className="bigstate bigstate--ok" aria-hidden="true"><IconAllClear /></div>
             <h1 className="h1">{t('reg.doneTitle')}</h1>
           </div>
 

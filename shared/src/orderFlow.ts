@@ -66,18 +66,57 @@ export const SELLER_ACTIONS: Record<OrderStatus, SellerAction[]> = {
   CANCELLED: [],
 }
 
+/**
+ * Which line icon each app draws for a status. A NAME, not a glyph: emoji are
+ * gone from every screen (only a tick and a cross survive, as icons), and each
+ * app maps these names to its own icon set.
+ */
+export type StatusIconName = 'placed' | 'confirmed' | 'packed' | 'onTheWay' | 'done' | 'ended'
+
 /** Icon + tone per status. Colour is never the only signal; the word ships too. */
 export const STATUS_STYLE: Record<
   OrderStatus,
-  { icon: string; tone: 'neutral' | 'info' | 'warn' | 'ok' | 'danger' }
+  { icon: StatusIconName; tone: 'neutral' | 'info' | 'warn' | 'ok' | 'danger' }
 > = {
-  PLACED: { icon: '🔔', tone: 'warn' },
-  ACCEPTED: { icon: '👍', tone: 'info' },
-  PACKED: { icon: '📦', tone: 'info' },
-  OUT_FOR_DELIVERY: { icon: '🛵', tone: 'info' },
-  DELIVERED: { icon: '✅', tone: 'ok' },
-  REJECTED: { icon: '✖', tone: 'danger' },
-  CANCELLED: { icon: '✖', tone: 'danger' },
+  PLACED: { icon: 'placed', tone: 'warn' },
+  ACCEPTED: { icon: 'confirmed', tone: 'info' },
+  PACKED: { icon: 'packed', tone: 'info' },
+  OUT_FOR_DELIVERY: { icon: 'onTheWay', tone: 'info' },
+  DELIVERED: { icon: 'done', tone: 'ok' },
+  REJECTED: { icon: 'ended', tone: 'danger' },
+  CANCELLED: { icon: 'ended', tone: 'danger' },
+}
+
+/**
+ * WHAT THE BUYER'S TRACKER SHOWS: four stages, not five states.
+ *
+ * A buyer does not need "packed" and "accepted" as separate steps - she needs
+ * to know it is confirmed, on its way, nearly here, arrived. So:
+ *
+ *   Order confirmed    <- ACCEPTED           (the seller said yes)
+ *   Shipped            <- PACKED
+ *   Out for delivery   <- OUT_FOR_DELIVERY
+ *   Delivered          <- DELIVERED
+ *
+ * A PLACED order has reached none of them yet; its screen says it is waiting
+ * for the seller. The seller's own screens keep all five states.
+ */
+export const BUYER_STAGES: { key: string; status: OrderStatus }[] = [
+  { key: 'track.confirmed', status: 'ACCEPTED' },
+  { key: 'track.shipped', status: 'PACKED' },
+  { key: 'track.outForDelivery', status: 'OUT_FOR_DELIVERY' },
+  { key: 'track.delivered', status: 'DELIVERED' },
+]
+
+/** How far along the buyer's four stages this order is: -1 before the first. */
+export function buyerStageIndex(order: Pick<Order, 'status' | 'events'>): number {
+  const reached = (s: OrderStatus) => order.events.some((e) => e.to === s)
+  let last = -1
+  BUYER_STAGES.forEach((stage, i) => {
+    // An order that stopped early still shows the stages it really passed.
+    if (reached(stage.status) || stepIndex(order.status) >= stepIndex(stage.status)) last = i
+  })
+  return last
 }
 
 export function statusLabelKey(status: OrderStatus): string {

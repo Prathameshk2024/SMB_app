@@ -13,7 +13,7 @@ import {
   Pill, Rupees, SlotMeter, useAsync,
 } from '../../components/ui.js'
 import {
-  IconEdit, IconPause, IconPlay, IconPlus, IconProduct, IconTrash,
+  IconEdit, IconPause, IconPlay, IconPlus, IconProduct, IconTrash, ProductStatusIcon,
 } from '../../components/icons.js'
 
 export default function MyProducts() {
@@ -91,7 +91,6 @@ export default function MyProducts() {
                   >
                     <ProductImage
                       src={p.imageUrl}
-                      emoji={p.emoji}
                       categoryId={p.categoryId}
                       size={62}
                       className="tile__img"
@@ -107,9 +106,9 @@ export default function MyProducts() {
                             to anyone, so it does not say it is. Its own status
                             is untouched - it reads LIVE again on renewal. */}
                         {expired && p.status === 'LIVE' ? (
-                          <Pill tone="warn" icon={PRODUCT_STATUS_STYLE.PAUSED.icon}>{t('sub.pausedPill')}</Pill>
+                          <Pill tone="warn" icon={<ProductStatusIcon name="paused" />}>{t('sub.pausedPill')}</Pill>
                         ) : (
-                          style && <Pill tone={style.tone} icon={style.icon}>{t(style.labelKey)}</Pill>
+                          style && <Pill tone={style.tone} icon={<ProductStatusIcon name={style.icon} />}>{t(style.labelKey)}</Pill>
                         )}
                         <Pill tone={outOfStock ? 'danger' : 'neutral'}>
                           {outOfStock

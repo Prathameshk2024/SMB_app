@@ -40,7 +40,8 @@ const mr: Record<string, string> = {
 
   // Feedback. अभिप्राय is masculine: अभिप्राय लपवला, हा अभिप्राय.
   'rv.title': 'ग्राहकांचे अभिप्राय',
-  'rv.intro': 'कमी तारे मिळणाऱ्या विक्रेतीला आधी फोन करून मदत करा. अपमानास्पद मजकूर किंवा फोन नंबर असलेला अभिप्राय इथून लपवता येतो; त्यातील शब्द बदलता येत नाहीत.',
+  'rv.intro': 'ग्राहक मिळालेल्या प्रत्येक उत्पादनाला तारे देतात. ज्या विक्रेतीच्या उत्पादनांना कमी तारे मिळतात, तिला आधी फोन करून मदत करा. अपमानास्पद मजकूर किंवा फोन नंबर असलेला अभिप्राय इथून लपवता येतो; त्यातील शब्द बदलता येत नाहीत.',
+  'rv.product': 'उत्पादन',
   'rv.filterAll': 'सर्व अभिप्राय',
   'rv.filterLow': 'कमी तारे (1 किंवा 2)',
   'rv.filterHidden': 'लपवलेले अभिप्राय',
@@ -58,9 +59,9 @@ const mr: Record<string, string> = {
   'rv.hide': 'लपवा',
   'rv.show': 'पुन्हा दाखवा',
   'rv.hideTitle': 'हा अभिप्राय लपवायचा का?',
-  'rv.hideBody': 'हा अभिप्राय दुकानाच्या पानावरून आणि विक्रेतीच्या सरासरी ताऱ्यांमधून निघून जाईल. ग्राहकाला तो लपवल्याचे दिसेल.',
+  'rv.hideBody': 'हा अभिप्राय उत्पादनाच्या पानावरून आणि त्या उत्पादनाच्या सरासरी ताऱ्यांमधून निघून जाईल. ग्राहकाला तो लपवल्याचे दिसेल.',
   'rv.showTitle': 'हा अभिप्राय पुन्हा दाखवायचा का?',
-  'rv.showBody': 'हा अभिप्राय पुन्हा दुकानाच्या पानावर दिसेल आणि विक्रेतीच्या सरासरीत मोजला जाईल.',
+  'rv.showBody': 'हा अभिप्राय पुन्हा उत्पादनाच्या पानावर दिसेल आणि त्या उत्पादनाच्या सरासरीत मोजला जाईल.',
   'rv.reasonHint': 'उदा. मजकुरात फोन नंबर आहे',
   'rv.reasonRequired': 'लपवण्याचे कारण लिहा',
   'rv.hiddenOk': 'अभिप्राय लपवला',
@@ -287,7 +288,7 @@ const mr: Record<string, string> = {
   'sd.listings': 'तिची उत्पादने',
   'sd.noListings': 'अजून एकही उत्पादन नाही',
   'sd.orders': 'तिचे ऑर्डर',
-  'sd.reviews': 'तिला मिळालेले अभिप्राय',
+  'sd.reviews': 'तिच्या उत्पादनांना मिळालेले अभिप्राय',
   'sd.payment': 'पैसे',
 
   /* ---- what an admin did to her account -------------------------- */
@@ -418,7 +419,8 @@ const en: Record<string, string> = {
   'nav.reviews': 'Reviews',
 
   'rv.title': 'Reviews',
-  'rv.intro': 'A seller collecting low ratings needs a call before anything else. A review with abuse or a phone number in it can be hidden here; its words cannot be edited.',
+  'rv.intro': 'Buyers rate each product they receive. A seller whose products collect low ratings needs a call before anything else. A review with abuse or a phone number in it can be hidden here; its words cannot be edited.',
+  'rv.product': 'Product',
   'rv.filterAll': 'All reviews',
   'rv.filterLow': 'Low ratings (1 or 2 stars)',
   'rv.filterHidden': 'Hidden reviews',
@@ -436,9 +438,9 @@ const en: Record<string, string> = {
   'rv.hide': 'Hide',
   'rv.show': 'Show again',
   'rv.hideTitle': 'Hide this review?',
-  'rv.hideBody': 'It leaves the shop page and stops counting towards her average. The buyer will see that it was hidden.',
+  'rv.hideBody': "It leaves the product's page and stops counting towards that product's average. The buyer will see that it was hidden.",
   'rv.showTitle': 'Show this review again?',
-  'rv.showBody': 'It goes back on the shop page and counts towards her average again.',
+  'rv.showBody': "It goes back on the product's page and counts towards that product's average again.",
   'rv.reasonHint': 'e.g. Contains a phone number',
   'rv.reasonRequired': 'Write why it is being hidden',
   'rv.hiddenOk': 'Review hidden',
@@ -665,7 +667,7 @@ const en: Record<string, string> = {
   'sd.listings': 'Her listings',
   'sd.noListings': 'No listings yet',
   'sd.orders': 'Her orders',
-  'sd.reviews': 'Her reviews',
+  'sd.reviews': 'Reviews of her products',
   'sd.payment': 'Payment',
 
   /* ---- what an admin did to her account -------------------------- */

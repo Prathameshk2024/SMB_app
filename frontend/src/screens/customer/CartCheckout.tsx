@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import type { Address, Review, Seller } from '@shared/types.js'
-import { canReview } from '@shared/review.js'
-import { OrderReview } from '../../components/Reviews.js'
+import type { Address, Seller } from '@shared/types.js'
+import { OrderRatings } from '../../components/Reviews.js'
+import { OrderStatusBox } from '../../components/OrderTracker.js'
 import {
   STATUS_STYLE, awaitingCustomerPayment, statusLabelKey,
 } from '@shared/orderFlow.js'
@@ -25,11 +25,9 @@ import {
   AppBar, Button, Card, Choice, ConfirmSheet, CopyValue, EmptyState, Field, LanguagePicker, Loading,
   Notice, Pill, Rupees, SectionTitle, Stepper, TextInput, VoiceInput, useAsync,
 } from '../../components/ui.js'
-import { Timeline } from '../seller/Orders.js'
 import { ProductCard } from './Browse.js'
 import {
-  IconAddressHome, IconAddressOther, IconCall, IconCart, IconCash, IconChevron,
-  IconNext, IconOrders, IconPlus, IconProfile, IconStar, IconUpi, IconWhatsapp,
+  IconAddressHome, IconAddressOther, IconAllClear, IconCall, IconCart, IconCash, IconChevron, IconNext, IconOrders, IconPlus, IconProduct, IconProfile, IconUpi, IconWhatsapp, StatusIcon,
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
 
@@ -148,7 +146,7 @@ export function Cart() {
                 <div key={i.productId} className="stack-sm">
                   <div className="row-between" style={{ alignItems: 'flex-start' }}>
                     <div className="row grow">
-                      <span aria-hidden="true" style={{ fontSize: '1.5rem' }}>{i.emoji}</span>
+                      <span className="lineicon" aria-hidden="true"><IconProduct /></span>
                       <div className="grow">
                         <div style={{ fontWeight: 600 }}>{i.name}</div>
                         <div className="small dim">
@@ -457,7 +455,7 @@ export function OrderPlaced() {
     <div className="app-shell">
       <div className="screen screen--nonav stack">
         <div className="center stack-sm" style={{ paddingTop: 'var(--s5)' }}>
-          <div style={{ fontSize: '4rem' }} aria-hidden="true">🎉</div>
+          <div className="bigstate bigstate--ok" aria-hidden="true"><IconAllClear /></div>
           <h1 className="h1">{t('cus.orderPlaced')}</h1>
           <p className="dim num">{order.id}</p>
         </div>
@@ -477,37 +475,69 @@ export function OrderPlaced() {
   )
 }
 
+/**
+ * The buyer's tabs. A finished order is not something to scroll past every
+ * time she checks on the one coming today, so delivered orders have their own
+ * section, and so do the ones that were called off.
+ */
+type MyOrderTab = 'active' | 'completed' | 'cancelled'
+
+const MY_ORDER_TABS: { id: MyOrderTab; labelKey: string; emptyKey: string }[] = [
+  { id: 'active', labelKey: 'myo.active', emptyKey: 'myo.emptyActive' },
+  { id: 'completed', labelKey: 'myo.completed', emptyKey: 'myo.emptyCompleted' },
+  { id: 'cancelled', labelKey: 'myo.cancelled', emptyKey: 'myo.emptyCancelled' },
+]
+
+function myOrderTab(o: { status: string }): MyOrderTab {
+  if (o.status === 'DELIVERED') return 'completed'
+  if (o.status === 'CANCELLED' || o.status === 'REJECTED') return 'cancelled'
+  return 'active'
+}
+
 export function CustomerOrders() {
   const t = useT()
   const nav = useNavigate()
   const [data, loading] = useAsync(() => api.myOrders(), [])
   const orders = data?.orders ?? []
-  const reviewed = new Set(data?.reviewedOrderIds ?? [])
+  const [tab, setTab] = useState<MyOrderTab>('active')
+  const list = orders.filter((o) => myOrderTab(o) === tab)
+  const current = MY_ORDER_TABS.find((x) => x.id === tab)!
 
   return (
     <>
       <AppBar title={t('cus.myOrders')} backTo="/shop/profile" />
-      <div className="screen stack-sm">
+      <div className="hscroll" role="tablist" style={{ padding: 'var(--s3) var(--s4)', margin: 0 }}>
+        {MY_ORDER_TABS.map((tb) => {
+          const n = orders.filter((o) => myOrderTab(o) === tb.id).length
+          return (
+            <button
+              key={tb.id}
+              role="tab"
+              aria-selected={tab === tb.id}
+              className={`chip ${tab === tb.id ? 'chip--on' : ''}`}
+              onClick={() => setTab(tb.id)}
+            >
+              {t(tb.labelKey)}{n > 0 && <span className="num"> ({n})</span>}
+            </button>
+          )
+        })}
+      </div>
+      <div className="screen stack-sm" style={{ paddingTop: 0 }}>
         {loading ? (
           <Loading />
-        ) : orders.length === 0 ? (
-          <Card><EmptyState icon={IconOrders} title={t('ord.noOrders')} /></Card>
+        ) : list.length === 0 ? (
+          <Card><EmptyState icon={IconOrders} title={t(current.emptyKey)} /></Card>
         ) : (
-          orders.map((o) => (
+          list.map((o) => (
             <button key={o.id} className="tile" onClick={() => nav(`/shop/orders/${o.id}`)}>
-              <div className="tile__img" aria-hidden="true">{STATUS_STYLE[o.status].icon}</div>
+              <div className="tile__img" aria-hidden="true"><StatusIcon name={STATUS_STYLE[o.status].icon} /></div>
               <div className="tile__body">
                 <div className="tile__title">{o.items.map((i) => i.name).join(', ')}</div>
                 <div className="tile__meta">{o.id}</div>
                 <div className="wrap-row" style={{ marginTop: 4 }}>
-                  <Pill tone={STATUS_STYLE[o.status].tone} icon={STATUS_STYLE[o.status].icon}>
+                  <Pill tone={STATUS_STYLE[o.status].tone} icon={<StatusIcon name={STATUS_STYLE[o.status].icon} />}>
                     {t(statusLabelKey(o.status))}
                   </Pill>
-                  {/* Asked for on the list, not only inside the order: a buyer
-                      rarely reopens something that has already arrived. */}
-                  {canReview(o) && !reviewed.has(o.id) && (
-                    <Pill tone="warn" icon={<IconStar aria-hidden="true" />}>{t('rev.giveFeedback')}</Pill>
-                  )}
                 </div>
               </div>
               <div className="tile__price"><Rupees value={o.total} /></div>
@@ -592,16 +622,34 @@ export function TrackOrder() {
           toast(t('ended.youCancelled'))
         }}
       />
-      <AppBar title={`${t('ord.order')} ${order.id}`} onBack={() => nav(-1)} />
+      <AppBar title={t('track.title')} onBack={() => nav(-1)} />
       <div className="screen stack">
-        <Card><Timeline order={order} /></Card>
+        {/* What was ordered, then which order it is, then where it is - the
+            order a delivery app puts them in, and the order she asks. */}
+        <div className="stack-sm">
+          {order.items.map((i) => (
+            <div key={i.productId} className="row">
+              <span className="lineicon lineicon--lg" aria-hidden="true"><IconProduct /></span>
+              <div className="grow">
+                <div style={{ fontWeight: 600 }}>{i.name}</div>
+                <div className="small dim num">× {i.qty}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="orderno">
+          <span>{t('track.orderNo')}</span>
+          <CopyValue value={order.id} copiedText={t('track.copied')} />
+        </div>
 
-        {/* Straight under the timeline that just turned green: the moment the
-            goods arrive is the moment there is something to say about them. */}
-        <OrderReview
+        <OrderStatusBox order={order} />
+
+        {/* What she said about each product, under the status that turned
+            green. Asking for it is RateOrderGate's job, over the whole app. */}
+        <OrderRatings
           order={order}
-          review={data.review as Review | undefined}
-          onSaved={(review) => setData({ ...data, review })}
+          reviews={data.reviews ?? []}
+          onSaved={(reviews) => setData({ ...data, reviews })}
         />
 
         {/* The customer's number is on the ORDER, never on the catalogue: it appears once
@@ -734,7 +782,7 @@ export function TrackOrder() {
             {order.items.map((i) => (
               <div key={i.productId} className="row-between">
                 <div className="row">
-                  <span aria-hidden="true">{i.emoji}</span>
+                  <span className="lineicon" aria-hidden="true"><IconProduct /></span>
                   <span>{i.name} × {i.qty}</span>
                 </div>
                 <Rupees value={i.price * i.qty} />

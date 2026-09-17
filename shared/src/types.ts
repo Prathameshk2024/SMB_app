@@ -108,14 +108,21 @@ export interface Order {
 /* ------------------------------------------------------------------ */
 
 /**
- * One buyer's word on one delivered order. The rules are in `review.ts`.
+ * One buyer's word on ONE PRODUCT from one delivered order. The rules are in
+ * `review.ts`.
  *
- * Keyed to the ORDER, not the product or the seller: only somebody who has
- * actually received goods from her may rate her, and one order is one voice.
+ * A product, not the seller: the public reads what a jar of pickle was like,
+ * not a score for the woman who made it. And keyed to an order, so only
+ * somebody who actually received the product may rate it - one order, one
+ * voice per product in it.
  */
 export interface Review {
   id: string
   orderId: string
+  productId: string
+  /** The name on the order line, copied - a deleted listing keeps its reviews readable. */
+  productName: string
+  /** Whose product. For her own reviews list and the admin console; never public. */
   sellerId: string
   customerId: string
   /**
@@ -126,8 +133,6 @@ export interface Review {
   /** 1 to 5. */
   rating: number
   comment?: string
-  /** What the order held, copied, so a product page can say what was rated. */
-  items: { productId: string; name: string }[]
   createdAt: string
   updatedAt?: string
   /**
@@ -140,11 +145,19 @@ export interface Review {
   hiddenReason?: string
 }
 
-/** A review as the public sees it: who, how many stars, what they said. */
+/** A review as the public sees it: which product, who, how many stars, what they said. */
 export type PublicReview = Pick<
   Review,
-  'id' | 'orderId' | 'customerName' | 'rating' | 'comment' | 'items' | 'createdAt' | 'updatedAt'
+  | 'id' | 'orderId' | 'productId' | 'productName' | 'customerName' | 'rating' | 'comment'
+  | 'createdAt' | 'updatedAt'
 >
+
+/** One product's stars, as the buyer sends them. */
+export interface ProductRatingInput {
+  productId: string
+  rating: number
+  comment?: string
+}
 
 export interface RatingSummary {
   /** One decimal place; 0 when there is nothing to average. */
@@ -294,9 +307,8 @@ export interface Seller {
   /** Admin decisions about her account, newest last. Trimmed on write. */
   notices?: AdminNotice[]
   /**
-   * Legacy, and never read for display: the API derives both from `reviews`
-   * on every answer (see `summarizeReviews`). A stored average goes stale the
-   * first time an admin hides a review.
+   * Legacy, and never read. Sellers are not rated - their products are
+   * (see Review). Kept only so stored documents still parse.
    */
   rating: number
   ratingCount: number
@@ -320,7 +332,6 @@ export type PublicSeller = Pick<
   | 'id' | 'womenBizId' | 'name' | 'photo' | 'shopName' | 'shopSlug' | 'village'
   | 'deliveryFee' | 'freeDeliveryAbove' | 'minOrder' | 'pincodes'
   | 'upiId' | 'upiQrReady' | 'upiQrUrl'
-  | 'rating' | 'ratingCount'
 >
 
 export type ReadinessBand = 'starter' | 'basic' | 'advanced' | 'digital'
