@@ -10,7 +10,7 @@ import { makeShopSlug, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import { computeReadiness, readinessBand, recomputeForSeller } from '@shared/readiness.js'
 import { getDb, newId, save } from '../db/store.js'
 import { buyersForSeller } from '../db/customers.js'
-import { sellerProductReviews } from '../db/reviews.js'
+import { sellerProductReviews, sellerRating } from '../db/reviews.js'
 import { publicSeller } from '../db/publicSeller.js'
 import {
   type PaymentKind, canSellNow, payableKinds, paymentKindProblem, subscriptionView,
@@ -271,11 +271,13 @@ sellersRouter.get('/me/buyers', requireRole('seller'), (req, res) => {
 
 /**
  * What her buyers said about her products, each review naming the product -
- * exactly the words the public reads on those products, and nothing hidden.
- * No overall score: sellers are not rated, products are.
+ * exactly the words the public reads on those products, and nothing hidden -
+ * with the rating buyers see on her card, worked out the same way.
  */
 sellersRouter.get('/me/reviews', requireRole('seller'), (req, res) => {
-  res.json({ reviews: sellerProductReviews(getDb(), req.auth!.sellerId!) })
+  const db = getDb()
+  const sellerId = req.auth!.sellerId!
+  res.json({ reviews: sellerProductReviews(db, sellerId), summary: sellerRating(db, sellerId) })
 })
 
 sellersRouter.patch('/me', requireRole('seller'), (req, res) => {
@@ -354,7 +356,7 @@ sellersRouter.get('/:id', (req, res) => {
   }
   // The same allow-listed card the catalogue sends. This used to strip seven
   // named fields and pass everything else, including her admin notices.
-  res.json({ seller: publicSeller(seller) })
+  res.json({ seller: publicSeller(seller, sellerRating(getDb(), seller.id)) })
 })
 
 /* ------------------------------------------------------------------ */

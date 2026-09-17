@@ -27,7 +27,7 @@ import { configureImageCache } from '../lib/imageCache.js'
  * server hands back mid-session was written to the api client's copy only, so
  * the next reload restored the ORIGINAL token from here and threw the slide
  * away. `onTokenRefresh` closes that gap - a re-stamped token is written back
- * into the stored session, which is what makes the seven-day window an
+ * into the stored session, which is what makes the fifteen-day window an
  * inactivity window rather than a countdown from login.
  */
 

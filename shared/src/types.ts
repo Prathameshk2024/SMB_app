@@ -307,8 +307,9 @@ export interface Seller {
   /** Admin decisions about her account, newest last. Trimmed on write. */
   notices?: AdminNotice[]
   /**
-   * Legacy, and never read. Sellers are not rated - their products are
-   * (see Review). Kept only so stored documents still parse.
+   * Stored values are legacy and never read. On every public answer both are
+   * replaced by her products' ratings taken together (`summarizeReviews` over
+   * every visible review of her products) - see `publicSeller`.
    */
   rating: number
   ratingCount: number
@@ -332,6 +333,7 @@ export type PublicSeller = Pick<
   | 'id' | 'womenBizId' | 'name' | 'photo' | 'shopName' | 'shopSlug' | 'village'
   | 'deliveryFee' | 'freeDeliveryAbove' | 'minOrder' | 'pincodes'
   | 'upiId' | 'upiQrReady' | 'upiQrUrl'
+  | 'rating' | 'ratingCount'
 >
 
 export type ReadinessBand = 'starter' | 'basic' | 'advanced' | 'digital'

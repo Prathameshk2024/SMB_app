@@ -1,15 +1,15 @@
 import { useT } from '../../i18n/I18nProvider.js'
 import { api } from '../../lib/api.js'
 import { AppBar, Card, EmptyState, Loading, Notice, useAsync } from '../../components/ui.js'
-import { ReviewList } from '../../components/Reviews.js'
+import { RatingSummaryCard, ReviewList } from '../../components/Reviews.js'
 import { IconStar } from '../../components/icons.js'
 
 /**
  * WHAT BUYERS SAID ABOUT HER PRODUCTS.
  *
  * Each review names the product it is about, newest first - the same words a
- * customer reads on that product's page. There is no overall score: sellers
- * are not rated, products are. She cannot reply or remove anything, because a
+ * customer reads on that product's page - under her rating, which is those
+ * same reviews taken together, exactly as buyers see it on her card. She cannot reply or remove anything, because a
  * review a seller could delete would be worth nothing to the next buyer; the
  * line under the list says who to ask about an abusive one.
  */
@@ -30,6 +30,7 @@ export function SellerReviews() {
           </Card>
         ) : (
           <>
+            {data && <RatingSummaryCard summary={data.summary} />}
             <ReviewList reviews={reviews} showProduct />
             <Notice tone="info">{t('rev.sellerHelp')}</Notice>
           </>

@@ -81,8 +81,8 @@ test('a session idles out on the server, not only in the token', () => {
   const issued = Date.now()
   const { db, session } = dbWithSeller(issued)
 
-  assert.ok(findLiveSession(db, session.id, issued + 6 * DAY))
-  assert.equal(findLiveSession(db, session.id, issued + 8 * DAY), null)
+  assert.ok(findLiveSession(db, session.id, issued + 14 * DAY))
+  assert.equal(findLiveSession(db, session.id, issued + 16 * DAY), null)
 })
 
 test('an absolute ceiling ends even a session in constant use', () => {

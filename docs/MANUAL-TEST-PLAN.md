@@ -490,7 +490,7 @@ Profile C at `:5174`.
 | ☐ L21 | Orders screen: filter by status, seller and pincode | Each filter narrows the list; newest first; each row shows the shop name and SMB id |
 | ☐ L22 | Impact screen | Per-village women count and ₹ earned. Only DELIVERED orders count as earnings |
 | ☐ L23 | The console's language toggle | Both languages complete; no raw `t()` keys on screen |
-| ☐ L24 | Idle for over 8 hours, or edit the session's last-seen time in `db.json` | The admin session has expired — 8h idle, far shorter than the seller's 7 days |
+| ☐ L24 | Idle for over 8 hours, or edit the session's last-seen time in `db.json` | The admin session has expired — 8h idle, far shorter than the seller's 15 days |
 | ☐ L25 | The admin logo | The same portrait mark as the seller app, favicon included, with **no** extra ring or background |
 
 ---

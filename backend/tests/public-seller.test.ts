@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Seller } from '@shared/types.js'
 import { publicSeller } from '../src/db/publicSeller.js'
+import { NO_RATING } from '../src/db/reviews.js'
 
 /**
  * WHAT A STRANGER MAY LEARN ABOUT A SELLER.
@@ -36,23 +37,27 @@ function seller(): Seller {
  * somebody who has had to think about whether a stranger should see it.
  */
 test('the public card carries exactly the allow-listed fields', () => {
-  assert.deepEqual(Object.keys(publicSeller(seller())).sort(), [
+  assert.deepEqual(Object.keys(publicSeller(seller(), NO_RATING)).sort(), [
     'deliveryFee', 'freeDeliveryAbove', 'id', 'minOrder', 'name', 'photo', 'pincodes',
-    'shopName', 'shopSlug', 'upiId', 'upiQrReady', 'upiQrUrl',
+    'rating', 'ratingCount', 'shopName', 'shopSlug', 'upiId', 'upiQrReady', 'upiQrUrl',
     'village', 'womenBizId',
   ])
 })
 
 test('her phone, admin notices and block reason never reach the public', () => {
-  const card = JSON.stringify(publicSeller(seller()))
+  const card = JSON.stringify(publicSeller(seller(), NO_RATING))
   for (const secret of ['9822011223', 'private', 'old reason', 'जिजाऊ', 'qr/1']) {
     assert.equal(card.includes(secret), false, secret)
   }
 })
 
-/** Sellers are not rated - their products are. No score for the woman herself. */
-test('the public card carries no rating', () => {
-  const card = publicSeller(seller()) as Record<string, unknown>
-  assert.equal('rating' in card, false)
-  assert.equal('ratingCount' in card, false)
+/**
+ * Her rating is what her products earned, passed in - never the numbers
+ * stored on her record (4.9 from 99 here), which nothing keeps up to date.
+ */
+test('the rating on the card is her products\' ratings, not the stored fields', () => {
+  const card = publicSeller(seller(), { average: 3.5, count: 2, byStars: [0, 0, 1, 1, 0] })
+  assert.equal(card.rating, 3.5)
+  assert.equal(card.ratingCount, 2)
+  assert.equal(publicSeller(seller(), NO_RATING).ratingCount, 0)
 })

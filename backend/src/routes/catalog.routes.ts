@@ -2,7 +2,9 @@ import { Router } from 'express'
 import type { Product, Seller } from '@shared/types.js'
 import { getDb } from '../db/store.js'
 import { CATEGORIES } from '../db/seed.js'
-import { NO_RATING, productReviewsFor, ratingsByProduct } from '../db/reviews.js'
+import {
+  NO_RATING, productReviewsFor, ratingsByProduct, ratingsBySeller, sellerRating,
+} from '../db/reviews.js'
 import { publicSeller } from '../db/publicSeller.js'
 import { canSellNow } from '@shared/subscription.js'
 
@@ -75,11 +77,18 @@ catalogRouter.get('/products', (req, res) => {
   //
   // Each product carries its OWN stars, from the ratings of buyers who
   // received it - worked out here on every request, never stored.
+  // Her card carries HER rating: every product of hers, taken together.
   const ratings = ratingsByProduct(db)
+  const sellerRatings = ratingsBySeller(db)
   const withSeller = list.map((p) => {
     const s = sellerById.get(p.sellerId)
     const r = ratings.get(p.id) ?? NO_RATING
-    return { ...p, rating: r.average, ratingCount: r.count, seller: s && publicSeller(s) }
+    return {
+      ...p,
+      rating: r.average,
+      ratingCount: r.count,
+      seller: s && publicSeller(s, sellerRatings.get(s.id) ?? NO_RATING),
+    }
   })
 
   res.json({ products: withSeller })
@@ -102,7 +111,7 @@ catalogRouter.get('/products/:id', (req, res) => {
   const { summary } = productReviewsFor(db, product!.id)
   res.json({
     product: { ...product!, rating: summary.average, ratingCount: summary.count },
-    seller: publicSeller(seller!),
+    seller: publicSeller(seller!, sellerRating(db, seller!.id)),
   })
 })
 

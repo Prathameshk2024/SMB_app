@@ -343,8 +343,11 @@ export const api = {
   reviewOrder: (id: string, ratings: ProductRatingInput[]) =>
     post<{ reviews: Review[] }>(`/orders/${id}/review`, { ratings }),
 
-  /** Every visible review of her products, each naming the product. No overall score. */
-  myReviews: () => get<{ reviews: PublicReview[] }>('/sellers/me/reviews'),
+  /**
+   * Every visible review of her products, each naming the product, and the
+   * rating buyers see on her card - her products' ratings taken together.
+   */
+  myReviews: () => get<{ reviews: PublicReview[]; summary: RatingSummary }>('/sellers/me/reviews'),
 
   placeOrders: (body: {
     address: { line: string; landmark?: string; pincode: string }

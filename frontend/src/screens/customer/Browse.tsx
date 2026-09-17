@@ -510,6 +510,11 @@ function SellerCard({ seller }: { seller: Partial<Seller> }) {
       <div className="tile__body">
         <div className="tile__meta">{t('cus.soldBy')}</div>
         <div className="tile__title">{seller.shopName}</div>
+        {/* Her rating is what buyers gave her products, all of them together. */}
+        <div className="tile__meta">
+          <RatingLine average={seller.rating} count={seller.ratingCount} />
+          {!!seller.ratingCount && <span className="dim"> · {t('rev.fromProducts')}</span>}
+        </div>
         <div className="tile__meta">{seller.village}</div>
         <div className="tiny num dim">{seller.womenBizId}</div>
       </div>

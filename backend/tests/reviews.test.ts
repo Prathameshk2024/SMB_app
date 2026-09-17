@@ -6,7 +6,8 @@ import {
   reviewProblem, summarizeReviews, toPublicReview,
 } from '@shared/review.js'
 import {
-  ordersToRate, productReviewsFor, ratingsByProduct, sellerProductReviews, splitOrderReviews,
+  ordersToRate, productReviewsFor, ratingsByProduct, ratingsBySeller, sellerProductReviews,
+  sellerRating, splitOrderReviews,
   writeRatings,
 } from '../src/db/reviews.js'
 
@@ -15,7 +16,8 @@ import {
  *
  * Once an order is delivered, the buyer rates every product in it - stars
  * required, words optional - before the app lets them do anything else. The
- * ratings belong to the products; the seller is never scored.
+ * ratings belong to the products; a seller's rating is her products' ratings
+ * taken together.
  */
 
 const DAY = 86_400_000
@@ -172,4 +174,21 @@ test('an old whole-order review becomes one review per product, once', () => {
   assert.deepEqual(db.reviews.map((r) => [r.productId, r.rating, r.comment]), [['p1', 4, 'छान'], ['p2', 4, 'छान']])
   assert.equal('items' in db.reviews[0]!, false)
   assert.equal(splitOrderReviews(db), 0)
+})
+
+/**
+ * A seller's rating is every visible review of her products, each counted
+ * once - a product rated often weighs more than one rated once.
+ */
+test('a seller is rated by all her products\' reviews together, hidden ones left out', () => {
+  const db = { reviews: [] as Review[] }
+  writeRatings(db, order('DELIVERED', 'A'), [{ productId: 'p1', rating: 5 }, { productId: 'p2', rating: 5 }], soon)
+  writeRatings(db, order('DELIVERED', 'B'), [{ productId: 'p1', rating: 5 }, { productId: 'p2', rating: 2 }], soon)
+  // Three reviews of five stars and one of two: (5+5+5+2)/4 = 4.25 -> 4.3.
+  assert.deepEqual(sellerRating(db, 's1'), { average: 4.3, count: 4, byStars: [0, 1, 0, 0, 3] })
+  assert.equal(ratingsBySeller(db).get('s1')?.count, 4)
+
+  db.reviews.find((r) => r.orderId === 'B' && r.productId === 'p2')!.hidden = true
+  assert.deepEqual(sellerRating(db, 's1'), { average: 5, count: 3, byStars: [0, 0, 0, 0, 3] })
+  assert.equal(sellerRating(db, 'nobody').count, 0)
 })

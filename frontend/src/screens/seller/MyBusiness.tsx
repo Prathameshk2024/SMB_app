@@ -12,6 +12,7 @@ import {
   IconAllClear, IconBuyers, IconChevron, IconGrowth, IconOrders, IconPause, IconPlay, IconProduct, StatusIcon, type IconType,
 } from '../../components/icons.js'
 import { SubscriptionLine, SubscriptionNotice } from '../../components/SubscriptionNotice.js'
+import { RatingLine } from '../../components/Reviews.js'
 import { PageTour } from '../../components/Walkthrough.js'
 
 /**
@@ -184,19 +185,14 @@ export default function MyBusiness() {
           )}
         </div>
 
-        {/* What buyers said about her products, one tap away. A count, not a
-            score: her products are rated, she is not. */}
+        {/* Her rating - her products' ratings together, exactly as buyers see
+            it on her card - and one tap to what they said. */}
         <button className="card card--tap" onClick={() => nav('/seller/reviews')}>
           <div className="row-between">
             <div className="stack-sm" style={{ gap: 2 }}>
               <strong>{t('rev.title')}</strong>
-              <span className="small dim">
-                {!reviewData?.reviews.length
-                  ? t('rev.none')
-                  : reviewData.reviews.length === 1
-                    ? t('rev.countOne')
-                    : t('rev.count', { n: reviewData.reviews.length })}
-              </span>
+              {/* The same number buyers see on her card. */}
+              <RatingLine average={reviewData?.summary.average} count={reviewData?.summary.count} />
             </div>
             <IconChevron aria-hidden="true" />
           </div>
