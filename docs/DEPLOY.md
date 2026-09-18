@@ -29,15 +29,111 @@ The live service:
 | Region | `asia-south1` (Mumbai) |
 | URL | `https://shantai-api-204453348000.asia-south1.run.app` |
 
-**How the container is built is not recorded in this repo.** There is no
-Dockerfile and no `cloudbuild.yaml`, so the build lives in someone's shell
-history or in the Cloud Console. Whoever deploys next: write the exact command
-here. What the repo does say is the build and start step:
+### How the container is built
+
+The image is the **`Dockerfile` at the repository root**, and the build
+context must be the root too: the backend compiles `../shared/src` along with
+its own code, so a build started inside `backend/` cannot see half of what it
+needs.
+
+It is two stages, both `node:22-slim`:
+
+1. **Build.** Every workspace's `package.json` and the root lockfile are
+   copied first, because `npm ci` refuses a lockfile whose workspaces are
+   missing — so `frontend/` and `admin/` manifests go in even though none of
+   their source does. Then `shared/src`, `backend/src`, `backend/scripts` and
+   `backend/tsconfig.json`, and `npm --workspace=@shantai/backend run build`.
+2. **Run.** `npm ci --omit=dev` and the compiled `backend/dist` only — no
+   TypeScript, no source, no `.env`. `NODE_ENV=production` is set in the
+   image; everything else arrives from Cloud Run (below). It starts with
+   `node backend/dist/backend/src/index.js`.
+
+**The build is two commands, and the second one is not optional.**
+`npm run build` in `backend/` is `tsc` followed by
+`scripts/fix-shared-imports.js`. `tsc` type-checks `@shared/*` through
+`tsconfig.json`'s `paths` but writes the specifier into its output unchanged,
+and there is no package called `@shared` at runtime — so without the rewrite
+the container builds cleanly and then dies on its first import with
+`ERR_MODULE_NOT_FOUND: Cannot find package '@shared/…'`. The script turns each
+one into a relative path to the compiled copy in `dist/shared/src`, and fails
+the build if one points at nothing.
+`EXPOSE 4000` is documentation only. Cloud Run sets `PORT` (8080) and
+`config.ts` listens on whatever it says.
+
+To deploy from a clone, at the repository root:
 
 ```bash
-npm ci && npm --workspace @shantai/backend run build
-npm --workspace @shantai/backend run start
+gcloud run deploy shantai-api --source . --region asia-south1 --project <PROJECT_ID>
 ```
+
+`--source` uploads the folder to Cloud Build, which finds the Dockerfile and
+builds it. The upload honours `.gcloudignore`, and gcloud generates one from
+`.gitignore` when there is none — so `node_modules`, `dist` and every `.env`
+stay behind. A redeploy of an existing service keeps its settings (maximum
+instances, CPU, variables, secrets) unless a flag changes them. **Every deploy
+is a new revision**, and for a few seconds two instances run — see *Exactly
+one instance* below before choosing when.
+
+**Not on a day Firestore's Spark limits are spent** (`docs/CAPACITY.md` §4).
+Every start reads the whole database: with the reads gone, the new revision
+refuses to start (`Refusing to start on an empty database` in its log) and the
+deploy fails, leaving the old revision serving. With the writes gone, the old
+revision is holding unsaved changes in memory that a deploy would throw away —
+its log says `in memory only - retrying every 60s`. Either way, deploy after
+the reset, around 12:30 IST.
+
+Not yet compared with the live service: which image the current revision runs
+and the names of the secrets it mounts. `gcloud run services describe` (next
+section) shows both; record them here once checked.
+
+To try the image locally, where Docker is installed:
+
+```bash
+docker build -t shantai-api .
+docker run -p 4000:4000 --env-file backend/.env shantai-api
+```
+
+**Never with a `.env` holding the production Firebase key.** That container is
+a second process writing the live database, which is exactly what *Exactly
+one instance* forbids. And since the image sets `NODE_ENV=production`, it also
+needs `SESSION_SECRET` and MSG91 set, or it refuses to boot.
+
+Without Docker, `npm run build` then `npm run start` in `backend/` runs the
+same compiled output.
+
+### Old images — keep the newest five
+
+Every `--source` deploy stores a new image in the Artifact Registry repository
+`cloud-run-source-deploy`, and nothing deletes the old ones: about 40 MB more
+storage per deploy, for ever (`docs/CAPACITY.md` §8 has the arithmetic).
+`artifact-cleanup.json` at the repository root is the policy: delete every
+image except the five newest. Set it once, from the root:
+
+```bash
+# 1. Dry run - nothing is deleted; Artifact Registry only logs what it would.
+gcloud artifacts repositories set-cleanup-policies cloud-run-source-deploy \
+  --project=<PROJECT_ID> --location=asia-south1 \
+  --policy=artifact-cleanup.json --dry-run
+
+# 2. Once that looks right, turn it on.
+gcloud artifacts repositories set-cleanup-policies cloud-run-source-deploy \
+  --project=<PROJECT_ID> --location=asia-south1 \
+  --policy=artifact-cleanup.json --no-dry-run
+
+# Check what is set:
+gcloud artifacts repositories describe cloud-run-source-deploy \
+  --project=<PROJECT_ID> --location=asia-south1
+```
+
+Things to know:
+
+- **Keep beats delete.** The first rule matches every image; the second
+  protects the five newest, and a Keep rule always wins.
+- **It is not instant.** Cleanup runs in the background, roughly once a day.
+- **Rolling back reaches five deploys, no further.** A Cloud Run revision whose
+  image is gone cannot be rolled back to. If a bad deploy is found late, the fix
+  is a new deploy of the old commit, not a rollback.
+- Editing `artifact-cleanup.json` changes nothing by itself — run step 2 again.
 
 ### Two settings that are not Cloud Run's defaults
 

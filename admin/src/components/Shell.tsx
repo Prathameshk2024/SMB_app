@@ -39,11 +39,23 @@ export function Shell() {
    * One request a minute against an endpoint that reads an in-memory snapshot
    * is cheap. Anything faster would be spending a woman's Firestore quota to
    * tell an admin something a minute sooner.
+   *
+   * Only while the tab is visible. The API runs with CPU always allocated, so
+   * Cloud Run bills every second an instance is up, and a console left open
+   * overnight in a background tab kept one up all night asking for numbers
+   * nobody was looking at. Coming back to the tab asks at once instead.
    */
   const [tick, setTick] = useState(0)
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 60_000)
-    return () => clearInterval(id)
+    const bump = () => {
+      if (document.visibilityState === 'visible') setTick((n) => n + 1)
+    }
+    const id = setInterval(bump, 60_000)
+    document.addEventListener('visibilitychange', bump)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', bump)
+    }
   }, [])
 
   const [data] = useAsync(() => api.stats(), [tick])

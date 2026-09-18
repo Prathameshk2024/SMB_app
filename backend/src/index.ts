@@ -220,9 +220,18 @@ async function main() {
 }
 
 // Writes are coalesced over 400ms, so a shutdown mid-window would lose them.
+// If Firestore is still refusing them (Spark's daily write limit), memory is
+// the only copy and it goes with this process - say so, rather than exit as
+// though everything had been saved.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    void flush().finally(() => process.exit(0))
+    void flush()
+      .then((saved) => {
+        if (!saved) {
+          console.error('[firestore] shutting down with changes Firestore never accepted - they are LOST')
+        }
+      })
+      .finally(() => process.exit(0))
   })
 }
 
