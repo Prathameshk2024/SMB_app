@@ -329,37 +329,6 @@ display the page:
 - The Android permissions the site relies on — `RECORD_AUDIO` for voice input
   among them — are declared in the wrapper's `app.json`.
 
-### The phone's navigation bar
-
-The WebView draws edge to edge, so Android's navigation bar sits on top of the
-bottom of the page, and Android System WebView reports
-`env(safe-area-inset-bottom)` as 0. `frontend/src/lib/appInsets.ts` therefore
-reserves **48px** (the three-button bar) whenever it sees the WebView user
-agent. On a gesture-bar phone that leaves a little empty space under the tab
-bar.
-
-The wrapper can replace that guess with the real value. In `app/index.tsx`:
-
-```tsx
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-
-const insets = useSafeAreaInsets()
-// top: 0 while the wrapper itself keeps the page below the status bar.
-const insetsJs = `window.ShantaiInsets = { top: 0, bottom: ${Math.round(insets.bottom)} }; true;`
-
-<WebView
-  injectedJavaScriptBeforeContentLoaded={insetsJs}
-  /* ...existing props... */
-/>
-```
-
-If the inset can change while the page is open (rotation), send it again with
-`webViewRef.current?.injectJavaScript("window.dispatchEvent(new CustomEvent('shantai:insets', { detail: { top: 0, bottom: N } })); true;")`.
-
-**Do not also wrap the WebView in a bottom `SafeAreaView`** without sending
-`{ top: 0, bottom: 0 }`: the page would add its own 48px on top of the
-wrapper's padding.
-
 A web API that works in Chrome is not guaranteed there (`navigator.share` is
 absent), so anything that touches the phone has to be tried inside the APK —
 suite P of `docs/MANUAL-TEST-PLAN.md`.
