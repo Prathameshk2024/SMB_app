@@ -41,7 +41,7 @@ export function Cart() {
   const { items: cartItems, setQty, count, groupBySeller, sellerId: cartSellerId } = useCart()
 
   // Sellers come from the catalog, which already carries a seller card per item.
-  const [data, loading] = useAsync(() => api.catalog(), [])
+  const [data, loading] = useAsync(() => api.catalog(), [], 'catalog')
 
   if (loading) return <><AppBar brand title={t('nav.cart')} /><div className="screen"><Loading /></div></>
 
@@ -497,7 +497,7 @@ function myOrderTab(o: { status: string }): MyOrderTab {
 export function CustomerOrders() {
   const t = useT()
   const nav = useNavigate()
-  const [data, loading] = useAsync(() => api.myOrders(), [])
+  const [data, loading] = useAsync(() => api.myOrders(), [], 'orders:mine')
   const orders = data?.orders ?? []
   const [tab, setTab] = useState<MyOrderTab>('active')
   const list = orders.filter((o) => myOrderTab(o) === tab)

@@ -991,7 +991,13 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
  * card explains the screen on its own.
  */
 .tour { position: fixed; inset: 0; z-index: 120; }
-.tour__block { position: absolute; inset: 0; }
+/* While a walkthrough is open the page under it does not move - see the
+   comment in Walkthrough.tsx. `scroll-behavior: auto` so the tour's own
+   scrollIntoView, which still works through this, lands without animating
+   against a locked page. */
+.tour-open, .tour-open body { overflow: hidden; scroll-behavior: auto; }
+/* Stops a swipe on the overlay scrolling the page behind it on Android. */
+.tour__block { position: absolute; inset: 0; touch-action: none; }
 .tour__dim { position: absolute; inset: 0; background: rgba(59, 43, 35, 0.55); }
 .tour__ring {
   position: absolute;

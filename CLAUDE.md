@@ -306,9 +306,47 @@ which is right going forward and exactly wrong coming back - she scrolled deep
 into the catalogue, opened a product, pressed back, and the list had forgotten
 her.
 
-The restore retries for about a second, because every screen fetches its own
-data: at the moment she returns the list is one spinner tall and the browser
-clamps any scroll past that height.
+**The restore waits for the content rather than racing it.** Every screen
+fetches its own data, so at the moment she returns the list is one spinner
+tall and the browser clamps any scroll past that height — which is why "back
+goes to the first product" was the complaint. `makeRestorer()` in
+`scrollMemory.ts` keeps asking while the page is still too short (`waiting`),
+through the fetch and through the photographs that change the height again as
+they load, and stops as soon as it lands, as soon as the page is tall enough
+but the scroll went elsewhere, or at `RESTORE_WINDOW_MS`. A fixed number of
+tries was the old rule and it expired before a Cloud Run list on 4G arrived.
+
+Two things it must not do, both enforced in `ScrollMemory`: it **stops the
+moment she scrolls herself** (`wheel`, `touchstart`, `pointerdown`, `keydown`
+— never `scroll`, which is what the restore itself causes), and it **suspends
+saving while restoring**, or the clamped `0` of a page that is still a spinner
+is written over the place she actually left off.
+
+**Back paints her place in the FIRST frame, not the second.** Two things make
+that true, and both are needed. `useAsync` takes an optional **`cacheKey`**
+(`lib/screenCache.ts`): the last answer that key received is rendered
+immediately, at full height, while the fetch goes out to replace it — so
+coming back no longer means spinner, then list, then a jump. And the restore
+runs in a **`useLayoutEffect`**, before the browser paints; as an ordinary
+effect it landed one frame late, which is exactly the blink of the top of the
+page people reported. Cache keys are on the screens she returns to (catalogue,
+categories, a category, a shop, a product, both order lists, her products).
+The cache is memory-only, capped at 40 entries, dropped for a key whose
+refetch fails, and **cleared when a session ends** — on a field coordinator's
+phone a kept "my products" is the previous woman's shop.
+
+**Nothing is saved on the way out, and that is load-bearing.** Both the scroll
+listener's cleanup and the restore's teardown used to end with
+`rememberScroll(key, window.scrollY)` — "leaving is the one moment the
+position is certainly final". It is the one moment it is certainly *wrong*:
+by the time an effect cleanup runs, React has already swapped the tall
+catalogue for a short product page, the document is one screen high, and the
+browser has clamped the scroll to 0. So leaving wrote `0` over `1074`, and
+Back then restored the top faithfully — which is why "back always goes to the
+first product" survived a rewrite of the retry logic that was never the
+problem. Only real scroll events write a position now. Traced in a real
+browser over CDP on 20 September 2026; the console said
+`[mem] set default 1074` immediately followed by `[mem] set default 0`.
 
 That same clamp is why **`useAsync` reports `loading` only when it has nothing
 to show**. Screens render a spinner *instead of* their content, so flipping
