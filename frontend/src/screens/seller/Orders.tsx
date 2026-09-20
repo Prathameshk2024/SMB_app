@@ -33,7 +33,7 @@ export function SellerOrders() {
   const t = useT()
   const nav = useNavigate()
   const [tab, setTab] = useState('action')
-  const [data, loading] = useAsync(() => api.myOrders(), [])
+  const [data, loading] = useAsync(() => api.myOrders(), [], 'seller:orders')
 
   const orders = data?.orders ?? []
   const list = orders.filter((o) => {

@@ -5,6 +5,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useI18n, useT } from '../i18n/I18nProvider.js'
 import { useVoiceInput } from '../lib/useVoiceInput.js'
+import { dropCache, readCache, writeCache } from '../lib/screenCache.js'
 import NotificationBell from './NotificationBell.js'
 import logo from '../assets/logo.png'
 import { useToast } from '../store/ToastContext.js'
@@ -579,18 +580,33 @@ export function ConfirmSheet({
   )
 }
 
-/** Load-once helper with a loading flag, so screens stay tidy. */
+/**
+ * Load-once helper with a loading flag, so screens stay tidy.
+ *
+ * `cacheKey` makes the screen come back instantly. With one, the last answer
+ * this key received is rendered in the FIRST frame - full height, no spinner -
+ * while the fetch goes out to replace it. That is what makes Back look like
+ * nothing happened: the scroll can be put back before the browser paints,
+ * instead of after a spinner has collapsed the page to one screen. Give it to
+ * a screen she returns to; leave it off anything that must never be a moment
+ * out of date.
+ */
 export function useAsync<T>(
   fn: () => Promise<T>,
   deps: unknown[] = [],
+  cacheKey?: string,
 ): [T | null, boolean, (d: T) => void] {
-  const [state, setState] = useState<{ loading: boolean; data: T | null }>({
-    loading: true,
-    data: null,
+  const [state, setState] = useState<{ loading: boolean; data: T | null }>(() => {
+    const kept = cacheKey ? readCache<T>(cacheKey) : undefined
+    return { loading: kept === undefined, data: kept ?? null }
   })
 
   useEffect(() => {
     let alive = true
+    // A key that changed while mounted - one category screen to the next -
+    // gets the same instant first frame as a fresh mount would.
+    const kept = cacheKey ? readCache<T>(cacheKey) : undefined
+    if (kept !== undefined) setState({ loading: false, data: kept })
     /**
      * Loading means "there is nothing to show yet", not "something is in
      * flight".
@@ -604,13 +620,19 @@ export function useAsync<T>(
      */
     setState((s) => ({ ...s, loading: s.data === null }))
     fn()
-      .then((data) => alive && setState({ loading: false, data }))
-      .catch(() => alive && setState({ loading: false, data: null }))
+      .then((data) => {
+        if (cacheKey) writeCache(cacheKey, data)
+        if (alive) setState({ loading: false, data })
+      })
+      .catch(() => {
+        if (cacheKey) dropCache(cacheKey)
+        if (alive) setState((s) => ({ loading: false, data: s.data }))
+      })
     return () => {
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps)
+  }, [...deps, cacheKey])
 
   return [state.data, state.loading, (d: T) => setState({ loading: false, data: d })]
 }

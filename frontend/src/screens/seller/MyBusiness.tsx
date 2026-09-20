@@ -24,8 +24,8 @@ export default function MyBusiness() {
   const nav = useNavigate()
 
   const [me, loadingMe, setMe] = useAsync(() => api.me(), [])
-  const [orderData, loadingOrders] = useAsync(() => api.myOrders(), [])
-  const [productData, loadingProducts] = useAsync(() => api.myProducts(), [])
+  const [orderData, loadingOrders] = useAsync(() => api.myOrders(), [], 'seller:orders')
+  const [productData, loadingProducts] = useAsync(() => api.myProducts(), [], 'seller:products')
   // Not waited on: reviews are not what she opened this screen to act on.
   const [reviewData] = useAsync(() => api.myReviews(), [])
 

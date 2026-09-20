@@ -20,7 +20,7 @@ export default function MyProducts() {
   const t = useT()
   const nav = useNavigate()
   const { toast } = useToast()
-  const [data, loading, setData] = useAsync(() => api.myProducts(), [])
+  const [data, loading, setData] = useAsync(() => api.myProducts(), [], 'seller:products')
   const [toDelete, setToDelete] = useState<Product | null>(null)
 
   if (loading) {

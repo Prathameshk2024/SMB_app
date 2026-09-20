@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import {
   Navigate, Route, BrowserRouter as Router, Routes, useLocation, useNavigationType,
 } from 'react-router-dom'
@@ -9,7 +9,9 @@ import { ToastProvider } from './store/ToastContext.js'
 import { CartProvider } from './store/CartContext.js'
 import { liveTicket } from './lib/registerTicket.js'
 import { PincodeProvider } from './store/PincodeContext.js'
-import { recallScroll, rememberScroll } from './lib/scrollMemory.js'
+import {
+  RESTORE_TICK_MS, RESTORE_WINDOW_MS, makeRestorer, recallScroll, rememberScroll,
+} from './lib/scrollMemory.js'
 import { CustomerLayout, SellerLayout } from './components/layouts.js'
 import OfflineScreen from './components/OfflineScreen.js'
 
@@ -88,15 +90,21 @@ function RequireTicket({ children }: { children: ReactNode }) {
  *
  * So the position is saved per history entry and restored on POP only.
  *
- * The retries matter as much as the restore. Every screen fetches its own
+ * The waiting matters as much as the restore. Every screen fetches its own
  * data, so at the moment she comes back the list is one spinner tall and the
- * browser clamps any scroll past its height. Asking again over the next
- * second lets the restore land once the content is actually there, and stops
- * as soon as it does.
+ * browser clamps any scroll past that height. `makeRestorer` therefore keeps
+ * asking while the page is too short - through the fetch, and through the
+ * product photographs that change the height again as they load - instead of
+ * trying a few times and giving up at the top of the catalogue.
+ *
+ * It stops the instant SHE scrolls. A page that yanks itself out from under a
+ * reader is worse than one that starts at the top.
  */
 function ScrollMemory() {
   const { key } = useLocation()
   const navigationType = useNavigationType()
+  /** While the restore is walking the page, its steps are not her reading. */
+  const restoring = useRef(false)
 
   useEffect(() => {
     // The browser's own restoration fights this one and loses on a soft
@@ -105,30 +113,78 @@ function ScrollMemory() {
   }, [])
 
   useEffect(() => {
-    const onScroll = () => rememberScroll(key, window.scrollY)
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      // Leaving is the one moment the position is certainly final.
-      rememberScroll(key, window.scrollY)
-      window.removeEventListener('scroll', onScroll)
+    const onScroll = () => {
+      // Saving mid-restore would write the clamped position of a page that is
+      // still a spinner - 0 - over the place she actually left off.
+      if (!restoring.current) rememberScroll(key, window.scrollY)
     }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    /**
+     * NOTHING IS SAVED ON THE WAY OUT, AND THAT IS THE FIX.
+     *
+     * This used to end with `rememberScroll(key, window.scrollY)`, on the
+     * reasoning that leaving is the one moment the position is certainly
+     * final. It is the one moment it is certainly WRONG: React has already
+     * swapped the tall catalogue for a short product page by the time an
+     * effect cleanup runs, the document is one screen high again, and the
+     * browser has clamped the scroll to 0. So leaving overwrote "she was at
+     * 1074" with "she was at the top", and Back then restored the top
+     * faithfully. Every scroll she actually makes is recorded above, which is
+     * all this needs.
+     */
+    return () => window.removeEventListener('scroll', onScroll)
   }, [key])
 
-  useEffect(() => {
+  /**
+   * BEFORE THE PAINT, NOT AFTER IT.
+   *
+   * A layout effect, because an ordinary one runs after the browser has drawn
+   * the frame - so Back showed the screen at the top for one frame and then
+   * jumped down to her place. That blink is not the restore being slow; it is
+   * the restore being one frame late. Screens she returns to render their last
+   * answer immediately (`useAsync`'s cacheKey), so by the time this runs the
+   * list is already its full height and the first frame she sees is the one
+   * she left.
+   */
+  useLayoutEffect(() => {
     const target = navigationType === 'POP' ? recallScroll(key) : 0
-    window.scrollTo(0, target)
-    if (target === 0) return
+    if (target === 0) {
+      window.scrollTo(0, 0)
+      return
+    }
 
-    let tries = 0
+    const restorer = makeRestorer(target)
+    restoring.current = true
+
+    const stop = () => {
+      if (!restoring.current) return
+      restoring.current = false
+      clearInterval(timer)
+      clearTimeout(deadline)
+      for (const ev of HER_SCROLL) window.removeEventListener(ev, stop)
+      // Deliberately saves nothing: this also runs as the cleanup when she
+      // navigates away, where the scroll has already been clamped to 0 by the
+      // shorter screen. What she is looking at is either the position we were
+      // restoring, which is already in the map, or whatever she scrolled to
+      // herself, which the scroll listener recorded.
+    }
+
     const timer = setInterval(() => {
-      if (Math.abs(window.scrollY - target) < 2 || ++tries > 8) return clearInterval(timer)
-      window.scrollTo(0, target)
-    }, 120)
-    return () => clearInterval(timer)
+      if (restorer.tick() === 'done') stop()
+    }, RESTORE_TICK_MS)
+    // A screen whose content never arrives must not leave a timer running.
+    const deadline = setTimeout(stop, RESTORE_WINDOW_MS)
+    for (const ev of HER_SCROLL) window.addEventListener(ev, stop, { passive: true })
+
+    restorer.tick()
+    return stop
   }, [key, navigationType])
 
   return null
 }
+
+/** Her own hands on the page, as opposed to our `scrollTo`. */
+const HER_SCROLL = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
 
 export default function App() {
   return (

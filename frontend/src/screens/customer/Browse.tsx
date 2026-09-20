@@ -146,7 +146,7 @@ export function Explore() {
   // touched. Serviceability is checked where it actually matters - at
   // checkout, and per seller, where it can be explained rather than silently
   // shortening the list.
-  const [data, loading] = useAsync(() => api.catalog(), [])
+  const [data, loading] = useAsync(() => api.catalog(), [], 'catalog')
 
   const products = data?.products ?? []
   const list = products.filter((p) =>
@@ -197,7 +197,7 @@ export function Categories() {
   const t = useT()
   const nav = useNavigate()
   const { lang } = useI18n()
-  const [data, loading] = useAsync(() => api.categories(), [])
+  const [data, loading] = useAsync(() => api.categories(), [], 'categories')
 
   return (
     <>
@@ -233,8 +233,8 @@ export function CategoryProducts() {
   const nav = useNavigate()
   const { lang } = useI18n()
 
-  const [data, loading] = useAsync(() => api.catalog({ categoryId }), [categoryId])
-  const [catData] = useAsync(() => api.categories(), [])
+  const [data, loading] = useAsync(() => api.catalog({ categoryId }), [categoryId], `catalog:c:${categoryId}`)
+  const [catData] = useAsync(() => api.categories(), [], 'categories')
   const cat = (catData?.categories ?? []).find((c) => c.id === categoryId)
   const products = data?.products ?? []
 
@@ -267,7 +267,7 @@ export function ProductDetail() {
   const nav = useNavigate()
   const { add, has, canAdd, sellerName: cartShop } = useCart()
 
-  const [data, loading] = useAsync(() => api.product(productId!), [productId])
+  const [data, loading] = useAsync(() => api.product(productId!), [productId], `product:${productId}`)
 
   /**
    * The rest of this shop's window. Fetched by seller rather than filtered
@@ -453,7 +453,7 @@ export function SellerShop() {
   const t = useT()
   const nav = useNavigate()
 
-  const [data, loading] = useAsync(() => api.catalog({ sellerId }), [sellerId])
+  const [data, loading] = useAsync(() => api.catalog({ sellerId }), [sellerId], `catalog:s:${sellerId}`)
   const products = data?.products ?? []
   const seller = products[0]?.seller
 
