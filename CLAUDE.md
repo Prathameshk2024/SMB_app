@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (290) + frontend (105) + admin (37) tests
+npm test               # backend (295) + frontend (105) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -204,6 +204,8 @@ tap is how a woman loses the only record of what she had chosen; the refusal
 points at the cart and lets her decide. `CartItem.sellerName` is copied in on
 the way so the message can name the shop without waiting for the catalogue.
 
+**A delivery charge of 0 means "ask the seller", never "free".** No screen asks a seller for a charge, so 0 is almost always one nobody set, and the cart printed a "free" she had never promised. `SellerGroup.deliveryToAsk` (in `CartContext`) marks it: the cart line reads विक्रेतीला विचारा with a line saying the seller will tell them the charge and that her phone is on the order the moment it is placed (true — `GET /orders/:id` returns it from `PLACED`); every total beside it reads *Total (without delivery)*; the checkout repeats the line before she commits; the seller card on the product and shop pages says the same instead of ₹0. "Free" stays only where a seller's own `freeDeliveryAbove` is met — that one is her promise.
+
 Grouping by seller stays. Checkout, `POST /orders` and every delivery rule are
 built on it, one group is the honest shape of one seller, and a cart saved in
 `localStorage` before this rule can still hold two - which is exactly why the
@@ -378,7 +380,7 @@ A listing that still has no picture — an old one, or Cloudinary off — falls 
 - **Admin:** a subscription pill (with the date) on every selling seller in the register and on her page, a filter for ending-this-week and expired, the kind and resulting end date on each payment, and `subscriptionsExpiring` / `subscriptionsExpired` on the dashboard. `activeSellers` counts only shops a buyer can reach today. Granted slots start a term for a seller who has none, but never extend one — time is paid.
 - **Existing sellers** were given a term once at boot by `backfillSubscriptionTerms`: six months from their last approved payment (or from the deploy, for granted packs), and never fewer than seven days, so no shop closes the morning after the deploy without warning.
 
-**Deleting a draft deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
+**Deleting a draft deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). The 48-hour sweep of a rejected listing does the same: `purgeExpiredRejections()` destroys each swept row's photo, because the row was the only record of its public id and a photo left behind could never be named again — it used to remove the row alone. It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
 
 This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity and price from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the day listings become deletable again, by her or by an admin.
 

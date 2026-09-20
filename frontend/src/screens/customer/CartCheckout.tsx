@@ -180,12 +180,15 @@ export function Cart() {
               </div>
               <div className="row-between">
                 <span className="dim">{t('cus.deliveryFee')}</span>
-                {g.deliveryFee === 0
-                  ? <span className="pill pill--ok">{t('cart.free')}</span>
-                  : <Rupees value={g.deliveryFee} />}
+                {g.deliveryToAsk
+                  ? <strong>{t('cart.deliveryAsk')}</strong>
+                  : g.deliveryFee === 0
+                    ? <span className="pill pill--ok">{t('cart.free')}</span>
+                    : <Rupees value={g.deliveryFee} />}
               </div>
+              {g.deliveryToAsk && <div className="dim">{t('cart.deliveryAskHint')}</div>}
               <div className="row-between" style={{ fontSize: 'var(--t-base)' }}>
-                <strong>{t('cus.grandTotal')}</strong>
+                <strong>{t(g.deliveryToAsk ? 'cus.grandTotalNoDelivery' : 'cus.grandTotal')}</strong>
                 <strong><Rupees value={g.total} /></strong>
               </div>
             </div>
@@ -215,7 +218,7 @@ export function Cart() {
 
       <div className="actionbar" data-wt="cart-total">
         <div className="row-between">
-          <strong>{t('cus.grandTotal')}</strong>
+          <strong>{t(groups.some((g) => g.deliveryToAsk) ? 'cus.grandTotalNoDelivery' : 'cus.grandTotal')}</strong>
           <strong style={{ fontSize: 'var(--t-lg)' }}><Rupees value={grand} /></strong>
         </div>
         <Button data-wt="cart-checkout" disabled={blocked} onClick={() => nav('/shop/checkout')}>
@@ -411,9 +414,14 @@ export function Checkout() {
 
         <Card>
           <div className="row-between">
-            <strong>{t('cus.grandTotal')}</strong>
+            <strong>{t(groups.some((g) => g.deliveryToAsk) ? 'cus.grandTotalNoDelivery' : 'cus.grandTotal')}</strong>
             <strong style={{ fontSize: 'var(--t-lg)' }}><Rupees value={grand} /></strong>
           </div>
+          {/* Said again on the last screen before she commits: this total
+              is not everything she may be asked for at the door. */}
+          {groups.some((g) => g.deliveryToAsk) && (
+            <div className="small dim" style={{ marginTop: 6 }}>{t('cart.deliveryAskHint')}</div>
+          )}
           {groups.length > 1 && (
             <div className="small dim" style={{ marginTop: 6 }}>
               {t('cart.sellerCount', { n: groups.length })}

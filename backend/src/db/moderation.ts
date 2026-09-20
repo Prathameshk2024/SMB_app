@@ -1,5 +1,6 @@
 import type { Product } from '@shared/types.js'
 import { isRemovable } from '@shared/moderation.js'
+import { destroyImage } from '../routes/uploads.routes.js'
 
 /**
  * The other half of "rejected, not deleted": something has to actually remove
@@ -23,12 +24,25 @@ export function expiredRejections(products: Product[], now = Date.now()): Produc
  * The caller decides whether to `save()`: sweeping nothing must not schedule
  * a write.
  */
-export function purgeExpiredRejections(products: Product[], now = Date.now()): number {
+export function purgeExpiredRejections(
+  products: Product[],
+  now = Date.now(),
+  // A parameter only so a test can see what would be destroyed.
+  destroy: (publicId: string | undefined) => unknown = destroyImage,
+): number {
   const doomed = new Set(expiredRejections(products, now).map((p) => p.id))
   if (doomed.size === 0) return 0
 
   for (let i = products.length - 1; i >= 0; i--) {
-    if (doomed.has(products[i]!.id)) products.splice(i, 1)
+    if (doomed.has(products[i]!.id)) {
+      // Its photo goes with it. The row was the only record of the image's
+      // public id, so a photo left behind here is one nobody can ever find to
+      // delete - Cloudinary storage paid for ever. Safe because nothing else
+      // points at it: an order copies name and price, never the picture.
+      // Best effort and not awaited, like deleting a draft.
+      void destroy(products[i]!.imagePublicId)
+      products.splice(i, 1)
+    }
   }
   return doomed.size
 }

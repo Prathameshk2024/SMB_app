@@ -700,6 +700,9 @@ const mr: Record<string, string> = {
   'mat.bamboo': 'बांबू', 'mat.jute': 'ज्यूट',
 
   'cart.free': 'मोफत',
+  'cart.deliveryAsk': 'विक्रेतीला विचारा',
+  'cart.deliveryAskHint': 'डिलिव्हरीचे पैसे विक्रेती सांगतील. ऑर्डर दिल्यावर त्यांचा फोन नंबर तुमच्या ऑर्डरवर दिसेल.',
+  'cus.grandTotalNoDelivery': 'एकूण (डिलिव्हरीशिवाय)',
   'cart.decrease': 'एक कमी करा',
   'cart.increase': 'एक जास्त करा',
   'cart.removeItem': 'ही वस्तू काढा',
@@ -1370,6 +1373,9 @@ const en: Record<string, string> = {
   'mat.bamboo': 'Bamboo', 'mat.jute': 'Jute',
 
   'cart.free': 'Free',
+  'cart.deliveryAsk': 'Ask the seller',
+  'cart.deliveryAskHint': 'The seller will tell you what delivery costs. Her phone number is on your order as soon as you place it.',
+  'cus.grandTotalNoDelivery': 'Total (without delivery)',
   'cart.decrease': 'One less',
   'cart.increase': 'One more',
   'cart.removeItem': 'Remove this item',

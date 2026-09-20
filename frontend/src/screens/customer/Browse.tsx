@@ -365,7 +365,8 @@ export function ProductDetail() {
 
         {seller && (
           <Notice tone="info">
-            {t('cus.deliveryFee')}: <Rupees value={seller.deliveryFee} />
+            {/* ₹0 read as "free"; nobody set it (see CartContext). */}
+            {t('cus.deliveryFee')}: {seller.deliveryFee > 0 ? <Rupees value={seller.deliveryFee} /> : t('cart.deliveryAsk')}
             {seller.freeDeliveryAbove > 0 && <> · <Rupees value={seller.freeDeliveryAbove} />+ {t('cart.free')}</>}
           </Notice>
         )}
@@ -468,7 +469,7 @@ export function SellerShop() {
 
         {seller && (
           <Notice tone="info">
-            {t('cus.deliveryFee')}: <Rupees value={seller.deliveryFee ?? 0} />
+            {t('cus.deliveryFee')}: {(seller.deliveryFee ?? 0) > 0 ? <Rupees value={seller.deliveryFee ?? 0} /> : t('cart.deliveryAsk')}
             {(seller.freeDeliveryAbove ?? 0) > 0 && (
               <> · <Rupees value={seller.freeDeliveryAbove ?? 0} />+ {t('cart.free')}</>
             )}

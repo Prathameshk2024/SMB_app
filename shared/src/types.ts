@@ -526,6 +526,12 @@ export interface SellerGroup {
   items: CartItem[]
   itemsTotal: number
   deliveryFee: number
+  /**
+   * No charge is set, so the buyer is told to ask the seller rather than told
+   * it is free. False when a seller's own free-delivery minimum is met - that
+   * "free" is her promise.
+   */
+  deliveryToAsk: boolean
   total: number
   minOrder: number
   belowMinimum: boolean
