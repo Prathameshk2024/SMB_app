@@ -582,6 +582,10 @@ export interface AdminStats {
   /** How many payments that total is made of. */
   approvedPaymentCount: number
   repurchaseRate: number
+  /** Every document the server holds - and so reads from Firestore at each start. */
+  databaseDocuments: number
+  /** How many starts a day the Spark plan's 50,000 free reads cover at that size. */
+  startsWithinFreeReads: number
   earningBands: { label: string; v: number }[]
   readinessBands: { band: ReadinessBand; v: number }[]
 }

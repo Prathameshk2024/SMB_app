@@ -67,6 +67,13 @@ const mr: Record<string, string> = {
   'notif.unread': '{n} नवीन सूचना',
   'notif.none': 'नवीन काही नाही',
   'notif.noneSub': 'तुमच्या ऑर्डरमध्ये बदल झाला की तो इथे दिसेल.',
+  'notif.new': 'नवीन',
+  'notif.earlier': 'आधीचे',
+
+  // When it happened, in the words she would use rather than a timestamp.
+  'when.today': 'आज',
+  'when.yesterday': 'काल',
+  'when.daysAgo': '{n} दिवसांपूर्वी',
 
   /* Updates are read by a person, not by the state machine: a whole
      sentence about HER order, in her own direction of the transaction. */
@@ -773,6 +780,12 @@ const en: Record<string, string> = {
   'notif.unread': '{n} new updates',
   'notif.none': 'Nothing new',
   'notif.noneSub': 'When something changes on your orders, it appears here.',
+  'notif.new': 'New',
+  'notif.earlier': 'Earlier',
+
+  'when.today': 'Today',
+  'when.yesterday': 'Yesterday',
+  'when.daysAgo': '{n} days ago',
 
   'notif.cus.ACCEPTED': 'Your order has been accepted',
   'notif.cus.PACKED': 'Your order is packed and ready',

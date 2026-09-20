@@ -10,6 +10,7 @@ import {
 } from '@shared/subscription.js'
 import { applyApprovedPayment } from '../db/subscription.js'
 import { getDb, save } from '../db/store.js'
+import { documentCount, startsWithinFreeReads } from '../db/firestore.js'
 import { sellerStatusAfterReject } from '../db/payments.js'
 import { appendNotice as notifySeller } from '../db/notices.js'
 import { purgeExpiredRejections } from '../db/moderation.js'
@@ -142,6 +143,11 @@ adminRouter.get('/stats', (_req, res) => {
     subscriptionRevenue: approvedPayments.reduce((n, p) => n + (Number(p.amount) || 0), 0),
     approvedPaymentCount: approvedPayments.length,
     repurchaseRate: db.sellers.length ? repurchasers / db.sellers.length : 0,
+    // On the dashboard because the boot log is the one place nobody reads.
+    // docs/CAPACITY.md §4: on Spark, this size decides how many starts a day
+    // the free reads cover before a start is refused and the API goes down.
+    databaseDocuments: documentCount(db),
+    startsWithinFreeReads: startsWithinFreeReads(documentCount(db)),
     earningBands: ['₹0', '< ₹1,000', '₹1,000-5,000', '> ₹5,000'].map((label) => ({
       label,
       v: earningBandCounts.get(label) ?? 0,

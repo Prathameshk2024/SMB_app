@@ -315,14 +315,24 @@ export function PaymentWaiting() {
   const latestStatus = data?.payments[0]?.status
   const settled = !!data && latestStatus !== 'PENDING'
 
+  // Not while the app is in the background: approval can take a day, and a
+  // phone left on this screen asked every ten seconds for all of it, which
+  // kept the API's Cloud Run instance up (and billed) the whole time.
+  // Returning to the app asks at once, so she still sees the answer first.
   useEffect(() => {
     if (loading || settled) return
-    const id = setInterval(() => {
+    const poll = () => {
+      if (document.visibilityState !== 'visible') return
       api.subscription().then(setData).catch(() => {
         /* offline for a moment - the next tick will pick it up */
       })
-    }, 10_000)
-    return () => clearInterval(id)
+    }
+    const id = setInterval(poll, 10_000)
+    document.addEventListener('visibilitychange', poll)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', poll)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, settled])
 

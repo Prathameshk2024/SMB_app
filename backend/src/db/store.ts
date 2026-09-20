@@ -1,9 +1,12 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SEED_DEMO_DATA, usingFirestore } from '../config.js'
+import { IS_PROD, SEED_DEMO_DATA, usingFirestore } from '../config.js'
 import { type Db, emptyDb, seed, withDefaults } from './seed.js'
-import { loadAll, persistDiff, seedInto } from './firestore.js'
+import {
+  STARTS_WARNING, documentCount, loadAll, persistDiff, seedInto, startsWithinFreeReads, summarise,
+  unsavedChanges,
+} from './firestore.js'
 
 /**
  * Persistence.
@@ -80,6 +83,14 @@ export async function initStore(): Promise<void> {
       if (loaded) {
         db = loaded
         console.log('[firestore] loaded', summarise(db))
+        const starts = startsWithinFreeReads(documentCount(db))
+        if (starts <= STARTS_WARNING) {
+          console.warn(
+            `[firestore] only ${starts} start(s) a day now fit in the Spark plan's free reads. ` +
+              'A day with more cold starts, deploys or console browsing runs out, and the next ' +
+              'start is REFUSED - the API is down until the reset. See docs/CAPACITY.md §4.',
+          )
+        }
       } else if (SEED_DEMO_DATA) {
         // Explicitly asked for: a brand-new project gets the demo data so the
         // app is immediately usable and the collections exist to browse.
@@ -93,7 +104,24 @@ export async function initStore(): Promise<void> {
         console.log('[firestore] database is empty - set SEED_DEMO_DATA=true to load demo data')
       }
     } catch (err) {
-      // Bad credentials should not take the whole server down. Carry on
+      // In production, refuse to start rather than start empty. The fallback
+      // below reads backend/data/db.json, which does not exist in the
+      // container: the server came up with an empty catalogue, everyone
+      // signed out, and every order and registration written to a file that
+      // died with the instance - then vanished for good when the next start
+      // found Firestore again. On the Spark plan that happens every time the
+      // day's reads run out. Down is honest; empty loses data. Cloud Run
+      // retries the start, and a failed start during a deploy leaves traffic
+      // on the old revision.
+      if (IS_PROD) {
+        throw new Error(
+          `Firestore could not be loaded (${(err as Error).message}). Refusing to start on an ` +
+            'empty database. RESOURCE_EXHAUSTED / "Quota exceeded" means the Spark plan\'s ' +
+            'daily reads are spent; they reset around midnight Pacific (12:30-13:30 IST). ' +
+            'See docs/CAPACITY.md §4.',
+        )
+      }
+      // Development: an expired gcloud login should not stop work. Carry on
       // against the JSON file, but say so plainly - a silent downgrade would
       // have someone wondering why the Firebase console stays empty.
       firestoreLive = false
@@ -105,10 +133,6 @@ export async function initStore(): Promise<void> {
     db = loadFile()
   }
   ready = true
-}
-
-function summarise(d: Db): string {
-  return `${d.sellers.length} sellers · ${d.products.length} products · ${d.orders.length} orders`
 }
 
 export function getDb(): Db {
@@ -125,8 +149,12 @@ export function getDb(): Db {
 /* ------------------------------------------------------------------ */
 
 let pendingWrite: NodeJS.Timeout | null = null
-let writing = false
-let writeAgain = false
+/** The persist now running, and at most one waiting behind it. */
+let running: Promise<boolean> = Promise.resolve(true)
+let queued: Promise<boolean> | null = null
+/** Set while Firestore is refusing writes; cleared by the first persist that lands. */
+let retry: NodeJS.Timeout | null = null
+const RETRY_MS = 60_000
 
 /**
  * Schedule a persist. Coalesced over 400ms: placing an order touches several
@@ -141,17 +169,32 @@ export function save(): void {
   pendingWrite = setTimeout(() => void flush(), 400)
 }
 
-export async function flush(): Promise<void> {
+/**
+ * Persist now. Resolves true once Firestore has accepted everything this
+ * process holds, false if it refused.
+ *
+ * One persist runs at a time, and calls made meanwhile share the single run
+ * queued behind it - so a caller that awaits this (the shutdown handler, the
+ * CLI scripts) waits for a run that started after it asked. It used to return
+ * at once whenever a write was already in flight, and shutdown then exited
+ * underneath that write.
+ */
+export function flush(): Promise<boolean> {
   if (!firestoreLive) {
     writeFile(db)
-    return
+    return Promise.resolve(true)
   }
-  if (writing) {
-    // A write landed while one was in flight; run once more after it.
-    writeAgain = true
-    return
+  if (!queued) {
+    queued = running.then(() => {
+      queued = null
+      running = persistOnce()
+      return running
+    })
   }
-  writing = true
+  return queued
+}
+
+async function persistOnce(): Promise<boolean> {
   try {
     const { written, deleted, refused } = await persistDiff(db)
     if (written || deleted) {
@@ -165,14 +208,29 @@ export async function flush(): Promise<void> {
           'Something emptied a collection in memory; find it before trusting this process.',
       )
     }
-  } catch (err) {
-    console.error('[firestore] persist failed:', (err as Error).message)
-  } finally {
-    writing = false
-    if (writeAgain) {
-      writeAgain = false
-      await flush()
+    if (retry) {
+      clearInterval(retry)
+      retry = null
+      console.log('[firestore] writes are being accepted again; nothing is waiting')
     }
+    return true
+  } catch (err) {
+    // Nothing is marked saved until Firestore accepts it (persistDiff), so
+    // retrying is all it takes - and it must not wait for some unrelated
+    // save to come along. On Spark's write limit every retry fails until the
+    // reset, and the first one after it sends the lot.
+    console.error('[firestore] persist failed:', (err as Error).message)
+    console.error(
+      `[firestore] ${unsavedChanges(db)} change(s) are in memory only - ` +
+        `retrying every ${RETRY_MS / 1000}s until Firestore accepts them`,
+    )
+    if (!retry) {
+      retry = setInterval(() => void flush(), RETRY_MS)
+      // Never the reason the process stays alive: a CLI script whose write
+      // failed should still finish and say so.
+      retry.unref()
+    }
+    return false
   }
 }
 

@@ -82,6 +82,12 @@ export function Home() {
               <MiniStat n={s.newRegistrations} label={t('today.newThisWeek')} />
               <MiniStat n={s.ordersWeek} label={t('today.ordersWeek')} />
               <MiniStat n={rupees(s.womenEarnedMonth)} label={t('today.earnedMonth')} />
+              {/* Firestore is on the free Spark plan and every server start
+                  reads every document, so these two are the early warning
+                  for a start that is refused and takes the API down until
+                  the reset (docs/CAPACITY.md §4). */}
+              <MiniStat n={s.databaseDocuments} label={t('today.dbDocuments')} />
+              <MiniStat n={s.startsWithinFreeReads} label={t('today.dbStarts')} />
             </div>
           </section>
         )}
