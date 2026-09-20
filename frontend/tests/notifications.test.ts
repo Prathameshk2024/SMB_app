@@ -1,7 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { AdminNotice, Order, Seller } from '@shared/types.js'
-import { adminFeed, buildFeed, mergeFeeds, noticeLabelKey } from '../src/lib/notifications.js'
+import {
+  adminFeed, buildFeed, daysAgo, mergeFeeds, noticeLabelKey, splitFeed, visibleFeed,
+  whenKey, type Notice,
+} from '../src/lib/notifications.js'
 import { dictionaries } from '../src/i18n/strings.js'
 
 /**
@@ -191,4 +194,77 @@ test('every admin line exists in both languages', () => {
     .filter((key) => !dictionaries.mr[key] || !dictionaries.en[key])
 
   assert.deepEqual(missing, [])
+})
+
+/* ------------------------------------------------------------------ */
+/* A list that forgets                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * THE FEED IS THE NEWS, NOT THE ARCHIVE.
+ *
+ * It kept every row for ever, so in the third week of September a seller
+ * opened it and read about the 8th: orders she had packed, delivered and been
+ * paid for, pushing today's news off the screen. A list where nothing leaves
+ * teaches you that nothing in it is urgent.
+ */
+
+const DAY = 86_400_000
+const NOW = new Date('2026-09-19T12:00:00+05:30').getTime()
+const ago = (days: number) => new Date(NOW - days * DAY).toISOString()
+const row = (over: Partial<Notice> = {}): Notice =>
+  ({ id: 'n1', at: ago(1), labelKey: 'x', who: '', ...over })
+
+test('what she has read is kept a week, what she has not is kept a month', () => {
+  // The seller who was away at a wedding still finds what she missed; the
+  // delivered order from a fortnight ago is not news and does not come back.
+  const seen = ago(0)
+  const feed = [
+    row({ id: 'read-recent', at: ago(3) }),
+    row({ id: 'read-old', at: ago(9) }),
+    row({ id: 'unread-old', at: ago(9) }),
+    row({ id: 'unread-ancient', at: ago(40) }),
+  ]
+  const kept = visibleFeed(feed, seen, NOW).map((n) => n.id)
+
+  assert.deepEqual(kept.sort(), ['read-recent'], 'only the week she has read')
+
+  const keptUnread = visibleFeed(feed, ago(60), NOW).map((n) => n.id).sort()
+  assert.deepEqual(keptUnread, ['read-old', 'read-recent', 'unread-old'])
+  assert.ok(!keptUnread.includes('unread-ancient'), 'a month is the ceiling even unread')
+})
+
+/**
+ * "Your shop is paused" is not something that happened on a Tuesday. It is
+ * what is true about her shop until she renews, so it outlives both windows.
+ */
+test('a standing row stays however old it is', () => {
+  const paused = row({ id: 'sub-expired', at: ago(90), standing: true })
+  assert.deepEqual(visibleFeed([paused], ago(0), NOW).map((n) => n.id), ['sub-expired'])
+})
+
+test('new and earlier are split on the mark from before she opened it', () => {
+  const feed = [row({ id: 'after', at: ago(0) }), row({ id: 'before', at: ago(4) })]
+  const { fresh, earlier } = splitFeed(feed, ago(2))
+  assert.deepEqual(fresh.map((n) => n.id), ['after'])
+  assert.deepEqual(earlier.map((n) => n.id), ['before'])
+})
+
+/**
+ * "8/9/2026 11:01 pm" is a thing to decode. Past a week the count stops
+ * helping in its turn - "23 days ago" is arithmetic again - so it prints the
+ * date instead.
+ */
+test('the time is said the way she would say it', () => {
+  assert.deepEqual(whenKey(ago(0), NOW), { key: 'when.today' })
+  assert.deepEqual(whenKey(ago(1), NOW), { key: 'when.yesterday' })
+  assert.deepEqual(whenKey(ago(3), NOW), { key: 'when.daysAgo', vars: { n: 3 } })
+  assert.match(whenKey(ago(20), NOW).text ?? '', /2026/, 'a date once counting stops helping')
+})
+
+/** Yesterday is the day before today, not 24 hours ago. */
+test('days are counted on the calendar, not on the clock', () => {
+  const lateLastNight = new Date('2026-09-18T23:30:00+05:30').toISOString()
+  const earlyToday = new Date('2026-09-19T00:30:00+05:30').getTime()
+  assert.equal(daysAgo(lateLastNight, earlyToday), 1, 'an hour apart, but a day apart')
 })
