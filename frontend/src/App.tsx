@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Navigate, Route, BrowserRouter as Router, Routes, useLocation, useNavigationType,
 } from 'react-router-dom'
@@ -61,6 +61,35 @@ function Require({ role, children }: { role: Role; children: ReactNode }) {
 }
 
 /**
+ * OPENING THE APP TAKES HER WHERE SHE LEFT OFF.
+ *
+ * She signed in as a buyer last week; today she taps the icon and is asked
+ * "do you want to sell or buy?" again. The session knew the answer all along -
+ * the door was simply the first screen. So on the FIRST screen of a fresh
+ * start, a signed-in seller or customer goes straight to her own home.
+ *
+ * Only on the first screen, which is the whole reason this is not a plain
+ * redirect on `/`. The landing page has to stay reachable from inside the
+ * app: a back press out of `/seller`, or the brand mark in the bar, must land
+ * on a page that stays put rather than one that throws her somewhere else the
+ * moment it appears - and "carry on to your shop" needs somewhere to live.
+ *
+ * `replace`, so Back from her home leaves the app rather than bouncing off a
+ * door that redirects again.
+ */
+let appOpened = false
+
+function LandingOrHome() {
+  const { session } = useAuth()
+  const [coldStart] = useState(() => !appOpened)
+
+  // A session for a role with a home of its own. An admin has none here.
+  const home = session && session.role !== 'admin' ? homeFor(session.role) : null
+  if (coldStart && home) return <Navigate to={home} replace />
+  return <Landing />
+}
+
+/**
  * The wizard needs a verified number, not a session.
  *
  * `/sellers/register` takes her phone out of a single-use ticket and ignores
@@ -110,6 +139,9 @@ function ScrollMemory() {
     // The browser's own restoration fights this one and loses on a soft
     // navigation anyway, so take it off.
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+    // The app is up. From here on `/` is a screen she asked for - see
+    // LandingOrHome - not the door a fresh start opens on.
+    appOpened = true
   }, [])
 
   useEffect(() => {
@@ -198,11 +230,11 @@ export default function App() {
             <OfflineScreen />
             <Routes>
               {/* ---- public ---------------------------------------- */}
-              {/* The landing page stays reachable while signed in. It used to
-                  redirect, which meant a back press out of /seller landed on a
-                  page that immediately threw her somewhere else - and the
-                  "carry on to your shop" decision had nowhere to live. */}
-              <Route path="/" element={<Landing />} />
+              {/* Opening the app goes straight to her own home; reaching `/`
+                  from inside the app - a back press out of /seller, the brand
+                  mark - still shows the landing page, which is where "carry on
+                  to your shop" lives. See LandingOrHome. */}
+              <Route path="/" element={<LandingOrHome />} />
 
               {/* Two doors from the landing page, one per role. Both go
                   through login; `join` is only the seller's "I am new" path. */}

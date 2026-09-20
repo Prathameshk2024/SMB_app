@@ -12,7 +12,7 @@ import {
   AppBar, Card, EmptyState, Loading, Pill, Rupees, SectionTitle, useAsync,
 } from '../components/ui.js'
 import {
-  IconBell, IconChevron, StatusIcon,
+  IconBell, StatusIcon,
 } from '../components/icons.js'
 
 /**
@@ -69,38 +69,62 @@ export default function Notifications() {
   const { fresh, earlier } = splitFeed(feed, seenOnArrival)
   const orderPath = session?.role === 'seller' ? '/seller/orders' : '/shop/orders'
 
-  const row = (n: Notice) => (
-    <button
-      key={n.id}
-      className="tile"
-      onClick={() => {
-        const to = n.orderId ? `${orderPath}/${n.orderId}` : n.to
-        if (to) nav(to)
-      }}
-    >
-      <div className="tile__body">
-        <div className="tile__title">
-          {/* An order is named after what is in it and wears its state as a
-              tag; an admin decision has no product, so it still prints its
-              own sentence. */}
-          {n.title ?? t(n.labelKey, n.vars)}
-          {n.status && (
-            <Pill
-              tone={STATUS_STYLE[n.status].tone}
-              icon={<StatusIcon name={STATUS_STYLE[n.status].icon} />}
-            >
-              {t(statusLabelKey(n.status))}
-            </Pill>
+  /**
+   * A row is read top to bottom, in the order the answer arrives: what it is
+   * and when, then what happened to it, then whose it is and what it came to.
+   *
+   * The old row put the state pill inside the title and ran the rest together
+   * as "name · SMB5013 · 8/9/2026 11:01 pm", which is four facts printed as
+   * one string. An order also says its sentence now ("तुम्हाला नवीन ऑर्डर आले
+   * आहे") rather than making her read the tag and work out who did it - the
+   * wording was already written for both sides, it was just not being shown
+   * on the rows that had a product name to print.
+   */
+  const row = (n: Notice, isNew: boolean) => {
+    const style = n.status ? STATUS_STYLE[n.status] : null
+    return (
+      <button
+        key={n.id}
+        className={`notif ${isNew ? 'notif--new' : ''}`}
+        onClick={() => {
+          const to = n.orderId ? `${orderPath}/${n.orderId}` : n.to
+          if (to) nav(to)
+        }}
+      >
+        <span className={`notif__mark notif__mark--${style?.tone ?? 'neutral'}`} aria-hidden="true">
+          {style ? <StatusIcon name={style.icon} /> : <IconBell />}
+        </span>
+
+        <span className="notif__body">
+          <span className="notif__head">
+            {/* An order is named after what is in it - she recognises her
+                pickle order, not SMB5013 - and an admin decision has no
+                product, so it prints its sentence here instead. */}
+            <span className="notif__title">{n.title ?? t(n.labelKey, n.vars)}</span>
+            <span className="notif__when">{when(n.at, t)}</span>
+          </span>
+
+          {n.title && <span className="notif__say">{t(n.labelKey, n.vars)}</span>}
+          {(n.who || n.orderId) && (
+            <span className="notif__meta">{[n.who, n.orderId].filter(Boolean).join(' · ')}</span>
           )}
-        </div>
-        <div className="tile__meta">
-          {[n.who, n.orderId, when(n.at, t)].filter(Boolean).join(' · ')}
-        </div>
-      </div>
-      {n.total != null && <div className="tile__price"><Rupees value={n.total} /></div>}
-      <span aria-hidden="true"><IconChevron /></span>
-    </button>
-  )
+
+          {(n.status || n.total != null) && (
+            <span className="notif__foot">
+              {style && n.status && (
+                <Pill tone={style.tone} icon={<StatusIcon name={style.icon} />}>
+                  {t(statusLabelKey(n.status))}
+                </Pill>
+              )}
+              {n.total != null && (
+                <span className="notif__amount"><Rupees value={n.total} /></span>
+              )}
+            </span>
+          )}
+        </span>
+      </button>
+    )
+  }
 
   return (
     <>
@@ -119,11 +143,11 @@ export default function Notifications() {
             {fresh.length > 0 && earlier.length > 0 && (
               <SectionTitle>{t('notif.new')}</SectionTitle>
             )}
-            {fresh.map(row)}
+            {fresh.map((n) => row(n, true))}
             {fresh.length > 0 && earlier.length > 0 && (
               <SectionTitle>{t('notif.earlier')}</SectionTitle>
             )}
-            {earlier.map(row)}
+            {earlier.map((n) => row(n, false))}
           </>
         )}
       </div>
