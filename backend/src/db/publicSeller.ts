@@ -14,7 +14,9 @@ import type { PublicSeller, RatingSummary, Seller } from '@shared/types.js'
  *    choosing between, and what the law wants beside a food listing.
  *  - delivery terms and pincodes - checkout needs them to price and warn.
  *  - UPI ID, QR image and whether it is set up - the thing a buyer pays to.
- *  - rating, derived from reviews by the caller, never the stored fields.
+ *  - rating: her products' ratings taken together, passed in by the caller
+ *    from `ratingsBySeller` / `sellerRating`. Buyers rate products, never
+ *    her directly; the stored `Seller.rating` fields are never used.
  *
  * Her phone number is NOT here. A buyer gets it on their own order, from the
  * moment the order exists (see GET /orders/:id), and nowhere else.

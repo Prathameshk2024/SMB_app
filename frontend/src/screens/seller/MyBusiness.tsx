@@ -9,11 +9,10 @@ import {
   Pill, Rupees, SectionTitle, SlotMeter, useAsync,
 } from '../../components/ui.js'
 import {
-  IconAllClear, IconBuyers, IconChevron, IconGrowth, IconOrders, IconPause, IconPlay,
-  IconProduct, type IconType,
+  IconAllClear, IconBuyers, IconChevron, IconGrowth, IconOrders, IconPause, IconPlay, IconProduct, StatusIcon, type IconType,
 } from '../../components/icons.js'
-import { RatingLine } from '../../components/Reviews.js'
 import { SubscriptionLine, SubscriptionNotice } from '../../components/SubscriptionNotice.js'
+import { RatingLine } from '../../components/Reviews.js'
 import { PageTour } from '../../components/Walkthrough.js'
 
 /**
@@ -27,7 +26,7 @@ export default function MyBusiness() {
   const [me, loadingMe, setMe] = useAsync(() => api.me(), [])
   const [orderData, loadingOrders] = useAsync(() => api.myOrders(), [])
   const [productData, loadingProducts] = useAsync(() => api.myProducts(), [])
-  // Not waited on: the rating is not what she opened this screen to act on.
+  // Not waited on: reviews are not what she opened this screen to act on.
   const [reviewData] = useAsync(() => api.myReviews(), [])
 
   if (loadingMe || loadingOrders || loadingProducts) {
@@ -186,13 +185,13 @@ export default function MyBusiness() {
           )}
         </div>
 
-        {/* Her stars, one tap from the list of what was said. Below the work
-            of the day, above everything else: it is how the next buyer will
-            judge her, and she should see it the way they do. */}
+        {/* Her rating - her products' ratings together, exactly as buyers see
+            it on her card - and one tap to what they said. */}
         <button className="card card--tap" onClick={() => nav('/seller/reviews')}>
           <div className="row-between">
             <div className="stack-sm" style={{ gap: 2 }}>
               <strong>{t('rev.title')}</strong>
+              {/* The same number buyers see on her card. */}
               <RatingLine average={reviewData?.summary.average} count={reviewData?.summary.count} />
             </div>
             <IconChevron aria-hidden="true" />
@@ -249,12 +248,12 @@ function ActionRow({ order, onOpen }: { order: Order; onOpen: () => void }) {
 
   return (
     <button className="tile" onClick={onOpen}>
-      <div className="tile__img" aria-hidden="true">{style.icon}</div>
+      <div className="tile__img" aria-hidden="true"><StatusIcon name={style.icon} /></div>
       <div className="tile__body">
         <div className="tile__title">{todo}</div>
         <div className="tile__meta">{order.id} · {order.customerName}</div>
         <div className="wrap-row" style={{ marginTop: 2 }}>
-          <Pill tone={style.tone} icon={style.icon}>{t(statusLabelKey(order.status))}</Pill>
+          <Pill tone={style.tone} icon={<StatusIcon name={style.icon} />}>{t(statusLabelKey(order.status))}</Pill>
           <Pill tone="neutral">
             {order.paymentMode === 'COD' ? t('ord.paymentCod') : t('ord.paymentUpi')}
           </Pill>

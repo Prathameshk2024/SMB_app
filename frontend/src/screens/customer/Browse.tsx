@@ -13,19 +13,21 @@ import {
   Rupees, SectionTitle, TextInput, useAsync,
 } from '../../components/ui.js'
 import {
-  IconCart, IconCheck, IconMinus, IconNext, IconPlus, IconProduct, IconSearch,
+  IconCart, IconCheck, IconMinus, IconNext, IconPlus, IconProduct, IconSearch, VegMark,
 } from '../../components/icons.js'
 import { PageTour } from '../../components/Walkthrough.js'
 import { RatingLine, RatingSummaryCard, ReviewList } from '../../components/Reviews.js'
 
 /**
- * The picture on a category tile: a photograph where we have one, the emoji
- * where we do not. Both are the same height, so a mixed grid still lines up.
+ * The picture on a category tile: a photograph where we have one, a plain
+ * product icon where we do not. Both are the same height, so a mixed grid still lines up.
  */
 function CategoryTileArt({ category }: { category: Category }) {
   const photo = categoryPhoto(category.id)
   if (!photo) {
-    return <div style={{ fontSize: '2.25rem', height: 72, lineHeight: '72px' }} aria-hidden="true">{category.icon}</div>
+    return (
+      <div className="tileart" aria-hidden="true"><IconProduct /></div>
+    )
   }
   return (
     <img
@@ -38,7 +40,7 @@ function CategoryTileArt({ category }: { category: Category }) {
   )
 }
 
-type CardProduct = Product & { seller?: Partial<Seller> }
+type CardProduct = Product & { seller?: Partial<Seller>; rating?: number; ratingCount?: number }
 
 export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen: () => void }) {
   return (
@@ -49,7 +51,6 @@ export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen:
       <button className="pcard__open" onClick={onOpen}>
         <ProductImage
           src={product.imageUrl}
-          emoji={product.emoji}
           categoryId={product.categoryId}
           className="pcard__img"
           rounded="0"
@@ -57,6 +58,9 @@ export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen:
         <div className="pcard__body">
           <div className="pcard__name">{product.name}</div>
           <div className="pcard__price"><Rupees value={product.price} /></div>
+          {/* Its own stars, from buyers who received it. Nothing at all on a
+              product nobody has rated - "no reviews" down a grid is noise. */}
+          <RatingLine average={product.rating} count={product.ratingCount} hideEmpty />
         </div>
       </button>
 
@@ -157,7 +161,7 @@ export function Explore() {
           data-wt="ex-search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={`🔍 ${t('cus.searchPlaceholder')}`}
+          placeholder={t('cus.searchPlaceholder')}
           aria-label={t('common.search')}
         />
 
@@ -274,10 +278,7 @@ export function ProductDetail() {
     () => (sellerId ? api.catalog({ sellerId }) : Promise.resolve({ products: [] })),
     [sellerId],
   )
-  const [feedback] = useAsync(
-    () => (sellerId ? api.shopReviews(sellerId) : Promise.resolve(null)),
-    [sellerId],
-  )
+  const [feedback] = useAsync(() => api.productReviews(productId!), [productId])
 
   if (loading) {
     return <><AppBar title="" onBack={() => nav(-1)} /><div className="screen"><Loading /></div></>
@@ -311,8 +312,7 @@ export function ProductDetail() {
         <div style={{ maxWidth: 420, margin: '0 auto', width: '100%' }}>
           <ProductImage
             src={product.imageUrl}
-            emoji={product.emoji}
-            categoryId={product.categoryId}
+              categoryId={product.categoryId}
             rounded="var(--r-lg)"
           />
         </div>
@@ -331,7 +331,7 @@ export function ProductDetail() {
           <div className="wrap-row">
             {product.isFood && product.vegType && (
               <Pill tone={product.vegType === 'veg' ? 'ok' : 'danger'}>
-                {product.vegType === 'veg' ? '🟢' : '🔴'}{' '}
+                <VegMark type={product.vegType} />{' '}
                 {product.vegType === 'veg' ? t('cus.veg') : t('cus.nonveg')}
               </Pill>
             )}
@@ -370,27 +370,15 @@ export function ProductDetail() {
           </Notice>
         )}
 
-        {/* What her last buyers said, before the buy button - it is the one
-            thing about a village shop a stranger cannot check for themselves.
-            Three here; the shop page has the rest. Reviews that mention THIS
-            product come first. */}
-        {feedback && feedback.summary.count > 0 && (
+        {/* What buyers who received THIS product said about it, before the
+            buy button - the one thing about a village product a stranger
+            cannot check for themselves. Products are rated, sellers are not. */}
+        {feedback && (
           <div>
             <SectionTitle>{t('rev.title')}</SectionTitle>
             <div className="stack-sm">
-              <RatingLine average={feedback.summary.average} count={feedback.summary.count} />
-              <ReviewList
-                reviews={[...feedback.reviews]
-                  .sort((a, b) =>
-                    Number(b.items.some((i) => i.productId === product.id)) -
-                    Number(a.items.some((i) => i.productId === product.id)))
-                  .slice(0, 3)}
-              />
-              {feedback.summary.count > 3 && (
-                <Button variant="ghost" onClick={() => nav(`/shop/seller/${product.sellerId}`)}>
-                  {t('rev.seeAll')} <IconNext aria-hidden="true" />
-                </Button>
-              )}
+              <RatingSummaryCard summary={feedback.summary} />
+              {feedback.reviews.length > 0 && <ReviewList reviews={feedback.reviews} />}
             </div>
           </div>
         )}
@@ -465,7 +453,6 @@ export function SellerShop() {
   const nav = useNavigate()
 
   const [data, loading] = useAsync(() => api.catalog({ sellerId }), [sellerId])
-  const [feedback] = useAsync(() => api.shopReviews(sellerId!), [sellerId])
   const products = data?.products ?? []
   const seller = products[0]?.seller
 
@@ -504,17 +491,6 @@ export function SellerShop() {
           </>
         )}
 
-        {/* Every review, after the goods: this page is for buying, and the
-            summary on her card above already says how she is rated. */}
-        {feedback && (
-          <div>
-            <SectionTitle>{t('rev.title')}</SectionTitle>
-            <div className="stack-sm">
-              <RatingSummaryCard summary={feedback.summary} />
-              {feedback.reviews.length > 0 && <ReviewList reviews={feedback.reviews} />}
-            </div>
-          </div>
-        )}
       </div>
     </>
   )
@@ -534,7 +510,11 @@ function SellerCard({ seller }: { seller: Partial<Seller> }) {
       <div className="tile__body">
         <div className="tile__meta">{t('cus.soldBy')}</div>
         <div className="tile__title">{seller.shopName}</div>
-        <div className="tile__meta"><RatingLine average={seller.rating} count={seller.ratingCount} /></div>
+        {/* Her rating is what buyers gave her products, all of them together. */}
+        <div className="tile__meta">
+          <RatingLine average={seller.rating} count={seller.ratingCount} />
+          {!!seller.ratingCount && <span className="dim"> · {t('rev.fromProducts')}</span>}
+        </div>
         <div className="tile__meta">{seller.village}</div>
         <div className="tiny num dim">{seller.womenBizId}</div>
       </div>

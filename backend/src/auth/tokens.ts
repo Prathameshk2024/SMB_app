@@ -38,7 +38,11 @@ export interface TokenClaims {
  * payments, blocks sellers and can read every buyer's home address, and it is
  * used at a desk where signing in again costs a few seconds - so it is short.
  * A seller's token is on a phone in a village, and re-issuing it costs an SMS
- * and a literacy hurdle, so a week is the kinder trade.
+ * and a literacy hurdle, so fifteen days is the kinder trade: a woman who
+ * sells at the weekly bazaar and opens the app every other week is not sent
+ * back through OTP each time. Past fifteen days with no use at all, the
+ * session ends - a phone put down and forgotten, or passed to someone else,
+ * does not stay signed in to her shop indefinitely.
  *
  * This is an IDLE window, not an absolute one: every authenticated request
  * slides it forward, so somebody using the app regularly is never signed out
@@ -46,8 +50,8 @@ export interface TokenClaims {
  */
 export const SESSION_IDLE_MS: Record<Role, number> = {
   admin: 8 * 60 * 60 * 1000,
-  seller: 7 * 24 * 60 * 60 * 1000,
-  customer: 7 * 24 * 60 * 60 * 1000,
+  seller: 15 * 24 * 60 * 60 * 1000,
+  customer: 15 * 24 * 60 * 60 * 1000,
 }
 
 /** The hard ceiling, however active the session. A stolen token cannot live forever. */

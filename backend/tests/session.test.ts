@@ -33,8 +33,9 @@ const seller = { sid: 'sess_seller', role: 'seller' as const }
 
 test('the idle windows are the ones we intend', () => {
   assert.equal(SESSION_IDLE_MS.admin, 8 * HOUR, 'admin: one working day at most')
-  assert.equal(SESSION_IDLE_MS.seller, 7 * DAY)
-  assert.equal(SESSION_IDLE_MS.customer, 7 * DAY)
+  // Inactive for more than 15 days: signed out. Asked for by the programme.
+  assert.equal(SESSION_IDLE_MS.seller, 15 * DAY)
+  assert.equal(SESSION_IDLE_MS.customer, 15 * DAY)
 })
 
 test('a fresh token verifies', () => {
@@ -55,7 +56,8 @@ test('a seller is not signed out overnight the way an admin is', () => {
   const token = signToken(seller, issued)
 
   assert.ok(verifyToken(token, issued + 3 * DAY), 'a seller may not open the app for days')
-  assert.equal(verifyToken(token, issued + 8 * DAY), null)
+  assert.ok(verifyToken(token, issued + 14 * DAY), 'two weeks away is still signed in')
+  assert.equal(verifyToken(token, issued + 16 * DAY), null, 'gone after 15 idle days')
 })
 
 test('a token with no issue time is refused', () => {

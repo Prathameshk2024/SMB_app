@@ -191,7 +191,6 @@ function OrderDetail({ order, onClose }: { order: OrderRow; onClose: () => void 
           <div className="stack-sm">
             {order.items.map((i) => (
               <div className="row small" key={i.productId}>
-                <span aria-hidden="true">{i.emoji}</span>
                 <span className="grow">{i.name}</span>
                 <span className="num dim">× {i.qty}</span>
                 <span className="num">{rupees(i.price * i.qty)}</span>

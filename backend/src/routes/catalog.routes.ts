@@ -2,7 +2,9 @@ import { Router } from 'express'
 import type { Product, Seller } from '@shared/types.js'
 import { getDb } from '../db/store.js'
 import { CATEGORIES } from '../db/seed.js'
-import { NO_RATING, publicReviewsFor, ratingsBySeller } from '../db/reviews.js'
+import {
+  NO_RATING, productReviewsFor, ratingsByProduct, ratingsBySeller, sellerRating,
+} from '../db/reviews.js'
 import { publicSeller } from '../db/publicSeller.js'
 import { canSellNow } from '@shared/subscription.js'
 
@@ -72,10 +74,21 @@ catalogRouter.get('/products', (req, res) => {
   // Attach the seller card each listing needs, which the law requires to be
   // displayed on every food listing. The cart and checkout run entirely off
   // it. What is on it, and why, is in db/publicSeller.ts.
-  const ratings = ratingsBySeller(db)
+  //
+  // Each product carries its OWN stars, from the ratings of buyers who
+  // received it - worked out here on every request, never stored.
+  // Her card carries HER rating: every product of hers, taken together.
+  const ratings = ratingsByProduct(db)
+  const sellerRatings = ratingsBySeller(db)
   const withSeller = list.map((p) => {
     const s = sellerById.get(p.sellerId)
-    return { ...p, seller: s && publicSeller(s, ratings.get(s.id) ?? NO_RATING) }
+    const r = ratings.get(p.id) ?? NO_RATING
+    return {
+      ...p,
+      rating: r.average,
+      ratingCount: r.count,
+      seller: s && publicSeller(s, sellerRatings.get(s.id) ?? NO_RATING),
+    }
   })
 
   res.json({ products: withSeller })
@@ -95,26 +108,27 @@ catalogRouter.get('/products/:id', (req, res) => {
 
   // The card, never the record. This route used to send her whole document -
   // phone, admin notices, block reason - to anyone holding a product id.
-  const { summary } = publicReviewsFor(db, seller!.id)
-  res.json({ product, seller: publicSeller(seller!, summary) })
+  const { summary } = productReviewsFor(db, product!.id)
+  res.json({
+    product: { ...product!, rating: summary.average, ratingCount: summary.count },
+    seller: publicSeller(seller!, sellerRating(db, seller!.id)),
+  })
 })
 
 /**
- * WHAT BUYERS SAID ABOUT ONE SHOP. Public, like the shop itself.
- *
- * Gated on the same thing as her window: a blocked seller's shop is off the
- * shelf, and so is what people said about it. A shop merely closed for the
- * afternoon keeps its reviews - they are what a buyer reads to decide whether
- * to come back tomorrow.
+ * WHAT BUYERS SAID ABOUT ONE PRODUCT. Public, exactly as far as the product
+ * is: the same `publiclyVisible` rule, and the same 404 for a listing that is
+ * hidden as for one that never existed.
  */
-catalogRouter.get('/sellers/:sellerId/reviews', (req, res) => {
+catalogRouter.get('/products/:id/reviews', (req, res) => {
   const db = getDb()
-  const seller = db.sellers.find((s) => s.id === req.params.sellerId)
-  if (!seller || seller.status !== 'ACTIVE') {
-    res.status(404).json({ error: 'Shop not found', messageMr: 'हे दुकान सापडले नाही' })
+  const product = db.products.find((p) => p.id === req.params.id)
+  const seller = product && db.sellers.find((s) => s.id === product.sellerId)
+  if (!publiclyVisible(product, seller)) {
+    res.status(404).json({ error: 'Product not found', messageMr: 'हे उत्पादन सापडले नाही' })
     return
   }
-  res.json(publicReviewsFor(db, seller.id))
+  res.json(productReviewsFor(db, product!.id))
 })
 
 // GET /addresses used to live here. It had no auth check and returned the same

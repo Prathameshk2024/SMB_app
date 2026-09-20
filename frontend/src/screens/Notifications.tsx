@@ -10,7 +10,9 @@ import { STATUS_STYLE, statusLabelKey } from '@shared/orderFlow.js'
 import {
   AppBar, Card, EmptyState, Loading, Pill, Rupees, useAsync,
 } from '../components/ui.js'
-import { IconBell, IconChevron } from '../components/icons.js'
+import {
+  IconBell, IconChevron, StatusIcon,
+} from '../components/icons.js'
 
 /**
  * Everything that happened to her orders while she was not looking.
@@ -82,7 +84,7 @@ export default function Notifications() {
                   {n.status && (
                     <Pill
                       tone={STATUS_STYLE[n.status].tone}
-                      icon={STATUS_STYLE[n.status].icon}
+                      icon={<StatusIcon name={STATUS_STYLE[n.status].icon} />}
                     >
                       {t(statusLabelKey(n.status))}
                     </Pill>

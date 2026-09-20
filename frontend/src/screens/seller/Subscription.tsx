@@ -16,8 +16,7 @@ import {
   Rupees, TextInput, useAsync,
 } from '../../components/ui.js'
 import {
-  IconCheck, IconTraining, IconWaiting, IconWarn,
-  IconWhatsapp,
+  IconAllClear, IconCheck, IconTraining, IconWaiting, IconWarn, IconWhatsapp,
 } from '../../components/icons.js'
 
 /* ================================================================== */
@@ -352,7 +351,7 @@ export function PaymentWaiting() {
     return (
       <div className="app-shell">
         <div className="screen screen--nonav stack center" style={{ justifyContent: 'center', minHeight: '100vh' }}>
-          <div style={{ fontSize: '4rem' }} aria-hidden="true">🎉</div>
+          <div className="bigstate bigstate--ok" aria-hidden="true"><IconAllClear /></div>
           <h1 className="h1">{t('wait.approved')}</h1>
           <p className="muted">{t('wait.approvedSub')}</p>
           <Button onClick={() => nav('/seller/upload', { replace: true })}>{t('wait.addFirst')}</Button>

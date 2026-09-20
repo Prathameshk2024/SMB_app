@@ -2,9 +2,8 @@
  * Hero artwork — a woman entrepreneur with her jars, drawn as flat vector.
  *
  * Deliberately an illustration and not a stock photo:
- *  - it ships inside the bundle, so it works offline in the APK and costs
- *    nothing on rural 4G, where a large hero photo is the slowest thing on
- *    the page;
+ *  - it ships inside the bundle, so it costs no extra request on rural 4G,
+ *    where a large hero photo is the slowest thing on the page;
  *  - stock photography of "Indian woman entrepreneur" is exactly the generic
  *    corporate look this brand should avoid.
  *

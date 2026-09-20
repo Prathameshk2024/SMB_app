@@ -1,4 +1,6 @@
 import type { ComponentType } from 'react'
+import type { StatusIconName } from '@shared/orderFlow.js'
+import type { ProductStatusIconName } from '@shared/seller.js'
 import {
   FiAlertTriangle, FiArrowLeft, FiArrowRight, FiBell, FiBriefcase, FiCamera, FiCheck,
   FiCheckCircle, FiChevronRight, FiClock, FiDownload, FiEdit2, FiFileText,
@@ -7,7 +9,8 @@ import {
   FiMic, FiMinus, FiPackage, FiPause, FiPhone, FiPlay, FiPlayCircle, FiPlus,
   FiPlusCircle, FiSearch, FiShare2, FiShoppingBag, FiShoppingCart,
   FiSmartphone, FiSquare, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2,
-  FiTrendingDown, FiTrendingUp, FiUpload, FiUser, FiUsers, FiWifiOff, FiX,
+  FiTrendingDown, FiTrendingUp, FiTruck, FiUpload, FiUser, FiUsers, FiWifiOff, FiX, FiXCircle,
+  FiCircle,
 } from 'react-icons/fi'
 import { MdCurrencyRupee, MdOutlineFastfood, MdQrCode2 } from 'react-icons/md'
 import { FaWhatsapp } from 'react-icons/fa'
@@ -24,15 +27,14 @@ import { FaWhatsapp } from 'react-icons/fa'
  *  - the names are what the product calls them (`IconSell`, `IconCart`), so a
  *    screen reads as intent rather than as a vendor's naming scheme.
  *
- * WHAT IS NOT HERE, AND WHY. These are CHROME: controls, states and
- * navigation. Emoji that are DATA stayed emoji, because they belong to a row
- * rather than to the interface:
- *
- *  - a product's picture, a category's picture, a seller's avatar - all
- *    columns in the database, chosen per record;
- *  - the veg / non-veg dots, which are a regulated marking with a fixed
- *    appearance and are not ours to restyle;
- *  - the celebration mark on a "done" screen, which is illustration.
+ * NO EMOJI ANYWHERE. Products, categories and order lines used to show an
+ * emoji when there was no photo, statuses carried 🔔 and 🛵, and veg/non-veg
+ * were 🟢 and 🔴. Emoji render differently on every phone and read as
+ * decoration, so all of them are gone: a missing photo shows `IconProduct`,
+ * a status draws its line icon below, and veg/non-veg is `VegMark`, drawn in
+ * CSS the way the FSSAI mark is printed. The only marks left are a tick and a
+ * cross - and those are icons too. `Product.emoji` is still stored; nothing
+ * shows it.
  *
  * Spec section 6 says status is colour + icon + WORD. Nothing here ever stands
  * alone: every icon in this app sits beside its label, so an icon that fails
@@ -123,3 +125,45 @@ export const IconAddressOther: IconType = FiBriefcase
 export const IconQr: IconType = MdQrCode2
 export const IconVillage: IconType = FiHome
 export const IconSafe: IconType = FiLock
+
+/* --- order and listing states -------------------------------------- */
+/**
+ * The line icon for an order state. `STATUS_STYLE` names it; this draws it.
+ * Done and ended are the tick and the cross - the only marks of that kind
+ * left in the app.
+ */
+const STATUS_ICON: Record<StatusIconName, IconType> = {
+  placed: FiBell,
+  confirmed: FiThumbsUp,
+  packed: FiPackage,
+  onTheWay: FiTruck,
+  done: FiCheckCircle,
+  ended: FiXCircle,
+}
+
+export function StatusIcon({ name }: { name: StatusIconName }) {
+  const Icon = STATUS_ICON[name]
+  return <Icon aria-hidden="true" />
+}
+
+const PRODUCT_STATUS_ICON: Record<ProductStatusIconName, IconType> = {
+  live: FiCircle,
+  draft: FiEdit2,
+  pending: FiClock,
+  rejected: FiXCircle,
+  paused: FiPause,
+}
+
+export function ProductStatusIcon({ name }: { name: ProductStatusIconName }) {
+  const Icon = PRODUCT_STATUS_ICON[name]
+  return <Icon aria-hidden="true" />
+}
+
+/**
+ * The veg / non-veg mark: a square with a dot, green or brown-red, the way it
+ * is printed on packets - drawn, so it looks the same on every phone. Always
+ * beside its word; `aria-hidden` for that reason.
+ */
+export function VegMark({ type }: { type: 'veg' | 'nonveg' }) {
+  return <span className={`vegmark vegmark--${type}`} aria-hidden="true" />
+}

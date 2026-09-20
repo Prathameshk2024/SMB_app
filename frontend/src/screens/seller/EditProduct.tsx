@@ -10,7 +10,9 @@ import {
   AppBar, Button, Card, Choice, EmptyState, Field, Loading, Notice,
   TextInput, VoiceInput, useAsync,
 } from '../../components/ui.js'
-import { IconProduct, IconWaiting } from '../../components/icons.js'
+import {
+  IconProduct, IconWaiting, VegMark,
+} from '../../components/icons.js'
 
 const UNITS: Unit[] = ['kg', 'g', 'piece', 'dozen', 'litre', 'ml', 'set']
 
@@ -247,7 +249,7 @@ export default function EditProduct() {
                 disabled={locked}
                 onClick={() => set('categoryId', c.id)}
               >
-                {c.icon} {lang === 'mr' ? c.mr : c.en}
+                {lang === 'mr' ? c.mr : c.en}
               </button>
             ))}
           </div>
@@ -275,13 +277,13 @@ export default function EditProduct() {
                 <Choice
                   selected={form.vegType === 'veg'}
                   onSelect={() => set('vegType', 'veg')}
-                  icon="🟢"
+                  icon={<VegMark type="veg" />}
                   title={t('prod.veg')}
                 />
                 <Choice
                   selected={form.vegType === 'nonveg'}
                   onSelect={() => set('vegType', 'nonveg')}
-                  icon="🔴"
+                  icon={<VegMark type="nonveg" />}
                   title={t('prod.nonveg')}
                 />
               </div>

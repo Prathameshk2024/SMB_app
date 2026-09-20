@@ -14,6 +14,7 @@ import { ordersRouter } from './routes/orders.routes.js'
 import { adminRouter } from './routes/admin.routes.js'
 import { flush, getDb, initStore, resetDb, save } from './db/store.js'
 import { uploadsRouter } from './routes/uploads.routes.js'
+import { qrRouter } from './routes/qr.routes.js'
 import { customersRouter } from './routes/customers.routes.js'
 import {
   ALLOW_DEV_RESET, CORS_ORIGIN, describeConfig, PORT as CONFIG_PORT,
@@ -21,6 +22,7 @@ import {
 import { sellerWeek } from './db/analytics.js'
 import { purgeArchived, purgeExpiredRejections } from './db/moderation.js'
 import { backfillSubscriptionTerms } from './db/subscription.js'
+import { splitOrderReviews } from './db/reviews.js'
 
 const app = express()
 const PORT = CONFIG_PORT
@@ -100,6 +102,7 @@ app.use('/api/catalog', catalogRouter)
 app.use('/api/customers', customersRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/uploads', uploadsRouter)
+app.use('/api/qr', qrRouter)
 
 // Admin has no frontend in this repo by design - the admin site is separate.
 app.use('/api/admin', adminRouter)
@@ -196,6 +199,12 @@ async function main() {
   const terms = backfillSubscriptionTerms(getDb())
   if (terms > 0) {
     console.log(`[subscription] gave ${terms} existing seller(s) a six-month term`)
+    save()
+  }
+  // Reviews from when a whole order got one rating become one per product.
+  const split = splitOrderReviews(getDb())
+  if (split > 0) {
+    console.log(`[reviews] split ${split} order review(s) into per-product ratings`)
     save()
   }
   startHousekeeping()

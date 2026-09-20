@@ -1,20 +1,24 @@
-import { useState } from 'react'
-import type { Order, PublicReview, RatingSummary, Review } from '@shared/types.js'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
+import type {
+  Order, ProductRatingInput, PublicReview, RatingSummary, Review,
+} from '@shared/types.js'
 import {
-  RATING_MAX, REVIEW_COMMENT_MAX, canReview, ratingWordKey, reviewProblem,
+  RATING_MAX, REVIEW_COMMENT_MAX, canReview, orderProducts, ratingWordKey, ratingsProblem,
 } from '@shared/review.js'
 import { useT } from '../i18n/I18nProvider.js'
 import { api, ApiError } from '../lib/api.js'
+import { useAuth } from '../store/AuthContext.js'
 import { useToast } from '../store/ToastContext.js'
-import { IconEdit, IconStar } from './icons.js'
+import { IconEdit, IconProduct, IconStar } from './icons.js'
 import { Button, Card, Field, Notice, SectionTitle, VoiceInput } from './ui.js'
 
 /**
- * FEEDBACK, ON EVERY SCREEN THAT SHOWS IT.
+ * RATINGS, ON EVERY SCREEN THAT SHOWS THEM.
  *
- * Stars are never alone. Every row of them carries the number and a word -
- * "4 · चांगले" - because colour and shape are not a signal on their own, and
- * a woman reading her own rating should not have to count.
+ * Products are rated, sellers are not. Stars are never alone: every row of
+ * them carries the number and a word - "4 · चांगला" - so nobody has to count
+ * gold shapes.
  */
 
 /** Five stars, filled up to the rating. Decorative: the caller prints the words. */
@@ -29,10 +33,15 @@ export function Stars({ rating, size = 'md' }: { rating: number; size?: 'sm' | '
   )
 }
 
-/** "★★★★☆ 4.3 · 12 अभिप्राय", or plainly that there are none yet. */
-export function RatingLine({ average, count }: { average?: number; count?: number }) {
+/**
+ * "★★★★☆ 4.3 · 12 अभिप्राय". With no ratings it says so, or - on a product
+ * card, where "no reviews yet" repeated down a grid is noise - says nothing.
+ */
+export function RatingLine({
+  average, count, hideEmpty,
+}: { average?: number; count?: number; hideEmpty?: boolean }) {
   const t = useT()
-  if (!count) return <span className="small dim">{t('rev.none')}</span>
+  if (!count) return hideEmpty ? null : <span className="small dim">{t('rev.none')}</span>
   return (
     <span className="rating-line">
       <Stars rating={average ?? 0} size="sm" />
@@ -42,11 +51,11 @@ export function RatingLine({ average, count }: { average?: number; count?: numbe
   )
 }
 
-/** The big number, and how the stars are spread - what a shop page opens its reviews with. */
+/** The big number, and how the stars are spread - what a product's reviews open with. */
 export function RatingSummaryCard({ summary }: { summary: RatingSummary }) {
   const t = useT()
   if (summary.count === 0) {
-    return <Card><p className="body muted">{t('rev.noneYet')}</p></Card>
+    return <Card><p className="body muted">{t('rev.productNone')}</p></Card>
   }
   return (
     <Card>
@@ -87,13 +96,19 @@ function shortDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-/** One buyer's review, as anybody reads it. */
-export function ReviewItem({ review }: { review: PublicReview }) {
+/**
+ * One review. `showProduct` names the product it is about - on her list and
+ * on an order - and is left off on the product's own page, where it is obvious.
+ */
+export function ReviewItem({ review, showProduct }: { review: PublicReview; showProduct?: boolean }) {
   const t = useT()
   return (
     <div className="review">
+      {showProduct && <strong>{review.productName}</strong>}
       <div className="row-between">
-        <strong>{review.customerName || t('rev.anon')}</strong>
+        <span className={showProduct ? 'small' : ''} style={showProduct ? undefined : { fontWeight: 700 }}>
+          {review.customerName || t('rev.anon')}
+        </span>
         <span className="tiny dim num">{shortDate(review.updatedAt ?? review.createdAt)}</span>
       </div>
       <div className="rating-line">
@@ -103,18 +118,15 @@ export function ReviewItem({ review }: { review: PublicReview }) {
         </span>
       </div>
       {review.comment && <p className="body review__text">{review.comment}</p>}
-      {review.items.length > 0 && (
-        <div className="tiny dim">{t('rev.bought')}: {review.items.map((i) => i.name).join(', ')}</div>
-      )}
     </div>
   )
 }
 
-export function ReviewList({ reviews }: { reviews: PublicReview[] }) {
+export function ReviewList({ reviews, showProduct }: { reviews: PublicReview[]; showProduct?: boolean }) {
   return (
     <Card>
       <div className="review-list">
-        {reviews.map((r) => <ReviewItem key={r.id} review={r} />)}
+        {reviews.map((r) => <ReviewItem key={r.id} review={r} showProduct={showProduct} />)}
       </div>
     </Card>
   )
@@ -125,11 +137,13 @@ export function ReviewList({ reviews }: { reviews: PublicReview[] }) {
  * the word for the chosen one prints beneath the row - so the choice is read,
  * not guessed from how many shapes are gold.
  */
-export function StarPicker({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+export function StarPicker({
+  value, onChange, label,
+}: { value: number; onChange: (n: number) => void; label?: string }) {
   const t = useT()
   return (
     <div className="stack-sm">
-      <div className="star-picker" role="radiogroup" aria-label={t('rev.pickStars')}>
+      <div className="star-picker" role="radiogroup" aria-label={label ?? t('rev.pickStars')}>
         {Array.from({ length: RATING_MAX }, (_, i) => {
           const n = i + 1
           return (
@@ -156,61 +170,54 @@ export function StarPicker({ value, onChange }: { value: number; onChange: (n: n
 }
 
 /**
- * THE BUYER'S FEEDBACK ON THEIR OWN ORDER.
+ * EVERY PRODUCT ON ONE ORDER, RATED ON ONE SCREEN.
  *
- * Shown once the order is delivered. Three shapes:
- *  - nothing written yet, window open: the stars and a box, asking.
- *  - written: what they said, with "change" while the window is open.
- *  - taken down by an admin: what they said, and that it is not public.
- * Nothing at all once the window has closed on an order never reviewed - a
- * form that can only be refused is not worth the space.
+ * A star row per product, and a box for words under each that she may leave
+ * empty. The send button stays off until every product has stars - the same
+ * check the server runs - and nothing is sent until then.
  */
-export function OrderReview({
-  order, review, onSaved,
+export function RateOrderForm({
+  order, reviews, onSaved, onCancel,
 }: {
   order: Order
-  review?: Review
-  onSaved: (review: Review) => void
+  /** Ratings already given, when she is changing them. */
+  reviews?: PublicReview[]
+  onSaved: (reviews: Review[]) => void
+  /** Only when changing. The first rating has no way out. */
+  onCancel?: () => void
 }) {
   const t = useT()
-  const { toast } = useToast()
-  const open = canReview(order)
-  const [editing, setEditing] = useState(false)
-  const [rating, setRating] = useState(review?.rating ?? 0)
-  const [comment, setComment] = useState(review?.comment ?? '')
+  const products = orderProducts(order)
+
+  const [picked, setPicked] = useState<Record<string, { rating: number; comment: string }>>(() =>
+    Object.fromEntries(
+      products.map((p) => {
+        const r = reviews?.find((x) => x.productId === p.productId)
+        return [p.productId, { rating: r?.rating ?? 0, comment: r?.comment ?? '' }]
+      }),
+    ),
+  )
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  if (order.status !== 'DELIVERED') return null
-  if (!review && !open) return null
+  const ratings: ProductRatingInput[] = products.map((p) => ({
+    productId: p.productId,
+    rating: picked[p.productId]?.rating ?? 0,
+    comment: picked[p.productId]?.comment.trim() || undefined,
+  }))
+  const incomplete = ratingsProblem(order, ratings) !== null
 
-  if (review && !editing) {
-    return (
-      <div>
-        <SectionTitle>{t('rev.yours')}</SectionTitle>
-        <Card>
-          <div className="stack-sm">
-            {review.hidden && <Notice tone="warn">{t('rev.hiddenForYou')}</Notice>}
-            <ReviewItem review={review} />
-            {open && !review.hidden && (
-              <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-                <IconEdit aria-hidden="true" /> {t('rev.change')}
-              </Button>
-            )}
-          </div>
-        </Card>
-      </div>
-    )
+  function update(id: string, change: Partial<{ rating: number; comment: string }>) {
+    setPicked((cur) => ({ ...cur, [id]: { ...cur[id]!, ...change } }))
+    setErr('')
   }
 
   async function submit() {
     setBusy(true)
     setErr('')
     try {
-      const res = await api.reviewOrder(order.id, rating, comment.trim() || undefined)
-      onSaved(res.review)
-      setEditing(false)
-      toast(t('rev.thanks'))
+      const res = await api.reviewOrder(order.id, ratings)
+      onSaved(res.reviews)
     } catch (e) {
       setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('rev.failed'))
     } finally {
@@ -219,44 +226,175 @@ export function OrderReview({
   }
 
   return (
-    <div>
-      <SectionTitle>{t('rev.askTitle')}</SectionTitle>
-      <Card className="notice--warn">
-        <div className="stack">
-          <p className="body">{t('rev.askSub')}</p>
-          <StarPicker value={rating} onChange={(n) => { setRating(n); setErr('') }} />
-          <Field label={t('rev.commentLabel')} hint={t('rev.commentHint', { n: REVIEW_COMMENT_MAX })}>
-            <VoiceInput
-              multiline
-              value={comment}
-              onChange={setComment}
-              maxLength={REVIEW_COMMENT_MAX}
-              placeholder={t('rev.commentPlaceholder')}
+    <div className="stack">
+      {products.map((p) => (
+        <Card key={p.productId}>
+          <div className="stack">
+            <div className="row">
+              <span className="lineicon" aria-hidden="true"><IconProduct /></span>
+              <strong>{p.name}</strong>
+            </div>
+            <StarPicker
+              value={picked[p.productId]?.rating ?? 0}
+              onChange={(n) => update(p.productId, { rating: n })}
+              label={`${p.name} · ${t('rev.pickStars')}`}
             />
-          </Field>
-          {err && <Notice tone="danger">{err}</Notice>}
-          <div className="btn-row">
-            {editing && (
-              <Button
-                variant="quiet"
-                disabled={busy}
-                onClick={() => {
-                  setEditing(false)
-                  setRating(review?.rating ?? 0)
-                  setComment(review?.comment ?? '')
-                  setErr('')
-                }}
-              >
-                {t('rev.keepOld')}
+            <Field label={t('rate.commentLabel')} hint={t('rev.commentHint', { n: REVIEW_COMMENT_MAX })}>
+              <VoiceInput
+                multiline
+                value={picked[p.productId]?.comment ?? ''}
+                onChange={(v) => update(p.productId, { comment: v })}
+                maxLength={REVIEW_COMMENT_MAX}
+                placeholder={t('rev.commentPlaceholder')}
+              />
+            </Field>
+          </div>
+        </Card>
+      ))}
+
+      {err && <Notice tone="danger">{err}</Notice>}
+      {incomplete && <p className="small dim center">{t('rate.allNeeded')}</p>}
+
+      <div className="btn-row">
+        {onCancel && (
+          <Button variant="quiet" disabled={busy} onClick={onCancel}>{t('rev.keepOld')}</Button>
+        )}
+        <Button disabled={busy || incomplete} onClick={() => void submit()}>
+          {busy ? t('common.loading') : t('rev.send')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * WHAT SHE SAID ABOUT THIS ORDER, on the order screen.
+ *
+ * Asking is the gate's job (below), so this only shows the ratings once they
+ * exist - with "change" while the month is open, and a note on any an admin
+ * took down.
+ */
+export function OrderRatings({
+  order, reviews, onSaved,
+}: {
+  order: Order
+  reviews: (Review | PublicReview)[]
+  onSaved: (reviews: Review[]) => void
+}) {
+  const t = useT()
+  const { toast } = useToast()
+  const [editing, setEditing] = useState(false)
+
+  if (order.status !== 'DELIVERED' || reviews.length === 0) return null
+  const open = canReview(order)
+  const hidden = reviews.some((r) => (r as Review).hidden)
+
+  return (
+    <div>
+      <SectionTitle>{t('rev.yours')}</SectionTitle>
+      {editing ? (
+        <RateOrderForm
+          order={order}
+          reviews={reviews}
+          onCancel={() => setEditing(false)}
+          onSaved={(saved) => {
+            setEditing(false)
+            toast(t('rev.thanks'))
+            onSaved(saved)
+          }}
+        />
+      ) : (
+        <Card>
+          <div className="stack-sm">
+            {hidden && <Notice tone="warn">{t('rev.hiddenForYou')}</Notice>}
+            <div className="review-list">
+              {reviews.map((r) => <ReviewItem key={r.id} review={r} showProduct />)}
+            </div>
+            {open && (
+              <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+                <IconEdit aria-hidden="true" /> {t('rev.change')}
               </Button>
             )}
-            {/* Disabled until a star is chosen - the same check the server runs. */}
-            <Button disabled={busy || reviewProblem(rating, comment) !== null} onClick={() => void submit()}>
-              {busy ? t('common.loading') : t('rev.send')}
-            </Button>
           </div>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+/**
+ * THE RATING SCREEN SHE CANNOT GO PAST.
+ *
+ * Mounted once, in the customer layout, over every customer screen. While any
+ * delivered order is unrated (the server's `toRate`), it covers the whole app
+ * - bottom tabs included - with that order's rating form, and there is no
+ * close button: rating what arrived comes before anything else. Rating one
+ * order brings up the next; rating the last lets her go. The server refuses a
+ * new order while any are waiting, so the rule holds without this screen too.
+ *
+ * Checked when the app opens, when she comes back to it, every two minutes
+ * while it is open, and on moving between screens (at most every 30 seconds,
+ * for rural data) - so an order the seller marks delivered while she is
+ * browsing is asked about within moments rather than on her next visit.
+ *
+ * `onBlockingChange` lets the layout make everything behind the screen inert,
+ * so a keyboard or screen reader cannot reach the tabs underneath either.
+ */
+export function RateOrderGate({ onBlockingChange }: { onBlockingChange?: (blocking: boolean) => void }) {
+  const t = useT()
+  const { session } = useAuth()
+  const { toast } = useToast()
+  const { key } = useLocation()
+  const [order, setOrder] = useState<Order | null>(null)
+  const lastCheck = useRef(0)
+
+  const check = useCallback(async (force = false) => {
+    if (session?.role !== 'customer') return
+    if (!force && Date.now() - lastCheck.current < 30_000) return
+    lastCheck.current = Date.now()
+    try {
+      const { orders, toRate } = await api.myOrders()
+      const next = toRate?.[0]
+      setOrder(next ? orders.find((o) => o.id === next) ?? null : null)
+    } catch {
+      /* offline for a moment - the next check will catch it */
+    }
+  }, [session?.role])
+
+  useEffect(() => { void check(true) }, [check])
+  useEffect(() => { void check() }, [key, check])
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') void check(true) }
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') void check(true) }, 120_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(timer)
+    }
+  }, [check])
+
+  useEffect(() => { onBlockingChange?.(!!order) }, [order, onBlockingChange])
+
+  if (!order) return null
+
+  return (
+    <div className="gate" role="dialog" aria-modal="true" aria-labelledby="rate-gate-title">
+      <div className="gate__inner stack">
+        <div className="stack-sm">
+          <h1 id="rate-gate-title" className="h2">{t('rate.title')}</h1>
+          <p className="body">{t('rate.sub', { id: order.id })}</p>
+          <p className="small muted">{t('rate.why')}</p>
         </div>
-      </Card>
+        {/* Keyed on the order, so the next one starts with empty stars. */}
+        <RateOrderForm
+          key={order.id}
+          order={order}
+          onSaved={() => {
+            toast(t('rev.thanks'))
+            void check(true)
+          }}
+        />
+      </div>
     </div>
   )
 }

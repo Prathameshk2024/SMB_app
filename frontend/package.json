@@ -8,9 +8,6 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
-    "cap:add": "npx cap add android",
-    "cap:sync": "tsc -b && vite build --mode capacitor && npx cap sync android",
-    "cap:open": "npx cap open android",
     "test": "node --import tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {

@@ -2,28 +2,28 @@ import { useEffect, useState } from 'react'
 import { categoryPhoto } from '../lib/categoryPhoto.js'
 import { imageCache } from '../lib/imageCache.js'
 import { cloudinaryThumb } from '../lib/upload.js'
+import { IconProduct } from './icons.js'
 
 /**
  * A product image that reads through the LRU cache.
  *
- * Products currently carry an emoji rather than a photo, so `src` is usually
- * absent and we render the emoji. The moment real photos land - Capacitor
- * Camera on the seller side, object storage behind it - passing `src` is all
- * that is needed; every list and detail screen already uses this component.
+ * `src` is the listing's Cloudinary photo when it has one. Without it - an old
+ * listing, or Cloudinary off - every list and detail screen gets the category's
+ * photograph, or a plain product icon where no honest category photo exists.
  *
- * If a cached image was evicted, or the fetch fails, it falls back to the
- * emoji rather than showing a broken frame. Eviction is never a visible error.
+ * If a cached image was evicted, or the fetch fails, it takes that same
+ * fallback rather than showing a broken frame. Eviction is never a visible error.
  */
 export default function ProductImage({
   src,
-  emoji,
   categoryId,
   size,
   rounded = 'var(--r-sm)',
   className,
 }: {
   src?: string
-  emoji: string
+  /** Ignored. Products no longer show an emoji; kept so old call sites compile. */
+  emoji?: string
   /** The seller's category, so a listing with no photo borrows the category's. */
   categoryId?: string
   /** Square side in px. Omit to fill the parent (used by the 1:1 card top). */
@@ -67,7 +67,7 @@ export default function ProductImage({
     : { width: '100%', aspectRatio: '1', borderRadius: rounded }
 
   if (!src || failed || !url) {
-    // A photograph of the seller's category beats an emoji, and it is a
+    // A photograph of the seller's category beats a bare icon, and it is a
     // bundled asset, so it needs no cache, no request and cannot itself fail
     // to load.
     const stockPhoto = categoryPhoto(categoryId)
@@ -93,11 +93,12 @@ export default function ProductImage({
           display: 'grid',
           placeItems: 'center',
           fontSize: size ? Math.round(size * 0.42) : '2.4rem',
+          color: 'var(--gold-deep)',
           overflow: 'hidden',
         }}
         aria-hidden="true"
       >
-        {emoji}
+        <IconProduct />
       </div>
     )
   }

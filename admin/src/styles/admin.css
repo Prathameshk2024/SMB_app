@@ -32,6 +32,9 @@
   --surface-2: #faf5ea;
   --line: #e7dcc8;
   --line-2: #d6c8ae;
+  /* Example text inside an empty field. Deliberately faint: it is a hint,
+     and at the browser default it read as a value already typed in. */
+  --placeholder: #bfb2a5;
 
   /* --- semantic --------------------------------------------- */
   --ok: var(--green);
@@ -713,3 +716,13 @@ table.t tr:last-child td { border-bottom: 0; }
 /* Feedback. Text stars take the gold token; the number and word always sit beside them. */
 .stars-text { color: var(--gold-deep); letter-spacing: 1px; }
 .nowrap { white-space: nowrap; }
+
+/* Placeholders - every input and text box, one light colour.
+   Without this each phone used its own default grey, dark enough on this
+   cream ground to look like something already filled in. `opacity: 1`
+   because Firefox fades placeholders on top of whatever colour is set. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}

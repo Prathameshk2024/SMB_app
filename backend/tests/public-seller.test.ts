@@ -51,8 +51,13 @@ test('her phone, admin notices and block reason never reach the public', () => {
   }
 })
 
-test('the rating on the card comes from reviews, not the stored fields', () => {
+/**
+ * Her rating is what her products earned, passed in - never the numbers
+ * stored on her record (4.9 from 99 here), which nothing keeps up to date.
+ */
+test('the rating on the card is her products\' ratings, not the stored fields', () => {
   const card = publicSeller(seller(), { average: 3.5, count: 2, byStars: [0, 0, 1, 1, 0] })
   assert.equal(card.rating, 3.5)
   assert.equal(card.ratingCount, 2)
+  assert.equal(publicSeller(seller(), NO_RATING).ratingCount, 0)
 })

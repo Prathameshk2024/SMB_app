@@ -530,7 +530,7 @@ never drift out of sync with reality.
 
 ## 12. Non-functional requirements
 
-- **Mobile-first, then wrappable** — build the UI at phone width; the admin console is the only desktop layout. Keep it all inside a PWA-capable single-page app so it can be wrapped with Capacitor into an APK without a rewrite. The wrapper is also what makes App Links and the Install Referrer API available.
+- **Mobile-first, then wrappable** — build the UI at phone width; the admin console is the only desktop layout. Keep it all inside a PWA-capable single-page app so it can be wrapped into an APK without a rewrite — which is how it shipped: a React Native WebView loading the deployed site (`docs/DEPLOY.md` §6). The wrapper is also what makes App Links and the Install Referrer API available.
 - **Rural usability** — see §6. It is a requirement, not a preference.
 - **Performance** — first paint under about three seconds on 4G, compressed images, paginated lists, virtualised long lists. Budget for a ₹8,000 Android phone, not a flagship.
 - **Security** — OTP rate limiting, role checks on every endpoint, KYC documents and payment screenshots in a **private** bucket behind signed URLs, PII encrypted at rest, phone numbers masked between parties, a full admin audit trail on every approve and reject.
@@ -660,7 +660,7 @@ Most of it already exists in the schema. What has to be added now:
 | **2 — Customer core** | Explore, categories, product detail, seller storefront, cart split by seller, per-seller UPI checkout, order tracking |
 | **3 — Admin** | Payment approvals, seller and product moderation, order monitoring, catalog config |
 | **4 — Real backend** | Replace mocks; notifications, reviews, disputes, share-QR generation and tracking |
-| **5 — App wrapper** | Capacitor build, Android App Links, Play Install Referrer deep linking, Play Store listing |
+| **5 — App wrapper** | React Native WebView APK (built), Android App Links, Play Install Referrer deep linking, Play Store listing |
 | **6 — Growth charts** | Her earnings and orders cards, top products, milestones, shareable monthly summary; the four admin boards and the impact export |
 | **7 — Polish** | Training content and audio help, offers, earnings reports |
 

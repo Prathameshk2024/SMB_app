@@ -11,10 +11,6 @@ const shared = path.resolve(here, '../shared/src')
  * Vercel project, pointed at the same Cloud Run API - but it lives in this repo so
  * it imports `shared/src/types.ts` directly. A copied type would drift the
  * first time Seller or SubscriptionPayment changed, and drift silently.
- *
- * Unlike the seller app there is no `base: './'` here: that exists so the
- * frontend works inside a Capacitor WebView loading from the filesystem. The
- * admin console is only ever a website.
  */
 export default defineConfig({
   plugins: [react()],

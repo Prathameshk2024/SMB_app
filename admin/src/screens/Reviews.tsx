@@ -15,9 +15,10 @@ import { useToast } from '../store/ToastContext.js'
 type Filter = 'all' | 'low' | 'hidden'
 
 /**
- * WHAT BUYERS SAID, ACROSS EVERY SHOP.
+ * WHAT BUYERS SAID ABOUT EVERY PRODUCT.
  *
- * Two jobs. Reading: low ratings are the early signal - a seller collecting
+ * Products are rated, one review per product per delivered order. Two jobs.
+ * Reading: low ratings are the early signal - a seller whose products collect
  * ones and twos needs a call from a coordinator, not a block. Moderating: a
  * review with a phone number in it, or abuse, comes down here.
  *
@@ -114,6 +115,7 @@ export function ReviewTable({
               <tr>
                 <th>{t('rv.date')}</th>
                 {showSeller && <th>{t('or.seller')}</th>}
+                <th>{t('rv.product')}</th>
                 <th>{t('rv.stars')}</th>
                 <th>{t('rv.comment')}</th>
                 <th>{t('rv.buyer')}</th>
@@ -131,6 +133,7 @@ export function ReviewTable({
                       <div className="mono small dim">{(r as ReviewRow).womenBizId}</div>
                     </td>
                   )}
+                  <td className="small">{r.productName || '-'}</td>
                   <td><StarsText rating={r.rating} /></td>
                   <td className="small" style={{ maxWidth: 360, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                     {r.comment ?? <span className="dim">-</span>}
@@ -175,7 +178,7 @@ export function ReviewTable({
 /**
  * A dialog, not a card appended below the table - see OrderDetail in
  * Orders.tsx for why. Hiding needs a reason, and says what it will do: the
- * review leaves the shop page and her average, and the buyer is told.
+ * review leaves the product's page and its average, and the buyer is told.
  */
 function HideDialog({
   review, onClose, onDone,

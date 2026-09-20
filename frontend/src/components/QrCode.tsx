@@ -10,7 +10,7 @@ import QRCode from 'qrcode'
  * registration.
  *
  * Generated locally rather than through an image service, because the app has
- * to work offline inside the APK and on weak rural 4G, and because a seller's
+ * to work on weak rural 4G, and because a seller's
  * UPI address should not be sent to a third party to be turned into a picture.
  */
 /**

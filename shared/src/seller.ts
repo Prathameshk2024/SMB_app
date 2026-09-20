@@ -159,15 +159,18 @@ export function initialListingStatus(asDraft: boolean): ProductStatus {
   return asDraft ? 'DRAFT' : 'PENDING'
 }
 
+/** A listing's state, drawn as a line icon the app names - never an emoji. */
+export type ProductStatusIconName = 'live' | 'draft' | 'pending' | 'rejected' | 'paused'
+
 export const PRODUCT_STATUS_STYLE: Record<
   Exclude<ProductStatus, 'ARCHIVED'>,
-  { tone: 'neutral' | 'info' | 'warn' | 'ok' | 'danger'; icon: string; labelKey: string }
+  { tone: 'neutral' | 'info' | 'warn' | 'ok' | 'danger'; icon: ProductStatusIconName; labelKey: string }
 > = {
-  LIVE: { tone: 'ok', icon: '●', labelKey: 'prod.live' },
-  DRAFT: { tone: 'neutral', icon: '✎', labelKey: 'prod.draft' },
-  PENDING: { tone: 'warn', icon: '⏳', labelKey: 'prod.pending' },
-  REJECTED: { tone: 'danger', icon: '✖', labelKey: 'prod.rejected' },
-  PAUSED: { tone: 'neutral', icon: '⏸', labelKey: 'prod.paused' },
+  LIVE: { tone: 'ok', icon: 'live', labelKey: 'prod.live' },
+  DRAFT: { tone: 'neutral', icon: 'draft', labelKey: 'prod.draft' },
+  PENDING: { tone: 'warn', icon: 'pending', labelKey: 'prod.pending' },
+  REJECTED: { tone: 'danger', icon: 'rejected', labelKey: 'prod.rejected' },
+  PAUSED: { tone: 'neutral', icon: 'paused', labelKey: 'prod.paused' },
 }
 
 /* ------------------------------------------------------------------ */

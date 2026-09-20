@@ -22,7 +22,7 @@ import {
   TextInput, VoiceInput, YesNo,
 } from '../../components/ui.js'
 import {
-  IconBack, IconCheck, IconGroup, IconIndividual, IconNext, IconWarn,
+  IconAllClear, IconBack, IconCheck, IconGroup, IconIndividual, IconNext, IconWarn,
 } from '../../components/icons.js'
 
 /**
@@ -232,7 +232,7 @@ export default function SellerRegister() {
       <div className="app-shell">
         <div className="screen screen--nonav stack">
           <div className="center stack-sm" style={{ paddingTop: 'var(--s5)' }}>
-            <div style={{ fontSize: '3.5rem' }} aria-hidden="true">🎉</div>
+            <div className="bigstate bigstate--ok" aria-hidden="true"><IconAllClear /></div>
             <h1 className="h1">{t('reg.doneTitle')}</h1>
           </div>
 
@@ -362,7 +362,15 @@ export default function SellerRegister() {
                 ))}
                 <Choice
                   selected={d.villagePreset === '__other__'}
-                  onSelect={() => set('villagePreset', '__other__')}
+                  onSelect={() => {
+                    // A listed village filled these in. They belong to that
+                    // village, not to the one she is about to say, so they go.
+                    if (d.villagePreset !== '__other__') {
+                      set('taluka', '')
+                      set('district', '')
+                    }
+                    set('villagePreset', '__other__')
+                  }}
                   title={t('reg.villageOther')}
                 />
               </div>
@@ -370,10 +378,14 @@ export default function SellerRegister() {
 
             {d.villagePreset === '__other__' && (
               <Field label={t('reg.village')} required>
+                {/* A village that is not on the list is a name she may not know
+                    how to spell in Devanagari on a phone keyboard - so she is
+                    told, right here, that she can say it instead. */}
                 <VoiceInput
                   value={d.villageOther}
                   onChange={(v) => set('villageOther', v)}
                   placeholder={t('ph.village')}
+                  speakHint
                 />
               </Field>
             )}
@@ -385,14 +397,29 @@ export default function SellerRegister() {
               </Notice>
             )}
 
-            <div className="row" style={{ gap: 'var(--s3)', alignItems: 'flex-start' }}>
-              <Field label={t('reg.taluka')}>
-                <TextInput value={d.taluka} onChange={(e) => set('taluka', e.target.value)} />
-              </Field>
-              <Field label={t('reg.district')}>
-                <TextInput value={d.district} onChange={(e) => set('district', e.target.value)} />
-              </Field>
-            </div>
+            {/* Only a listed village fills these in. For any other she has to
+                give them herself, so they get the same microphone - one above
+                the other, because two boxes with a mic each do not fit across
+                a phone. */}
+            {d.villagePreset === '__other__' ? (
+              <>
+                <Field label={t('reg.taluka')}>
+                  <VoiceInput value={d.taluka} onChange={(v) => set('taluka', v)} placeholder={t('ph.taluka')} />
+                </Field>
+                <Field label={t('reg.district')}>
+                  <VoiceInput value={d.district} onChange={(v) => set('district', v)} placeholder={t('ph.district')} />
+                </Field>
+              </>
+            ) : (
+              <div className="row" style={{ gap: 'var(--s3)', alignItems: 'flex-start' }}>
+                <Field label={t('reg.taluka')}>
+                  <TextInput value={d.taluka} onChange={(e) => set('taluka', e.target.value)} />
+                </Field>
+                <Field label={t('reg.district')}>
+                  <TextInput value={d.district} onChange={(e) => set('district', e.target.value)} />
+                </Field>
+              </div>
+            )}
 
             <Field
               label={t('reg.pincode')}

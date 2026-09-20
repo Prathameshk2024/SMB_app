@@ -66,18 +66,32 @@ export function PhoneScreen({ mode }: { mode: 'join' | 'login' }) {
   /**
    * A registration the seller has already passed the OTP for, still in date.
    *
-   * Read once on mount. A seller holding one must not be asked for another
-   * code - this screen offers to take the seller back into the wizard
-   * instead, which is the difference between one SMS and two on every back
-   * press.
+   * Read on mount. A seller holding one must not be asked for another code -
+   * this screen offers to take the seller back into the wizard instead, which
+   * is the difference between one SMS and two on every back press. Cleared by
+   * "use another number" (`switchNumber`).
    */
-  const [pending] = useState(() => (role === 'seller' ? liveTicket() : null))
+  const [pending, setPending] = useState(() => (role === 'seller' ? liveTicket() : null))
 
   const [phone, setPhone] = useState(pending?.phone ?? '')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
   if (session?.role === role) return <Navigate to={homeFor(role)} replace />
+
+  /**
+   * Back to an empty phone screen. Clearing `pending` swaps the resume buttons
+   * for the ordinary "send OTP" one, so the next code goes to whatever she
+   * types now - and only when she presses it.
+   */
+  function switchNumber() {
+    clearRegisterTicket()
+    setPending(null)
+    setPhone('')
+    setErr('')
+    // After the re-render, so the box she is meant to type in is the one focused.
+    setTimeout(() => document.getElementById('phone')?.focus(), 0)
+  }
 
   async function send() {
     if (!isValidPhone(phone)) {
@@ -179,10 +193,13 @@ export function PhoneScreen({ mode }: { mode: 'join' | 'login' }) {
             <Button onClick={() => nav(`/register/seller?phone=${pending.phone}`)}>
               {t('onb.resume')} <IconNext aria-hidden="true" />
             </Button>
-            {/* Still offered, for the woman who typed the wrong number. It
-                sends a fresh code and abandons the ticket the seller was holding. */}
-            <Button variant="quiet" onClick={() => { clearRegisterTicket(); send() }} disabled={busy}>
-              {busy ? t('common.loading') : t('onb.differentNumber')}
+            {/* For the woman who wants to register a different number. It drops
+                the ticket she was holding, empties the box and puts the cursor
+                in it - and sends NOTHING. It used to call send() straight
+                away, with the old number still in the box, so the "different"
+                number got a second OTP to the same phone. */}
+            <Button variant="quiet" onClick={switchNumber} disabled={busy}>
+              {t('onb.differentNumber')}
             </Button>
           </>
         ) : (
