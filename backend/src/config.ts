@@ -412,6 +412,7 @@ export function describeConfig(): string {
     }`,
     `  Images         ${usingCloudinary ? `Cloudinary (${cloudinary!.cloudName})` : 'off - emoji only'}`,
     `  OTP            ${otpProvider().name}`,
+    `  Push           ${usingFirestore ? 'Firebase Cloud Messaging' : 'off'}`,
     `  CORS           ${CORS_ORIGIN === true ? 'any origin' : CORS_ORIGIN.join(', ')}`,
   ]
   if (IS_PROD && CORS_ORIGIN === true) {

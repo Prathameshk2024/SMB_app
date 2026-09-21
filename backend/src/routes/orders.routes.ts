@@ -14,6 +14,7 @@ import { toPublicReview } from '@shared/review.js'
 import { canSellNow } from '@shared/subscription.js'
 import { newShortId } from '../db/ids.js'
 import { requireRole } from '../middleware/auth.js'
+import { notifyOrderAdvanced, notifyOrderCancelled, notifyOrderPlaced, notifyPaymentClaimed } from '../push/notify.js'
 
 export const ordersRouter: Router = Router()
 
@@ -226,6 +227,9 @@ ordersRouter.post('/', requireRole('customer'), (req, res) => {
   if (created[0]) recordOrderCustomer(db, created[0])
 
   save()
+  // The seller hears about each order she now has. Never awaited: the buyer's
+  // reply must not wait on Firebase.
+  for (const o of created) void notifyOrderPlaced(db, o)
   res.status(201).json({ orders: created, groupId })
 })
 
@@ -290,6 +294,7 @@ ordersRouter.post('/:id/advance', requireRole('seller'), (req, res) => {
   }
 
   save()
+  void notifyOrderAdvanced(db, order, to)
   res.json({ order })
 })
 
@@ -319,6 +324,7 @@ ordersRouter.post('/:id/cancel', requireRole('seller', 'customer'), (req, res) =
   }
 
   save()
+  void notifyOrderCancelled(db, order, by)
   res.json({ order })
 })
 
@@ -380,6 +386,7 @@ ordersRouter.post('/:id/pay', requireRole('customer'), (req, res) => {
   order.paymentUtr = utr
   order.paymentStatus = 'UPI_SUBMITTED'
   save()
+  void notifyPaymentClaimed(db, order)
   res.json({ order })
 })
 

@@ -60,6 +60,10 @@ export const LIMITS = {
   qrPerIp: { max: 30, windowMs: 10 * 60 * 1000 },
   /** A blunt backstop over everything, so no single client can flood the box. */
   globalPerIp: { max: 300, windowMs: 60 * 1000 },
+  /** A phone registers a handful of times a day; ten an hour is already generous. */
+  pushTokenPerSession: { max: 10, windowMs: 60 * 60 * 1000 },
+  /** Wider per IP: a village's buyers share their carrier's address. */
+  pushTokenPerIp: { max: 200, windowMs: 60 * 60 * 1000 },
 } satisfies Record<string, Limit>
 
 /**
