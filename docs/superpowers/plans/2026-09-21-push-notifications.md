@@ -1435,9 +1435,13 @@ Notifications.setNotificationHandler({
   }),
 })
 
-/** A tap may only open one of OUR pages: a path, never a URL, never "//host". */
+/**
+ * A tap may only open one of OUR pages: a path, never a URL, never "//host"
+ * and never "/\host" either - `location.assign` (and every browser) treats a
+ * leading backslash as a slash, so "/\evil.com" is "//evil.com" in disguise.
+ */
 function safePath(p: unknown): string | null {
-  return typeof p === 'string' && p.startsWith('/') && !p.startsWith('//') ? p : null
+  return typeof p === 'string' && /^\/(?![\/\\])/.test(p) ? p : null
 }
 
 /** FCM data can arrive in either place depending on how Android delivered it. */

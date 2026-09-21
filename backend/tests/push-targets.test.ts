@@ -46,6 +46,32 @@ test('a logged-out session hears nothing', () => {
   assert.deepEqual(pushTargets(db, { sellerId: 's1' }), [])
 })
 
+/**
+ * `registerPushToken` itself keeps a token unique by taking it off every
+ * other session, but two rows can still end up sharing one FCM token - a
+ * race between two logins on the same phone, or an old APK that registers
+ * without going through that path. One phone must buzz once, for whoever is
+ * using it now, so dedup falls back to whichever session was seen last.
+ */
+test('two live sessions sharing one token dedupe to the one seen more recently', () => {
+  const db = emptyDb()
+  const now = Date.now()
+  const older = createSession(db, { role: 'seller', userId: 's1', sellerId: 's1' }, now)
+  const newer = createSession(db, { role: 'seller', userId: 's1', sellerId: 's1' }, now)
+  // Set directly, bypassing registerPushToken, which is exactly what would
+  // stop this from happening in practice.
+  older.pushToken = T1
+  older.pushLang = 'mr'
+  older.lastSeenAt = new Date(now - 60_000).toISOString()
+  newer.pushToken = T1
+  newer.pushLang = 'en'
+  newer.lastSeenAt = new Date(now).toISOString()
+  const got = pushTargets(db, { sellerId: 's1' }, now)
+  assert.equal(got.length, 1)
+  assert.equal(got[0]!.sessionId, newer.id)
+  assert.equal(got[0]!.lang, 'en')
+})
+
 test('an expired session hears nothing', () => {
   const db = emptyDb()
   const s = createSession(db, { role: 'seller', userId: 's1', sellerId: 's1' })

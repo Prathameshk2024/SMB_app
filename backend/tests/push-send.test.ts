@@ -51,6 +51,23 @@ test('a phone that uninstalled the app is forgotten, and that is saved', async (
   assert.equal(writes, 1)
 })
 
+test('a failure with an FCM code keeps the token and logs the code, not just a count', async () => {
+  const { db, s, targets } = world()
+  setPushTransport(async (msgs) => msgs.map((m) => ({
+    token: m.token, ok: false, dead: false, code: 'messaging/mismatched-credential',
+  })))
+  const warnings: unknown[][] = []
+  const origWarn = console.warn
+  console.warn = (...args: unknown[]) => warnings.push(args)
+  try {
+    assert.equal(await sendPush(db, targets, text, () => assert.fail('no write for a non-dead failure')), 0)
+  } finally {
+    console.warn = origWarn
+  }
+  assert.equal(s.pushToken, TOKEN)
+  assert.ok(warnings.some((a) => String(a[0]).includes('messaging/mismatched-credential')))
+})
+
 test('a transport that throws is swallowed', async () => {
   const { db, targets } = world()
   setPushTransport(async () => { throw new Error('network down') })

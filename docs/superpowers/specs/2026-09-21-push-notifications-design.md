@@ -90,7 +90,7 @@ open base URL + data.path
   - on a tap (`addNotificationResponseReceivedListener`), load
     `BASE_URL + data.path` in the WebView; on a cold start from a tap
     (`getLastNotificationResponseAsync`), use it as the initial `source.uri`.
-    A `path` is accepted only if it starts with `/` and not `//`, so a
+    A `path` is accepted only if it starts with `/` and not `//` or `/\`, so a
     notification can never point the WebView at another site.
 - Build with `expo run:android` as today. Every phone reinstalls once; an old
   APK keeps working, just without notifications.
@@ -167,8 +167,9 @@ open base URL + data.path
 
 - Sending never throws into a route. Failures are logged with the order id or
   notice kind, and the route's response is unchanged.
-- Dead tokens (the app was uninstalled, or its data cleared) are removed on the
-  first failed send.
+- Tokens FCM reports as unregistered (the app was uninstalled, or its data
+  cleared) are removed on the first such failure. Any other failure is logged
+  with its FCM error code and the token is left alone.
 - A token registered by a revoked or expired session is ignored at send time
   (`findLiveSession`). `pruneSessions` clears the row later, as today.
 - Offline phone: FCM holds the message and delivers it when the phone

@@ -1,18 +1,6 @@
 import type { Order, OrderStatus, Role, Seller } from '@shared/types.js'
 import type { SubscriptionView } from '@shared/subscription.js'
 import { statusLabelKey } from '@shared/orderFlow.js'
-/**
- * The other half of "what happened while she was not looking".
- *
- * Her slots grew by five and nothing on any screen said so - she had to
- * notice the meter herself, and a woman who has just paid ₹50 and been
- * approved by hand deserves to be told rather than to check. These come off
- * her own seller record (`seller.notices`), written by the admin handler that
- * made the change, so this needs no new endpoint: `api.me()` already carries
- * them. The path each kind opens (`ADMIN_NOTICE_PATH`) now lives in
- * `shared/src/pushText.ts`, alongside the FCM notification the same decision
- * sends, so a tap on the tray and a tap on this row land in the same place.
- */
 import { ADMIN_NOTICE_PATH, orderItemSummary, shortDate } from '@shared/pushText.js'
 
 export { shortDate }
@@ -31,10 +19,11 @@ export { shortDate }
  * in step by hand, and wrong the first time somebody forgot to write a row.
  * Nothing here needs a new endpoint or a new table.
  *
- * This is NOT push. The app has to be open. Real push needs FCM and a
- * device-token registry, and the honest version of that is a separate piece of
- * work - see "Not built yet" in CLAUDE.md. What this does is make sure that
- * when she DOES open the app, nothing that happened is hidden from her.
+ * Phone notifications exist now too (see CLAUDE.md "Push notifications") -
+ * the tray, sound and vibration for a phone that is closed or asleep. This
+ * list is still the in-app view: what she sees once she opens it, kept for as
+ * long as `visibleFeed` below says a row stays relevant, not just the instant
+ * a tray notification arrives and is dismissed.
  */
 
 export interface Notice {
@@ -286,6 +275,18 @@ export function unreadCount(feed: Notice[], userId: string, now = Date.now()): n
 /* What an admin did to her account                                    */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The other half of "what happened while she was not looking".
+ *
+ * Her slots grew by five and nothing on any screen said so - she had to
+ * notice the meter herself, and a woman who has just paid ₹50 and been
+ * approved by hand deserves to be told rather than to check. These come off
+ * her own seller record (`seller.notices`), written by the admin handler that
+ * made the change, so this needs no new endpoint: `api.me()` already carries
+ * them. The path each kind opens (`ADMIN_NOTICE_PATH`) lives in
+ * `shared/src/pushText.ts`, alongside the FCM notification the same decision
+ * sends, so a tap on the tray and a tap on this row land in the same place.
+ */
 export function adminFeed(seller: Seller | null | undefined): Notice[] {
   return (seller?.notices ?? []).map((n): Notice => {
     // A renewal's note is the new end date, which belongs IN the sentence

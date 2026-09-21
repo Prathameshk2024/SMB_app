@@ -86,3 +86,23 @@ test('an admin decision buzzes only that seller', async () => {
   await notify.notifyAdminNotice(db, 's2', { id: 'n2', at: '2026-09-21T10:00:00Z', kind: 'PAYMENT_APPROVED', n: 5 }, none)
   assert.deepEqual(sent.map((m) => [m.token, m.path]), [[SELLER_T, '/seller/products']])
 })
+
+/**
+ * A throw here must resolve to 0, never reject. Every route calls these with
+ * `void`, so a rejection nobody awaits is an unhandled rejection, and the
+ * admin-notice listener in index.ts runs the same call inside a bare
+ * `setImmediate`, where an uncaught throw would take the single Cloud Run
+ * process down mid-response. An order whose `items` getter throws stands in
+ * for any builder that reads a field that turns out not to be there.
+ */
+test('a builder that throws while building the message resolves to 0, not a rejection', async () => {
+  const { db } = world()
+  const cursed = {
+    id: 'SMB9', sellerId: 's1', customerId: 'c1', customerName: 'Rekha', total: 100,
+    status: 'ACCEPTED', events: [],
+    get items(): never { throw new Error('boom') },
+  } as unknown as Order
+  await assert.doesNotReject(async () => {
+    assert.equal(await notify.notifyOrderAdvanced(db, cursed, 'ACCEPTED', none), 0)
+  })
+})

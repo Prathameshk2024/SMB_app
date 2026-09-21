@@ -16,6 +16,8 @@ export interface SendOutcome {
   ok: boolean
   /** The phone no longer has the app (or cleared its data): forget the token. */
   dead: boolean
+  /** FCM's reason for a failure, e.g. `messaging/mismatched-credential`. Logged, never acted on beyond `dead`. */
+  code?: string
 }
 
 export type PushTransport = (messages: PushMessage[]) => Promise<SendOutcome[]>
@@ -31,6 +33,15 @@ export function pushEnabled(): boolean {
   return transport !== null
 }
 
+/**
+ * `sendEach` is the HTTP v1 API: an uninstalled app, or one whose data was
+ * cleared, reports as `registration-token-not-registered`. A malformed token
+ * reports as `invalid-argument` instead - deliberately NOT dead, because that
+ * code also fires on an oversized payload, and the body carries the
+ * buyer-typed `customerName`, so a long name could otherwise wipe a seller's
+ * real token. `invalid-registration-token` is the older legacy-API code and
+ * v1 should never send it; it costs nothing to keep recognising it anyway.
+ */
 const DEAD_CODES = new Set([
   'messaging/registration-token-not-registered',
   'messaging/invalid-registration-token',
@@ -54,6 +65,7 @@ export function fcmTransport(): PushTransport {
       token: messages[i]!.token,
       ok: r.success,
       dead: !r.success && DEAD_CODES.has(r.error?.code ?? ''),
+      code: r.error?.code,
     }))
   }
 }
@@ -90,8 +102,11 @@ export async function sendPush(
       }
       persist()
     }
-    const failed = outcomes.filter((o) => !o.ok && !o.dead).length
-    if (failed > 0) console.warn(`[push] ${failed} of ${messages.length} not delivered`)
+    const failed = outcomes.filter((o) => !o.ok && !o.dead)
+    if (failed.length > 0) {
+      const codes = [...new Set(failed.map((o) => o.code ?? 'unknown'))].join(', ')
+      console.warn(`[push] ${failed.length} of ${messages.length} not delivered: ${codes}`)
+    }
     return outcomes.filter((o) => o.ok).length
   } catch (err) {
     console.warn('[push] send failed:', err instanceof Error ? err.message : err)

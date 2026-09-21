@@ -32,6 +32,20 @@ test('both languages carry exactly the same lines', () => {
 })
 
 /**
+ * `ADMIN_NOTICE_PATH` is a `Record<AdminNoticeKind, ...>`, so TypeScript
+ * already refuses to compile it missing a kind - but nothing stopped a new
+ * kind's push LINE from being forgotten, since `PUSH_LINES` is just a
+ * `Record<string, string>`. Walking every key of the exhaustive record catches
+ * that at test time instead of it falling back to the raw key on a phone.
+ */
+test('every AdminNoticeKind has a push line in both languages', () => {
+  for (const kind of Object.keys(ADMIN_NOTICE_PATH)) {
+    assert.ok(`notif.adm.${kind}` in PUSH_LINES.mr, `mr missing notif.adm.${kind}`)
+    assert.ok(`notif.adm.${kind}` in PUSH_LINES.en, `en missing notif.adm.${kind}`)
+  }
+})
+
+/**
  * "The buyer says she paid" has no row of its own in the updates list, so it
  * has no dictionary twin. It is lifted word for word from copy the app already
  * shows the seller, which is what keeps it inside the Marathi style guide.
@@ -77,9 +91,8 @@ test('the buyer is told in her own language, and a tap opens her order', () => {
   assert.equal(p?.path, '/shop/orders/SMB5013')
 })
 
-/** COMPLETED has no row in the updates list, so it has no notification either. */
+/** PLACED has no row in the buyer's updates list, so it has no notification either. */
 test('a state with no updates-list line sends nothing', () => {
-  assert.equal(customerOrderPush(order(), 'COMPLETED', 'mr'), null)
   assert.equal(customerOrderPush(order(), 'PLACED', 'mr'), null)
 })
 

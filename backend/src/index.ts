@@ -196,7 +196,7 @@ async function main() {
   // Without Firestore (local development) the transport stays unset and every
   // send is a no-op.
   if (usingFirestore) setPushTransport(fcmTransport())
-  // Admin decisions are written from eight handlers; hearing them here means
+  // Admin decisions are written from six handlers; hearing them here means
   // none of them can forget to tell her. setImmediate runs it after the
   // handler has saved and replied.
   onNotice((seller, notice) => setImmediate(() => void notifyAdminNotice(getDb(), seller.id, notice)))
