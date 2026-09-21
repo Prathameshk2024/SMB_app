@@ -1,6 +1,21 @@
-import type { AdminNoticeKind, Order, OrderStatus, Role, Seller } from '@shared/types.js'
+import type { Order, OrderStatus, Role, Seller } from '@shared/types.js'
 import type { SubscriptionView } from '@shared/subscription.js'
 import { statusLabelKey } from '@shared/orderFlow.js'
+/**
+ * The other half of "what happened while she was not looking".
+ *
+ * Her slots grew by five and nothing on any screen said so - she had to
+ * notice the meter herself, and a woman who has just paid ₹50 and been
+ * approved by hand deserves to be told rather than to check. These come off
+ * her own seller record (`seller.notices`), written by the admin handler that
+ * made the change, so this needs no new endpoint: `api.me()` already carries
+ * them. The path each kind opens (`ADMIN_NOTICE_PATH`) now lives in
+ * `shared/src/pushText.ts`, alongside the FCM notification the same decision
+ * sends, so a tap on the tray and a tap on this row land in the same place.
+ */
+import { ADMIN_NOTICE_PATH, orderItemSummary, shortDate } from '@shared/pushText.js'
+
+export { shortDate }
 
 /**
  * WHAT CHANGED SINCE SHE LAST LOOKED
@@ -97,13 +112,6 @@ export function noticeLabelKey(status: OrderStatus, role: Role): string {
   return line ?? statusLabelKey(status)
 }
 
-/** What the order is, in the words on the listing. "+2" counts the rest. */
-function itemSummary(o: Order): string {
-  const [first, ...rest] = o.items ?? []
-  if (!first) return o.id
-  return rest.length ? `${first.name} +${rest.length}` : first.name
-}
-
 /**
  * ONE ROW PER ORDER, NOT ONE PER EVENT.
  *
@@ -145,7 +153,7 @@ export function buildFeed(orders: Order[], role: Role): Notice[] {
       orderId: o.id,
       at: last.at,
       labelKey: noticeLabelKey(last.to, role),
-      title: itemSummary(o),
+      title: orderItemSummary(o),
       status: o.status,
       who: mine === 'seller' ? o.customerName : '',
       total: o.total,
@@ -278,28 +286,6 @@ export function unreadCount(feed: Notice[], userId: string, now = Date.now()): n
 /* What an admin did to her account                                    */
 /* ------------------------------------------------------------------ */
 
-/**
- * The other half of "what happened while she was not looking".
- *
- * Her slots grew by five and nothing on any screen said so - she had to
- * notice the meter herself, and a woman who has just paid ₹50 and been
- * approved by hand deserves to be told rather than to check. These come off
- * her own seller record (`seller.notices`), written by the admin handler that
- * made the change, so this needs no new endpoint: `api.me()` already carries
- * them.
- */
-const ADMIN_ROW: Record<AdminNoticeKind, { to?: string }> = {
-  SLOTS_GRANTED: { to: '/seller/products' },
-  SLOTS_REVOKED: { to: '/seller/subscription' },
-  PAYMENT_APPROVED: { to: '/seller/products' },
-  PAYMENT_REJECTED: { to: '/seller/subscription' },
-  BLOCKED: {},
-  UNBLOCKED: {},
-  PRODUCT_APPROVED: { to: '/seller/products' },
-  PRODUCT_REJECTED: { to: '/seller/products' },
-  SUBSCRIPTION_RENEWED: { to: '/seller' },
-}
-
 export function adminFeed(seller: Seller | null | undefined): Notice[] {
   return (seller?.notices ?? []).map((n): Notice => {
     // A renewal's note is the new end date, which belongs IN the sentence
@@ -307,7 +293,7 @@ export function adminFeed(seller: Seller | null | undefined): Notice[] {
     if (n.kind === 'SUBSCRIPTION_RENEWED') {
       return {
         id: n.id, at: n.at, labelKey: 'notif.adm.SUBSCRIPTION_RENEWED',
-        vars: { date: shortDate(n.note) }, who: '', to: ADMIN_ROW[n.kind].to,
+        vars: { date: shortDate(n.note) }, who: '', to: ADMIN_NOTICE_PATH[n.kind],
       }
     }
     return {
@@ -317,7 +303,7 @@ export function adminFeed(seller: Seller | null | undefined): Notice[] {
       vars: n.n == null ? undefined : { n: n.n },
       // The reason, or the product's name - whatever the decision was about.
       who: n.note ?? '',
-      to: ADMIN_ROW[n.kind]?.to,
+      to: ADMIN_NOTICE_PATH[n.kind],
     }
   })
 }
@@ -357,14 +343,6 @@ export function subscriptionFeed(view: SubscriptionView | null | undefined): Not
     }]
   }
   return []
-}
-
-/** "15 Mar 2027" - Latin digits, the way every other date in the app is printed. */
-export function shortDate(iso: string | undefined): string {
-  const d = new Date(iso ?? '')
-  return Number.isNaN(d.getTime())
-    ? ''
-    : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
 }
 
 /** Both halves, newest first. The list she reads does not care where a line came from. */
