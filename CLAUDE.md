@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (295) + frontend (105) + admin (37) tests
+npm test               # backend (317) + frontend (125) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -401,6 +401,17 @@ A listing that still has no picture — an old one, or Cloudinary off — falls 
 - **The other side's actions only** (`e.by !== mine`). A seller does not need telling she accepted an order two seconds ago.
 - An admin decision has no order and no product, so it carries no `title` and prints its own sentence instead. `noticeLabelKey` still writes those sentences per side — "Order placed" is a fact about a row, "You have a new order" is a thing to go and do.
 
+### Push notifications
+
+Phone notifications (tray, sound, app closed) for the APK, sent by the API through `firebase-admin/messaging`. Spec: `docs/superpowers/specs/2026-09-21-push-notifications-design.md`.
+
+- **The token lives on the session** (`SessionRecord.pushToken`, `pushLang`), not on the person and not in a collection of its own. So logging out or a 401 stops the notifications at once, and the boot read count is unchanged. `registerPushToken()` (`push/register.ts`) **takes the token off every other session**: one phone buzzes for whoever signed in on it last — the mother and daughter, the field coordinator's handset.
+- **Five triggers, each telling the other side only:** order created → seller; advance (accept, pack, send, deliver, reject) → buyer; cancel → whoever did not cancel; UTR submitted → seller; any `appendNotice()` → seller (through `onNotice()`, set in `index.ts`). The subscription reminder week is not sent: no code runs when it begins.
+- **The text is the updates list's text.** `shared/src/pushText.ts` copies the `notif.*` lines, and `frontend/tests/pushText.test.ts` holds them equal to the dictionary. The one new line ("buyer says I paid") is lifted word for word from `cancel.sel.q3Paid` / `refund.claimedBody`. It is sent in the app's language (`wb.lang`), not the phone's.
+- **A send never fails a route.** Routes call `void notify…()` after `save()`; `sendPush()` never rejects; dead tokens are cleared on the first failed send. Without Firestore the transport is unset and every send is a no-op (`Push  off` in the banner).
+- **The handshake:** the page posts `{ type: 'push:enable' }` (`lib/pushBridge.ts`, only inside the APK and only when a seller or buyer is signed in); the wrapper asks Android's permission, gets the FCM token and calls `window.__smbPushToken(token)`; the page registers it with `POST /api/push/token`. A tap loads `data.path`, which the wrapper accepts only if it starts with `/` and not `//`.
+- Tests must never call the real `save()`: push functions take `persist`, and tests pass a no-op.
+
 ### Slots and subscription
 
 `shared/src/seller.ts`. ₹50 = one pack = 5 product slots, no payment gateway — the seller pays the admin's UPI and admin approves by hand. `SLOT_CONSUMING` deliberately excludes `DRAFT`, so a seller can experiment before paying. Validation functions here run on **both** sides: the client for a fast friendly message, the server because the client can lie.
@@ -526,6 +537,7 @@ How the container is built is not recorded in this repo: there is no Dockerfile 
 **The Android APK is a React Native WebView, not a build of this repo.** It is an Expo project kept in its own folder (`appgold-main`, outside this repository; `app/index.tsx` is the whole app), and its one screen loads the production frontend, `https://shantai-mahila-bajar-app-frontend.vercel.app/`, over the network. `docs/DEPLOY.md` §6 has the detail; what matters when changing code here:
 
 - **A Vercel deploy of `frontend/` is an APK update.** The APK is rebuilt only when the wrapper changes — or that URL does, because it is hard-coded there.
+- **It carries expo-notifications and google-services.json** for push; a change to either needs a rebuild, and phones on an older APK simply get no notifications.
 - **The APK needs the network to open at all.** Nothing is bundled into it, so "works offline in the APK" is never a reason for a choice in `frontend/`. A phone with no network at launch never reaches this site, so that screen is the wrapper's (`renderError` in `app/index.tsx`); once the site has loaded, `components/OfflineScreen.tsx` covers a connection that drops.
 - **Its origin is that Vercel URL**, so the `CORS_ORIGIN` entry and MSG91's allowed domain for the web app already cover it.
 - **It is Android System WebView, not Chrome.** A web API that works in the browser still has to be tried on a phone inside the APK — `navigator.share` is absent there. Voice input and the copy button were checked inside it on 15 September 2026. Its Android permissions, `RECORD_AUDIO` for the mic among them, are declared in the wrapper, not here.
@@ -535,4 +547,4 @@ Do not use Firebase Dynamic Links — it shut down on 25 August 2025. Deferred d
 
 ## Not built yet
 
-Seller replies to reviews · chat · push notifications · disputes · returns and refunds · coupons · real camera capture · QR decoding · courses and certificates · the seller's own address book.
+Seller replies to reviews · chat · disputes · returns and refunds · coupons · real camera capture · QR decoding · courses and certificates · the seller's own address book.

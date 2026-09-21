@@ -435,3 +435,46 @@ release build type is currently signed with the debug keystore
 (`android/app/build.gradle`), which the Play Store refuses; a Play listing
 needs its own upload keystore first, and the package name
 (`com.siddharam_sutar.mywebviewapp`) cannot change after the first upload.
+
+### Push notifications
+
+Spec: `docs/superpowers/specs/2026-09-21-push-notifications-design.md`. What
+it takes to turn a phone notification on:
+
+- **Firebase console, once.** Open the same Firebase project the API's
+  Firestore lives in — `npm run dev:api` prints the project id, and
+  production is whichever project `FIREBASE_SERVICE_ACCOUNT` points at.
+  ⚙ Project settings → General → Your apps → Add app → Android, package
+  name `com.siddharam_sutar.mywebviewapp` (exactly as in the wrapper's
+  `app.json`), no SHA-1 needed. Download `google-services.json`. Under
+  Project settings → Cloud Messaging, confirm "Firebase Cloud Messaging API
+  (V1)" says Enabled — if not, enable it from the Google Cloud console
+  linked off that page. `google-services.json` is not a secret (the key
+  inside is restricted to this app), but it belongs to the wrapper, not this
+  repo.
+- **Commit the wrapper before touching `android/`.** `google-services.json`
+  goes at the wrapper's root; `npx expo install expo-notifications` and the
+  `expo-notifications` plugin entry in `app.json` come next. Only then run
+  `npx expo prebuild --platform android` — **never** `--clean`, which
+  discards the existing `android/` folder with no way back. A commit taken
+  first is the only way to recover a hand-made native fix that prebuild
+  overwrites; diff `android/` against it afterwards.
+- **The `orders` channel.** Android 13+ will not even ask for notification
+  permission until the app has created a channel, so the wrapper creates one
+  named `orders` at high importance with the default sound before anything
+  else runs.
+- **Deploy order:** the API and `frontend/` first, then the APK last. The
+  backend half is harmless on its own — no session has a token yet, so
+  nothing is sent — and deploying it first means the API is already live
+  once phones start reaching it from the new build.
+- **Battery settings.** Xiaomi, Oppo, Vivo and Realme phones throttle or
+  block notifications from an app that is not open, by default. Each of
+  those needs **Autostart** allowed and battery use set to **No
+  restrictions** for a closed-app notification to arrive — the seller app's
+  own help card (Misc screen) says so in Marathi.
+- **No Firestore, no push.** Without `FIREBASE_*` credentials the API falls
+  back to the JSON file; the boot banner then prints `Push  off` and every
+  send is a silent no-op, the same as any other integration this app
+  degrades rather than crashes without.
+
+Manual test coverage: `docs/MANUAL-TEST-PLAN.md`, Suite Q.
