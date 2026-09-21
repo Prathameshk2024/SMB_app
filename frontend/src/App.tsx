@@ -14,6 +14,7 @@ import {
 } from './lib/scrollMemory.js'
 import { CustomerLayout, SellerLayout } from './components/layouts.js'
 import OfflineScreen from './components/OfflineScreen.js'
+import PushBridge from './components/PushBridge.js'
 
 import Landing from './screens/landing/Landing.js'
 import { OtpScreen, PhoneScreen } from './screens/auth/Auth.js'
@@ -195,6 +196,7 @@ export default function App() {
           <PincodeProvider>
           <Router>
             <ScrollMemory />
+            <PushBridge />
             <OfflineScreen />
             <Routes>
               {/* ---- public ---------------------------------------- */}

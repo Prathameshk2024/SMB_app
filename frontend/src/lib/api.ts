@@ -6,6 +6,7 @@ import type {
 } from '@shared/types.js'
 import type { SlotInfo } from '@shared/seller.js'
 import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
+import type { LangCode } from '../i18n/strings.js'
 
 /**
  * The single seam between the app and the server.
@@ -341,6 +342,9 @@ export const api = {
    * waiting for a rating, newest first. The app does not let her past them.
    */
   myOrders: () => get<{ orders: Order[]; toRate?: string[] }>('/orders/mine'),
+
+  /** The APK's notification token, kept on this session (see lib/pushBridge.ts). */
+  registerPush: (token: string, lang: LangCode) => post<{ ok: true }>('/push/token', { token, lang }),
 
   /**
    * `reviews` is one per rated product: the buyer's own in full (so a hidden
