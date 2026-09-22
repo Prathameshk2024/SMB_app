@@ -1,11 +1,4 @@
-import { useState } from 'react'
-import QRCode from 'qrcode'
 import { useT } from '../i18n/I18nProvider.js'
-import { useToast } from '../store/ToastContext.js'
-import { Button } from './ui.js'
-import { IconDownload } from './icons.js'
-import { QR_COLOURS } from './QrCode.js'
-import { apiUrl } from '../lib/api.js'
 
 /**
  * PAYING FROM THE SAME PHONE THAT SHOWS THE QR.
@@ -19,75 +12,20 @@ import { apiUrl } from '../lib/api.js'
  * in the link can change that; tested on real phones, 14 September 2026.
  *
  * What those same apps do accept is a payment she starts inside them: scanning
- * a QR picked from her gallery, or pasting a UPI ID. So the QR is saved to the
- * phone as a picture, and the steps say where to take it.
+ * a QR picked from her gallery, or pasting a UPI ID. So she takes a screenshot
+ * of the QR, and the steps say where to take it.
+ *
+ * There used to be a "Save QR to phone" button here. Inside the APK's WebView
+ * it could not save reliably, and a button that does nothing is worse than a
+ * screenshot every phone already knows how to take.
  *
  * If payees ever move to business UPI IDs, a pay link works again for those
  * accounts - and only for those.
  */
-export function SaveQrButton({
-  link, fileName, onSaved,
-}: {
-  link: string
-  fileName: string
-  /** Called once the picture is really on the phone, so the screen can wait for her return. */
-  onSaved?: () => void
-}) {
-  const t = useT()
-  const { toast } = useToast()
-  const [busy, setBusy] = useState(false)
-
-  async function save() {
-    /**
-     * INSIDE THE APK: let Android download it.
-     *
-     * The WebView drops a download made in the page and has no share sheet,
-     * so nothing was ever saved there. The wrapper hands any URL containing
-     * `download=` to Android's downloader, so the server draws the same QR
-     * and the phone saves it to Downloads. The toast says where to look,
-     * because the only other sign is the phone's own notification.
-     */
-    if (isAndroidWebView()) {
-      window.location.assign(
-        apiUrl('/qr/upi.png', { download: '1', name: fileName, link }),
-      )
-      toast(t('ok.qrDownloading'))
-      onSaved?.()
-      return
-    }
-
-    setBusy(true)
-    try {
-      // In a browser the page can save it itself.
-      const blob = await qrPng(link)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = fileName
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 10_000)
-      toast(t('ok.qrOnPhone'))
-      onSaved?.()
-    } catch {
-      toast(t('err.qrSaveFailed'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Button onClick={() => void save()} disabled={busy}>
-      <IconDownload aria-hidden="true" /> {t('pay.saveQr')}
-    </Button>
-  )
-}
 
 /**
- * The three steps, written out. Scanning from the gallery is a menu she has
- * probably never opened, and a button that saves a picture explains nothing
- * about what the picture is for.
+ * The steps, written out one action each. Scanning from the gallery is a menu
+ * she has probably never opened, so each tap gets its own line.
  */
 export function PaySteps({ screenshot = false }: { screenshot?: boolean }) {
   const t = useT()
@@ -95,34 +33,13 @@ export function PaySteps({ screenshot = false }: { screenshot?: boolean }) {
     <ol className="stack-sm" style={{ margin: 0, paddingLeft: 'var(--s5)' }}>
       <li>{t('pay.step1')}</li>
       <li>{t('pay.step2')}</li>
+      <li>{t('pay.step3')}</li>
+      <li>{t('pay.step4')}</li>
+      <li>{t('pay.step5')}</li>
       {/* Where proof is asked for, the step to capture it comes BEFORE she
           leaves the success screen - it is gone once she presses back. */}
       {screenshot && <li>{t('pay.stepScreenshot')}</li>}
-      <li>{t('pay.step3')}</li>
+      <li>{t('pay.step6')}</li>
     </ol>
   )
-}
-
-/**
- * Larger than the on-screen code and with a wider quiet zone: a gallery
- * scanner works from a photo of whatever size, and a generous margin is what
- * lets it find the corners.
- */
-function qrPng(link: string): Promise<Blob> {
-  const canvas = document.createElement('canvas')
-  return QRCode.toCanvas(canvas, link, {
-    width: 720,
-    margin: 4,
-    errorCorrectionLevel: 'M',
-    color: QR_COLOURS,
-  }).then(
-    () => new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('no image'))), 'image/png')
-    }),
-  )
-}
-
-/** Android marks its WebView with "; wv)" in the user agent; Chrome does not. */
-function isAndroidWebView(): boolean {
-  return /; wv\)/.test(navigator.userAgent)
 }
