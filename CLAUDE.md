@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (295) + frontend (105) + admin (37) tests
+npm test               # backend (295) + frontend (111) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -169,7 +169,9 @@ both flows, was `length < 6`.
   carries it and she cannot read a QR; paying the wrong figure into a UPI app
   is the one mistake neither side can undo. `CopyValue` beside it is an icon
   at the 44px floor and no word — labelled, the button was wider than the UPI
-  ID it belonged to, and the ID is the thing she is meant to read.
+  ID it belonged to, and the ID is the thing she is meant to read. `.copyrow`
+  never wraps: a long ID breaks across lines beside the button, because a
+  button pushed onto its own line under the ID read as a separate control.
 - The submit button is **disabled while the number cannot be right**. A live
   button under a malformed UTR reads as "this is fine, press me", and it is the
   last thing standing between her and an unmatchable payment.
