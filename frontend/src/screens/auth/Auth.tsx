@@ -66,10 +66,17 @@ export function PhoneScreen({ mode }: { mode: 'join' | 'login' }) {
   /**
    * A registration the seller has already passed the OTP for, still in date.
    *
+<<<<<<< Updated upstream
    * Read on mount. A seller holding one must not be asked for another code -
    * this screen offers to take the seller back into the wizard instead, which
    * is the difference between one SMS and two on every back press. Cleared by
    * "use another number" (`switchNumber`).
+=======
+   * Read once on mount. A seller holding one must not be asked for another
+   * code - this screen offers to take the seller back into the wizard
+   * instead, which is the difference between one SMS and two on every back
+   * press.
+>>>>>>> Stashed changes
    */
   const [pending, setPending] = useState(() => (role === 'seller' ? liveTicket() : null))
 

@@ -43,6 +43,36 @@ const COLLECTIONS = [
 ] as const
 type CollectionName = (typeof COLLECTIONS)[number]
 
+/**
+ * THE NUMBER TO WATCH ON THE SPARK PLAN
+ *
+ * Firestore here is on Firebase's free Spark plan: 50,000 document reads a
+ * day, and past that every read is refused until the reset - not billed.
+ * `loadAll()` reads every document once per start, so the size of the database
+ * decides how many starts a day still fit, and in production a start that does
+ * not fit is refused (store.ts): the API is down until the reset.
+ * docs/CAPACITY.md §4 has the arithmetic.
+ */
+export const FREE_READS_PER_DAY = 50_000
+
+/** At or below this, one day of cold starts, deploys and console browsing can spend the lot. */
+export const STARTS_WARNING = 10
+
+export function documentCount(data: Db): number {
+  return COLLECTIONS.reduce((n, name) => n + data[name].length, 0)
+}
+
+export function startsWithinFreeReads(documents: number): number {
+  return Math.floor(FREE_READS_PER_DAY / Math.max(documents, 1))
+}
+
+/** The boot line: every collection loadAll() read, and what that size leaves of the day's reads. */
+export function summarise(data: Db): string {
+  const total = documentCount(data)
+  const each = COLLECTIONS.map((name) => `${name} ${data[name].length}`).join(' · ')
+  return `${total} documents (${startsWithinFreeReads(total)} starts a day fit in the free ${FREE_READS_PER_DAY} reads): ${each}`
+}
+
 let db: Firestore | null = null
 
 export function getFirestoreDb(): Firestore {
@@ -148,49 +178,63 @@ export function isBulkDelete(doomed: number, before: number): boolean {
   return before > 5 && doomed > before / 2
 }
 
+/**
+ * Send every document that differs from what Firestore last ACCEPTED.
+ *
+ * `persisted` moves forward only after the batch carrying a change commits.
+ * It used to be updated before the commit, so a commit that failed - the
+ * Spark plan's daily write limit, a network blip, a timeout - left the change
+ * marked as saved: the next diff saw nothing new, nothing was ever resent,
+ * and the change lived in memory only until the next start threw it away.
+ * Now a failed batch leaves its documents looking unsaved, and the next call
+ * sends them again. Throws when a commit fails; store.ts retries.
+ *
+ * `fs` is a parameter only so a test can hand in a Firestore that fails.
+ */
 export async function persistDiff(
   data: Db,
+  fs: Firestore = getFirestoreDb(),
 ): Promise<{ written: number; deleted: number; refused: number }> {
-  const fs = getFirestoreDb()
   let batch = fs.batch()
-  let pending = 0
+  /** What this batch will make true on the server, applied only once it has. */
+  let marks: { saved: Map<string, string>; id: string; json: string | null }[] = []
   let written = 0
   let deleted = 0
   let refused = 0
 
-  async function flushIfFull() {
-    if (++pending >= 450) {
-      await batch.commit()
-      batch = fs.batch()
-      pending = 0
+  async function commit() {
+    if (marks.length === 0) return
+    await batch.commit()
+    for (const { saved, id, json } of marks) {
+      if (json === null) saved.delete(id)
+      else saved.set(id, json)
     }
+    batch = fs.batch()
+    marks = []
   }
 
   for (const name of COLLECTIONS) {
-    const current = data[name] as { id: string }[]
-    const before = persisted.get(name) ?? new Map<string, string>()
-    const after = snapshotOf(current)
+    if (!persisted.has(name)) persisted.set(name, new Map())
+    const saved = persisted.get(name)!
+    const after = snapshotOf(data[name] as { id: string }[])
 
     for (const [id, json] of after) {
-      if (before.get(id) !== json) {
+      if (saved.get(id) !== json) {
         batch.set(fs.collection(name).doc(id), JSON.parse(json) as Record<string, unknown>)
+        marks.push({ saved, id, json })
         written++
-        await flushIfFull()
+        if (marks.length >= 450) await commit()
       }
     }
 
-    const doomed = [...before.keys()].filter((id) => !after.has(id))
+    const doomed = [...saved.keys()].filter((id) => !after.has(id))
 
-    if (isBulkDelete(doomed.length, before.size) && !ALLOW_BULK_DELETE) {
-      // Refused. The documents stay in Firestore, so `persisted` must keep
-      // claiming they exist - otherwise the next diff would forget them and
-      // this collection would drift out of sync with the server for good.
-      const kept = new Map(after)
-      for (const id of doomed) kept.set(id, before.get(id)!)
-      persisted.set(name, kept)
-
+    if (isBulkDelete(doomed.length, saved.size) && !ALLOW_BULK_DELETE) {
+      // Refused. The documents stay in Firestore, and `saved` goes on saying
+      // so - otherwise the next diff would forget them and this collection
+      // would drift out of sync with the server for good.
       console.error(
-        `[firestore] REFUSED to delete ${doomed.length}/${before.size} docs in ${name}. ` +
+        `[firestore] REFUSED to delete ${doomed.length}/${saved.size} docs in ${name}. ` +
           'Nothing was deleted. If this is deliberate, re-run with ALLOW_BULK_DELETE=true.',
       )
       refused += doomed.length
@@ -199,12 +243,24 @@ export async function persistDiff(
 
     for (const id of doomed) {
       batch.delete(fs.collection(name).doc(id))
+      marks.push({ saved, id, json: null })
       deleted++
-      await flushIfFull()
+      if (marks.length >= 450) await commit()
     }
-    persisted.set(name, after)
   }
 
-  if (pending > 0) await batch.commit()
+  await commit()
   return { written, deleted, refused }
+}
+
+/** Documents that differ from what Firestore last accepted - for the failure log. */
+export function unsavedChanges(data: Db): number {
+  let n = 0
+  for (const name of COLLECTIONS) {
+    const saved = persisted.get(name) ?? new Map<string, string>()
+    const after = snapshotOf(data[name] as { id: string }[])
+    for (const [id, json] of after) if (saved.get(id) !== json) n++
+    for (const id of saved.keys()) if (!after.has(id)) n++
+  }
+  return n
 }

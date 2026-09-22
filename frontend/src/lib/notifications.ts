@@ -57,6 +57,12 @@ export interface Notice {
   total?: number
   /** Where tapping the row goes, when it is not an order. */
   to?: string
+  /**
+   * A state of her shop rather than something that happened at a moment: it
+   * stays on the list however old it is, because it is still true. Only the
+   * paused shop qualifies today - see `visibleFeed`.
+   */
+  standing?: boolean
 }
 
 /**
@@ -150,6 +156,83 @@ export function buildFeed(orders: Order[], role: Role): Notice[] {
 }
 
 /* ------------------------------------------------------------------ */
+/* A list that forgets                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * THIS IS THE NEWS, NOT THE ARCHIVE.
+ *
+ * The feed kept everything for ever, so in the third week of September a
+ * seller opened it and read about the 8th - orders she had packed, delivered
+ * and been paid for. Old rows pushed today's news off the screen, and a list
+ * where nothing ever leaves teaches you that nothing in it is urgent.
+ *
+ * So a row she has already seen lives a week, and one she has NOT lives a
+ * month - a woman who was away at a wedding still finds what she missed, and
+ * what she has read stops repeating her orders screen.
+ *
+ * A STANDING row is exempt from both. "Your shop is paused" is not an event
+ * that happened on a Tuesday; it is what is true about her shop right now,
+ * and it belongs on the list until she renews.
+ */
+export const FEED_DAYS = 7
+export const UNREAD_DAYS = 30
+
+export function visibleFeed(feed: Notice[], seen: string, now = Date.now()): Notice[] {
+  return feed.filter((n) => {
+    if (n.standing) return true
+    const days = (now - new Date(n.at).getTime()) / 86_400_000
+    return n.at > seen ? days <= UNREAD_DAYS : days <= FEED_DAYS
+  })
+}
+
+/**
+ * Two groups, because after she opens the list every row looks equally old.
+ * `seen` is the mark from BEFORE this visit - taking it after the screen has
+ * marked everything read would put every row in "earlier".
+ */
+export function splitFeed(
+  feed: Notice[],
+  seen: string,
+): { fresh: Notice[]; earlier: Notice[] } {
+  return {
+    fresh: feed.filter((n) => n.at > seen),
+    earlier: feed.filter((n) => n.at <= seen),
+  }
+}
+
+/**
+ * Whole days between two moments, counted in calendar days on the phone's
+ * own clock - "yesterday" means the day before today, not 24 hours.
+ */
+export function daysAgo(iso: string, now = Date.now()): number {
+  const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return 0
+  return Math.round((midnight(new Date(now)) - midnight(then)) / 86_400_000)
+}
+
+/**
+ * When it happened, in the words she would use.
+ *
+ * "8/9/2026 11:01 pm" is a thing to decode; "काल" is a thing to know. Past a
+ * week the count stops being readable in its turn - "23 दिवसांपूर्वी" is
+ * arithmetic again - so an older row prints its date.
+ */
+export function whenKey(iso: string, now = Date.now()): {
+  key?: string
+  vars?: Record<string, string | number>
+  /** Printed as it stands: a date is the same in both languages. */
+  text?: string
+} {
+  const n = daysAgo(iso, now)
+  if (n <= 0) return { key: 'when.today' }
+  if (n === 1) return { key: 'when.yesterday' }
+  if (n <= FEED_DAYS) return { key: 'when.daysAgo', vars: { n } }
+  return { text: shortDate(iso) }
+}
+
+/* ------------------------------------------------------------------ */
 /* What she has already seen                                           */
 /* ------------------------------------------------------------------ */
 
@@ -183,11 +266,12 @@ export function markSeen(userId: string, at = new Date().toISOString()): void {
   }
 }
 
-export function unreadCount(feed: Notice[], userId: string): number {
+export function unreadCount(feed: Notice[], userId: string, now = Date.now()): number {
   const seen = lastSeen(userId)
-  // No stored mark means she has never opened the list. Everything is new,
-  // capped so a seller with a year of history is not shown "412".
-  return feed.filter((n) => n.at > seen).length
+  // Counted over the same rows the list will show her, or the badge promises
+  // news the screen has already forgotten. No stored mark means she has never
+  // opened the list, and everything inside the window is new.
+  return visibleFeed(feed, seen, now).filter((n) => n.at > seen).length
 }
 
 /* ------------------------------------------------------------------ */
@@ -268,7 +352,8 @@ export function subscriptionFeed(view: SubscriptionView | null | undefined): Not
   if (view.state === 'expired') {
     return [{
       id: `sub-expired:${view.endsAt}`, at: view.endsAt, labelKey: 'notif.sub.expired',
-      vars, who: '', to: '/seller/subscription',
+      // Her shop is shut to buyers until she renews. That does not get old.
+      vars, who: '', to: '/seller/subscription', standing: true,
     }]
   }
   return []

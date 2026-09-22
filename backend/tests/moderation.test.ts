@@ -77,6 +77,35 @@ test('the sweep takes only what is expired, and leaves everything else alone', (
 })
 
 /**
+ * The row is the only record of its photo's public id. A sweep that removed
+ * the row and kept the photo left an image nobody could ever name again, so
+ * Cloudinary storage grew by one abandoned picture per refused listing. The
+ * photo goes with the row - and only the swept row's photo.
+ */
+test('the sweep destroys the photo of each listing it removes, and no other', () => {
+  const products = [
+    product({ id: 'live', imagePublicId: 'shanta-mahila-bazar/product/live' }),
+    product({
+      id: 'fresh',
+      status: 'REJECTED',
+      rejectedAt: new Date(NOW - 3_600_000).toISOString(),
+      imagePublicId: 'shanta-mahila-bazar/product/fresh',
+    }),
+    product({
+      id: 'expired',
+      status: 'REJECTED',
+      rejectedAt: new Date(NOW - REJECT_GRACE_MS - 1000).toISOString(),
+      imagePublicId: 'shanta-mahila-bazar/product/expired',
+    }),
+  ]
+  const destroyed: (string | undefined)[] = []
+
+  purgeExpiredRejections(products, NOW, (id) => destroyed.push(id))
+
+  assert.deepEqual(destroyed, ['shanta-mahila-bazar/product/expired'])
+})
+
+/**
  * The array is the live one every route holds a reference to, and the caller
  * only writes to disk when something actually changed.
  */

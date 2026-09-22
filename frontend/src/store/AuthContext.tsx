@@ -4,6 +4,7 @@ import {
 } from 'react'
 import type { Session } from '@shared/types.js'
 import { api, onSessionExpired, onTokenRefresh, setToken } from '../lib/api.js'
+import { clearScreenCache } from '../lib/screenCache.js'
 import { useToast } from './ToastContext.js'
 import { useI18n } from '../i18n/I18nProvider.js'
 import { configureImageCache } from '../lib/imageCache.js'
@@ -67,6 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         localStorage.removeItem(KEY)
         setToken(null)
+        // The screens' last answers go with her. On a field coordinator's
+        // phone, where one handset signs in as seller after seller, a kept
+        // "my products" is the previous woman's shop.
+        clearScreenCache()
       }
     } catch {
       /* ignore */

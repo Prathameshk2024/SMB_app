@@ -690,6 +690,66 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
 .tile__meta { font-size: var(--t-sm); color: var(--ink-3); }
 .tile__price { font-weight: 800; font-size: var(--t-base); color: var(--maroon); flex: 0 0 auto; }
 
+/* ============================================================
+   Updates — one row per order, read at a glance
+   ------------------------------------------------------------
+   Built like the order rows in any shopping app: a mark that
+   carries the state, the thing itself on the first line with
+   the time opposite it, and the detail underneath in the
+   order she needs it - what it is, whose it is, where it got
+   to, what it came to. The plain list tile put the state pill
+   inside the title and the time in a run-on line of dots,
+   which reads as one long string rather than four facts.
+   ============================================================ */
+.notif {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: var(--s3);
+  align-items: start;
+  width: 100%;
+  padding: var(--s3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.notif:active { background: var(--surface-2); }
+/* Unread, under the नवीन heading that already names them: the tint is the
+   second, quieter signal, never the only one. */
+.notif--new { background: var(--maroon-soft); border-color: var(--line-2); }
+.notif--new:active { background: var(--gold-soft); }
+
+.notif__mark {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 1.15rem;
+  border: 1px solid transparent;
+}
+.notif__mark--neutral { background: var(--surface-2); color: var(--ink-2); border-color: var(--line); }
+.notif__mark--info { background: var(--info-soft); color: var(--info); border-color: var(--info); }
+.notif__mark--warn { background: var(--gold-soft); color: var(--warn); border-color: var(--warn); }
+.notif__mark--ok { background: var(--green-soft); color: var(--ok); border-color: var(--ok); }
+.notif__mark--danger { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+
+.notif__body { display: flex; flex-direction: column; gap: var(--s2); min-width: 0; }
+.notif__head { display: flex; align-items: baseline; gap: var(--s2); }
+.notif__title {
+  font-weight: 700;
+  line-height: 1.35;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* The time never wraps under the title it belongs to. */
+.notif__when { flex: 0 0 auto; font-size: var(--t-sm); color: var(--ink-3); white-space: nowrap; }
+.notif__say { font-size: var(--t-base); color: var(--ink-2); line-height: 1.45; }
+.notif__meta { font-size: var(--t-sm); color: var(--ink-3); }
+.notif__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; }
+.notif__amount { font-weight: 800; color: var(--maroon); }
+
 /* Auto-fitting grid: 2 up at 360px, more as space allows. */
 .pgrid {
   display: grid;
@@ -991,7 +1051,13 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
  * card explains the screen on its own.
  */
 .tour { position: fixed; inset: 0; z-index: 120; }
-.tour__block { position: absolute; inset: 0; }
+/* While a walkthrough is open the page under it does not move - see the
+   comment in Walkthrough.tsx. `scroll-behavior: auto` so the tour's own
+   scrollIntoView, which still works through this, lands without animating
+   against a locked page. */
+.tour-open, .tour-open body { overflow: hidden; scroll-behavior: auto; }
+/* Stops a swipe on the overlay scrolling the page behind it on Android. */
+.tour__block { position: absolute; inset: 0; touch-action: none; }
 .tour__dim { position: absolute; inset: 0; background: rgba(59, 43, 35, 0.55); }
 .tour__ring {
   position: absolute;

@@ -121,8 +121,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const seller = sellers.find((s) => s.id === sellerId) as Seller | undefined
         const itemsTotal = list.reduce((n, i) => n + i.price * i.qty, 0)
         const freeAbove = seller?.freeDeliveryAbove ?? 0
-        const deliveryFee =
-          freeAbove > 0 && itemsTotal >= freeAbove ? 0 : (seller?.deliveryFee ?? 0)
+        const freeByHerRule = freeAbove > 0 && itemsTotal >= freeAbove
+        const deliveryFee = freeByHerRule ? 0 : (seller?.deliveryFee ?? 0)
         const minOrder = seller?.minOrder ?? 0
         return {
           sellerId,
@@ -130,6 +130,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           items: list,
           itemsTotal,
           deliveryFee,
+          // A charge of 0 is almost always one nobody set - no screen asks a
+          // seller for it - so "free" was a promise no seller had made.
+          deliveryToAsk: !freeByHerRule && deliveryFee === 0,
           total: itemsTotal + deliveryFee,
           minOrder,
           belowMinimum: minOrder > 0 && itemsTotal < minOrder,

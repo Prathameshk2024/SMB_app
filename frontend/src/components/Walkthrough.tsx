@@ -129,6 +129,33 @@ export function PageTour({ id }: { id: TourId }) {
     }
   }, [step, live])
 
+  /**
+   * THE PAGE UNDERNEATH HOLDS STILL.
+   *
+   * `.tour__block` caught taps but not a scroll: a wheel or a swipe still
+   * moved the page, the ringed control slid up with it, and the ring - which
+   * correctly follows its control - went up under the app bar, so the
+   * highlight ended up around a tile half hidden behind the maroon header.
+   * Nothing on screen explains that, and she has been told this page is a
+   * picture for the moment.
+   *
+   * Locking the document rather than moving it keeps her scroll position, so
+   * the page is exactly where she left it when the walkthrough closes.
+   */
+  useEffect(() => {
+    if (!live) return
+    // On a desktop browser the scrollbar is real, and hiding it would shift
+    // the page - and the control under the ring - sideways as the tour opens.
+    // A phone's scrollbar floats over the page and measures zero here.
+    const bar = window.innerWidth - document.documentElement.clientWidth
+    document.documentElement.classList.add('tour-open')
+    if (bar > 0) document.body.style.paddingRight = `${bar}px`
+    return () => {
+      document.documentElement.classList.remove('tour-open')
+      document.body.style.paddingRight = ''
+    }
+  }, [live])
+
   const close = useCallback(() => {
     // Skipping counts as done. Being shown the same overlay every visit
     // because she chose not to read it is nagging, not teaching.
