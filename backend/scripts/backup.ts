@@ -290,6 +290,18 @@ async function main(): Promise<void> {
   const { chosen, unknown } = pickTargets(targets, requested, new Date())
   for (const u of unknown) fail(`--to ${u}: no such target in BACKUP_TARGETS`)
 
+  // A target that expects a copy the live side cannot supply is a broken
+  // setup, not a quiet night. Without this a scheduled run whose live key
+  // failed to parse skipped the database and still went green.
+  for (const t of chosen) {
+    if (t.firestore && !firebase) {
+      fail(`target "${t.name}" has a Firebase key, but the live Firebase is not configured - check FIREBASE_SERVICE_ACCOUNT`)
+    }
+    if (t.cloudinary && !cloudinary) {
+      fail(`target "${t.name}" has a Cloudinary account, but the live Cloudinary is not configured - check CLOUDINARY_*`)
+    }
+  }
+
   console.log('')
   console.log(`  backup${dryRun ? ' (DRY RUN - nothing is written)' : ''}`)
   console.log(`  targets  ${chosen.length ? chosen.map((t) => t.name).join(', ') : '(none - local copy only)'}`)
