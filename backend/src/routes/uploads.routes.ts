@@ -23,8 +23,11 @@ import { peekTicket } from '../auth/tickets.js'
  */
 export const uploadsRouter: Router = Router()
 
-/** Cloudinary signs the sha1 of `key=value` pairs sorted by key, + the secret. */
-function sign(params: Record<string, string | number>, secret: string): string {
+/**
+ * Cloudinary signs the sha1 of `key=value` pairs sorted by key, + the secret.
+ * Exported for scripts/backup.ts, which uploads into a backup account.
+ */
+export function sign(params: Record<string, string | number>, secret: string): string {
   const canonical = Object.keys(params)
     .sort()
     .map((k) => `${k}=${params[k]}`)

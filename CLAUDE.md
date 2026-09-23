@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (295) + frontend (111) + admin (37) tests
+npm test               # backend (308) + frontend (111) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -35,6 +35,7 @@ npm run admin:users -- list          # administrator accounts (create / passwd /
 npm run admin:users -- hash          # a password hash for ADMIN_BOOTSTRAP_PASSWORD_HASH
 npm run backfill:customers -- --help
 npm run purge:demo -- --help
+npm run backup -- --dry-run      # live Firestore + photos to the backup accounts (BACKUP_* in backend/.env.example)
 ```
 
 Run a single test file — `node:test` via tsx, no framework:
