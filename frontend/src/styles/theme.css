@@ -926,8 +926,14 @@ p, h1, h2, h3, li, span, div { overflow-wrap: anywhere; }
  * was wider than the UPI ID it belonged to, and the ID is the thing she is
  * meant to read. Centred as a pair, because on the payment screen it sits
  * under a QR code.
+ *
+ * Never wrapped: a long ID breaks across lines beside the button instead.
+ * With `flex-wrap: wrap` an ID that did not fit on one line pushed the button
+ * onto its own line underneath, where it read as a separate thing rather than
+ * "copy this". `min-width: 0` is what lets the ID shrink and break at all.
  */
-.copyrow { display: flex; align-items: center; justify-content: center; gap: var(--s2); flex-wrap: wrap; }
+.copyrow { display: flex; align-items: center; justify-content: center; gap: var(--s2); }
+.copyrow > strong { min-width: 0; }
 .copybtn { width: var(--tap); min-width: var(--tap); height: var(--tap); min-height: var(--tap); padding: 0; flex: none; }
 
 .dots { display: flex; gap: 5px; align-items: center; }

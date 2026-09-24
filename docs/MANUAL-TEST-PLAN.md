@@ -6,7 +6,7 @@ with two browser profiles, in roughly this order — later suites depend on data
 by earlier ones.
 
 Every row is a test. Tick the box when the "What must happen" column is true on screen.
-When it is not, record it with the bug template in section 18.
+When it is not, record it with the bug template in section 19.
 
 ---
 
@@ -592,7 +592,26 @@ built yet, so there is nothing to test there.
 
 ---
 
-## 17. Cross-cutting regression matrix
+## 17. Suite Q — Push notifications (APK)
+
+Only on a real phone with a build that carries `expo-notifications` and
+`google-services.json` (`docs/DEPLOY.md` §6, "Push notifications"), against a
+backend deployment with `FIREBASE_*` credentials set — without them the boot
+banner prints `Push  off` and there is nothing here to see. A second phone or
+browser profile is needed to act as the other side of each order.
+
+| ID | What to do | What must happen |
+|---|---|---|
+| ☐ Q1 | Sign in as a seller or a buyer inside the APK | Android's permission prompt appears now, not earlier on the landing page |
+| ☐ Q2 | With that seller signed in, place an order for her from a second device or browser — once with the app in the foreground, once backgrounded, once fully closed (swiped away) | Each time, "नवीन ऑर्डर आले आहे" arrives in the notification tray, with sound |
+| ☐ Q3 | Tap the notification once from a fully closed app, and once from a running one | Both taps open that order's screen, `/seller/orders/:id` |
+| ☐ Q4 | As the buyer, have the seller walk the order through accept, pack, send out and deliver (or reject); then switch the app's language to English and repeat with another order | A notification arrives for every step, in Marathi first and in English after the switch |
+| ☐ Q5 | Log out on the phone, confirm nothing more arrives, then sign in as a different seller or buyer on the same phone | Nothing arrives to the logged-out session; only the newly signed-in person's notifications arrive afterward |
+| ☐ Q6 | Repeat Q2–Q3 on at least one Xiaomi, Oppo, Vivo or Realme phone, with Autostart allowed and battery use set to "No restrictions" | Notifications still arrive with the app fully closed |
+
+---
+
+## 18. Cross-cutting regression matrix
 
 Re-run this short list after **any** change to auth, the store, or `shared/`.
 
@@ -609,7 +628,7 @@ Re-run this short list after **any** change to auth, the store, or `shared/`.
 
 ---
 
-## 18. Bug report template
+## 19. Bug report template
 
 ```
 ID:            (the test ID, e.g. H12)
@@ -630,7 +649,7 @@ Reproducible:  always / sometimes / once
 
 ---
 
-## 19. Documentation that is out of date
+## 20. Documentation that is out of date
 
 Two things in `CLAUDE.md` no longer match the code. Test the **code**, not the doc:
 

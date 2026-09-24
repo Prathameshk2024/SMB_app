@@ -7,7 +7,7 @@ import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
 import PhotoPicker from '../../components/PhotoPicker.js'
-import { PaySteps, SaveQrButton } from '../../components/PayFromPhone.js'
+import { PaySteps } from '../../components/PayFromPhone.js'
 import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
 import { shortDate } from '../../lib/notifications.js'
 import { SubscriptionLine, SubscriptionNotice } from '../../components/SubscriptionNotice.js'
@@ -180,9 +180,8 @@ export function Subscription() {
             <QrCode value={upiLink} size={200} label={t('pay.scanQr')} />
             {/* One phone cannot scan its own screen, and a pay link to the
                 college's personal UPI ID is declined by PhonePe and Google
-                Pay. Saved to the gallery and scanned from inside her UPI app,
-                the same code is a payment they accept. */}
-            <SaveQrButton link={upiLink} fileName="shantai-subscription.png" onSaved={waitForReturn} />
+                Pay. A screenshot of this code, scanned from the gallery
+                inside her UPI app, is a payment they accept. */}
             <PaySteps screenshot={data.screenshotRequired} />
             {/* The name as PRINTED on the poster, so she can check it against
                 the payee her own UPI app shows after scanning. Two names that
