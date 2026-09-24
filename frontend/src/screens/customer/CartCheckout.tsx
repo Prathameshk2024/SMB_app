@@ -15,7 +15,7 @@ import { usePincode } from '../../store/PincodeContext.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import QrCode from '../../components/QrCode.js'
-import { PaySteps, SaveQrButton } from '../../components/PayFromPhone.js'
+import { PaySteps } from '../../components/PayFromPhone.js'
 import { useReturnFromApp } from '../../lib/useReturnFromApp.js'
 import { customerCanCancel, sellerCanCancel } from '@shared/orderCancel.js'
 import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
@@ -739,13 +739,9 @@ export function TrackOrder() {
                   <QrCode value={orderLink} size={170} label={t('cus.payTo')} />
                   {/* One phone cannot scan its own screen, and a pay link to a
                       personal UPI ID is declined by PhonePe and Google Pay. A
-                      QR saved to the gallery and scanned from inside her UPI
-                      app is a payment those apps accept, amount included. */}
-                  <SaveQrButton
-                    link={orderLink}
-                    fileName={`shantai-${order.id}.png`}
-                    onSaved={waitForReturn}
-                  />
+                      screenshot of this QR, scanned from the gallery inside
+                      her UPI app, is a payment those apps accept, amount
+                      included. */}
                   <PaySteps />
                   {/* The other route those apps accept: paste the ID. Copyable,
                       not just printed - a UPI ID wrong by one character pays a

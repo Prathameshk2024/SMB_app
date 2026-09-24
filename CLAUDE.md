@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (317) + frontend (125) + admin (37) tests
+npm test               # backend (333) + frontend (126) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -35,6 +35,7 @@ npm run admin:users -- list          # administrator accounts (create / passwd /
 npm run admin:users -- hash          # a password hash for ADMIN_BOOTSTRAP_PASSWORD_HASH
 npm run backfill:customers -- --help
 npm run purge:demo -- --help
+npm run backup -- --dry-run      # live Firestore + photos to the backup accounts (BACKUP_* in backend/.env.example)
 ```
 
 Run a single test file — `node:test` via tsx, no framework:
@@ -169,7 +170,9 @@ both flows, was `length < 6`.
   carries it and she cannot read a QR; paying the wrong figure into a UPI app
   is the one mistake neither side can undo. `CopyValue` beside it is an icon
   at the 44px floor and no word — labelled, the button was wider than the UPI
-  ID it belonged to, and the ID is the thing she is meant to read.
+  ID it belonged to, and the ID is the thing she is meant to read. `.copyrow`
+  never wraps: a long ID breaks across lines beside the button, because a
+  button pushed onto its own line under the ID read as a separate control.
 - The submit button is **disabled while the number cannot be right**. A live
   button under a malformed UTR reads as "this is fine, press me", and it is the
   last thing standing between her and an unmatchable payment.
@@ -445,11 +448,13 @@ is not the old placeholder. No account number or IFSC — she pays by UPI, and a
 wrong A/C under a QR is worse than none; the payee NAME is stored exactly as
 printed on the poster so she can check it against what her UPI app shows.
 
-Both payment screens (this one and the buyer's order screen) offer a QR, a **Save QR to phone** button, three written steps, the UPI ID with a copy button, and a UTR box, in that order. **A phone cannot scan its own screen**, so the two routes that work from one handset are: save the QR, then scan it from the gallery inside PhonePe or Google Pay; or copy the UPI ID and paste it there. `components/PayFromPhone.tsx` is both. Inside the APK's WebView a download made in the page is silently dropped and there is no share sheet, so there the button opens `GET /api/qr/upi.png?download=1&link=…` (`routes/qr.routes.ts`): the server draws the same QR, and the wrapper hands any URL containing `download=` to Android's downloader, which saves it to Downloads. The route draws only a `upi://pay` link with a valid payee, and is rate-limited.
+Both payment screens (this one and the buyer's order screen) offer a QR, written steps, the UPI ID with a copy button, and a UTR box, in that order. **A phone cannot scan its own screen**, so the two routes that work from one handset are: take a screenshot of the QR, then scan it from the gallery inside PhonePe or Google Pay; or copy the UPI ID and paste it there. `PaySteps` in `components/PayFromPhone.tsx` writes the first route out one tap per line — screenshot (power + volume-down), open the app, scan, gallery icon, check name and amount, come back for the UTR.
+
+**There is no "Save QR to phone" button.** There was one: in a browser the page saved the PNG itself, and inside the APK's WebView — which drops a download made in the page and has no share sheet — it opened `GET /api/qr/upi.png?download=1&link=…` for the wrapper to hand to Android's downloader. It did not fit the WebView well enough to be trusted, and a screenshot is something every phone already does, so the button went and the steps say how to take one instead. `routes/qr.routes.ts` is still served but nothing in the app calls it now.
 
 **There is no "Pay" button on a `upi://pay` link, and it must not come back while payees are personal UPI IDs.** It existed twice. The second time it opened PhonePe and Google Pay correctly, and they refused the payment with "declined for security reasons": UPI apps treat a payment that *another app* starts, to a *personal* UPI ID, as the shape of a scam, and every payee here — sellers and the college — is one. Nothing in the link fixes that; the same code scanned from the gallery pays fine (tested on real phones, 14 September 2026). A pay link works again only for business UPI IDs (PhonePe Business, Paytm for Business…), and then only for those accounts. `buildUpiLink()` sends no `tr` for the same reason: a merchant field on a personal ID is one more thing the risk check reads as a fake shop.
 
-The tap after paying is Back, so `lib/useReturnFromApp.ts` is armed when she saves the QR or copies the ID, and on her return (hidden, then visible — never `focus` alone) the screen scrolls the UTR box into view and focuses it, once per arming.
+The tap after paying is Back, so `lib/useReturnFromApp.ts` is armed when she copies the ID (a screenshot fires no event the page can hear, so that route does not arm it), and on her return (hidden, then visible — never `focus` alone) the screen scrolls the UTR box into view and focuses it, once per arming.
 
 **The ₹50 needs proof, not twelve digits.** Anybody can type a UTR, and approving one grants five slots. So a subscription payment carries three things an admin holds against each other:
 
@@ -532,7 +537,7 @@ How the container is built is not recorded in this repo: there is no Dockerfile 
 
 **Both apps route in the browser, so both need `vercel.json`** — one catch-all rewrite to `index.html`, already committed in each folder. Without it every URL but the home page 404s on reload, which is the first thing anyone does with a link they were sent.
 
-**Neither Vite config sets `base`, and neither should.** The default absolute `/assets/…` is the only path right at every route depth: a relative one under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. A `--mode capacitor` build with `base: './'`, `cap:*` scripts, `capacitor.config.json` and the `offline.html` its `errorPath` named all existed for a Capacitor APK that never shipped, and were removed. Nothing in the repo is Capacitor now; do not add a file that only a Capacitor build would read.
+**Neither Vite config sets `base`, and neither should.** The default absolute `/assets/…` is the only path right at every route depth: a relative one under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. A `--mode capacitor` build with `base: './'`, `cap:*` scripts, `capacitor.config.json` and the `offline.html` its `errorPath` named all existed for a Capacitor APK that never shipped, and were removed. Nothing in the repo is Capacitor now; do not add a file that only a Capacitor build would read. The last two came back once, in `e0801ab` ("Preserve Capacitor and offline support"), with nothing reading them, and were removed again on 21 September 2026 — a dropped connection is `components/OfflineScreen.tsx` once the site has loaded, and the wrapper's `renderError` before it has.
 
 **The Android APK is a React Native WebView, not a build of this repo.** It is an Expo project kept in its own folder (`appgold-main`, outside this repository; `app/index.tsx` is the whole app), and its one screen loads the production frontend, `https://shantai-mahila-bajar-app-frontend.vercel.app/`, over the network. `docs/DEPLOY.md` §6 has the detail; what matters when changing code here:
 

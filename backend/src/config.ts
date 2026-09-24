@@ -39,6 +39,32 @@ export interface FirebaseConfig {
   databaseId?: string
 }
 
+/**
+ * A whole service account JSON, raw or base64, as the three fields we use.
+ * Exported because the backup script reads its targets' keys the same way -
+ * two parsers for one shape is how a key that works live fails in a backup.
+ */
+export function parseServiceAccount(
+  raw: string,
+): { projectId: string; clientEmail: string; privateKey: string } | null {
+  try {
+    const json = JSON.parse(
+      // Some dashboards store it base64-encoded.
+      raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8'),
+    ) as Record<string, string>
+    if (json.project_id && json.client_email && json.private_key) {
+      return {
+        projectId: json.project_id,
+        clientEmail: json.client_email,
+        privateKey: json.private_key.replace(/\\n/g, '\n'),
+      }
+    }
+  } catch {
+    // Reported by the caller, which knows which variable it came from.
+  }
+  return null
+}
+
 function readFirebase(): FirebaseConfig | null {
   const databaseId = firstOf('FIRESTORE_DATABASE_ID')
 
@@ -51,22 +77,9 @@ function readFirebase(): FirebaseConfig | null {
   // account JSON in one variable (which is what most hosts hand you).
   const raw = firstOf('FIREBASE_SERVICE_ACCOUNT', 'GOOGLE_SERVICE_ACCOUNT_JSON')
   if (raw) {
-    try {
-      const json = JSON.parse(
-        // Some dashboards store it base64-encoded.
-        raw.trim().startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8'),
-      ) as Record<string, string>
-      if (json.project_id && json.client_email && json.private_key) {
-        return {
-          projectId: json.project_id,
-          clientEmail: json.client_email,
-          privateKey: json.private_key.replace(/\\n/g, '\n'),
-          databaseId,
-        }
-      }
-    } catch {
-      console.warn('[config] FIREBASE_SERVICE_ACCOUNT is not valid JSON or base64 JSON')
-    }
+    const account = parseServiceAccount(raw)
+    if (account) return { ...account, databaseId }
+    console.warn('[config] FIREBASE_SERVICE_ACCOUNT is not valid JSON or base64 JSON')
   }
 
   const projectId = firstOf('FIREBASE_PROJECT_ID')
@@ -124,20 +137,25 @@ export interface CloudinaryConfig {
  * Accepts either CLOUDINARY_URL (`cloudinary://key:secret@cloud`) or the three
  * fields separately. The URL form is what Cloudinary's dashboard gives you.
  */
+/** `cloudinary://key:secret@cloud`. Exported for the backup script's targets. */
+export function parseCloudinaryUrl(url: string, folder: string): CloudinaryConfig | null {
+  const m = /^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/.exec(url.trim())
+  if (!m) return null
+  return {
+    apiKey: m[1]!,
+    apiSecret: m[2]!,
+    cloudName: m[3]!.replace(/\/.*$/, ''),
+    folder,
+  }
+}
+
 function readCloudinary(): CloudinaryConfig | null {
   const folder = firstOf('CLOUDINARY_FOLDER') ?? 'shanta-mahila-bazar'
   const url = firstOf('CLOUDINARY_URL')
 
   if (url) {
-    const m = /^cloudinary:\/\/([^:]+):([^@]+)@(.+)$/.exec(url)
-    if (m) {
-      return {
-        apiKey: m[1]!,
-        apiSecret: m[2]!,
-        cloudName: m[3]!.replace(/\/.*$/, ''),
-        folder,
-      }
-    }
+    const parsed = parseCloudinaryUrl(url, folder)
+    if (parsed) return parsed
     console.warn('[config] CLOUDINARY_URL is malformed; expected cloudinary://key:secret@cloud')
   }
 

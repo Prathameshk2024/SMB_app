@@ -1,9 +1,0 @@
-{
-  "appId": "in.shantamahilabazar.app",
-  "appName": "शांताई महिला बाजार",
-  "webDir": "dist",
-  "server": {
-    "androidScheme": "https",
-    "errorPath": "offline.html"
-  }
-}
