@@ -9,6 +9,7 @@
  *      of each month after that. Unpacked, it is db.json's shape, so the JSON
  *      driver can boot from it directly:
  *        node -e "process.stdout.write(require('zlib').gunzipSync(require('fs').readFileSync(process.argv[1])))" <file> > data/db.json
+ *      `npm run restore -- --file <file>` loads it back into Firestore.
  *   2. Mirrors the same documents into a backup Firebase project on another
  *      account - unless the live project has shrunk suspiciously since the
  *      backup was last taken (see shrinkProblems in src/db/backupPlan.ts).
@@ -36,14 +37,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gzipSync } from 'node:zlib'
 import { cert, deleteApp, initializeApp, type App } from 'firebase-admin/app'
-import { getFirestore, type Firestore } from 'firebase-admin/firestore'
-import { ALLOW_BULK_DELETE, cloudinary, firebase, type CloudinaryConfig } from '../src/config.js'
+import { getFirestore } from 'firebase-admin/firestore'
+import { ALLOW_BULK_DELETE, cloudinary, firebase } from '../src/config.js'
 import { getFirestoreDb } from '../src/db/firestore.js'
 import {
-  BACKED_UP, pickTargets, planCollection, readTargets, shrinkProblems, snapshotName,
-  snapshotsToPrune, type BackupTarget,
+  BACKED_UP, pickTargets, readTargets, shrinkProblems, snapshotName, snapshotsToPrune,
+  type BackupTarget,
 } from '../src/db/backupPlan.js'
-import { sign } from '../src/routes/uploads.routes.js'
+import {
+  applyMirror, countsOf, listAssets, readCollections, uploadAsset, type Asset, type Collections,
+} from '../src/db/backupIo.js'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -51,7 +54,11 @@ const localImages = !args.includes('--no-local-images')
 const requested = args.flatMap((a, i) => (a === '--to' && args[i + 1] ? [args[i + 1]!] : []))
 
 const here = path.dirname(fileURLToPath(import.meta.url))
-const BACKUP_DIR = path.resolve(process.env.BACKUP_DIR?.trim() || path.join(here, '../data/backups'))
+// A relative BACKUP_DIR means relative to where the command was typed, not to
+// backend/, which is where npm runs a workspace script from.
+const BACKUP_DIR = process.env.BACKUP_DIR?.trim()
+  ? path.resolve(process.env.INIT_CWD ?? process.cwd(), process.env.BACKUP_DIR.trim())
+  : path.join(here, '../data/backups')
 const KEEP_DAYS = Math.max(1, Number(process.env.BACKUP_KEEP_DAYS) || 30)
 
 let failed = false
@@ -60,25 +67,11 @@ function fail(message: string): void {
   failed = true
 }
 
-type Docs = Map<string, Record<string, unknown>>
-
-async function readAll(db: Firestore): Promise<Record<string, Docs>> {
-  const out: Record<string, Docs> = {}
-  for (const name of BACKED_UP) {
-    const snap = await db.collection(name).get()
-    out[name] = new Map(snap.docs.map((d) => [d.id, d.data()]))
-  }
-  return out
-}
-
-const counts = (data: Record<string, Docs>) =>
-  Object.fromEntries(Object.entries(data).map(([name, docs]) => [name, docs.size]))
-
 /* ------------------------------------------------------------------ */
 /* Firestore                                                           */
 /* ------------------------------------------------------------------ */
 
-function writeLocalSnapshot(live: Record<string, Docs>): void {
+function writeLocalSnapshot(live: Collections): void {
   const now = new Date()
   const file = path.join(BACKUP_DIR, snapshotName(now))
   // db.json's shape, with `sessions` empty rather than absent so the JSON
@@ -109,7 +102,7 @@ function writeLocalSnapshot(live: Record<string, Docs>): void {
   }
 }
 
-async function mirrorFirestore(target: BackupTarget, live: Record<string, Docs>): Promise<void> {
+async function mirrorFirestore(target: BackupTarget, live: Collections): Promise<void> {
   const config = target.firestore!
   // The one mistake this script could make with the live data is taking it for
   // a backup: mirroring deletes a live project's documents to match whatever
@@ -126,9 +119,9 @@ async function mirrorFirestore(target: BackupTarget, live: Record<string, Docs>)
       `backup-${target.name}`,
     )
     const db = config.databaseId ? getFirestore(app, config.databaseId) : getFirestore(app)
-    const backup = await readAll(db)
+    const backup = await readCollections(db, BACKED_UP)
 
-    const problems = shrinkProblems(counts(live), counts(backup))
+    const problems = shrinkProblems(countsOf(live), countsOf(backup))
     if (problems.length > 0 && !ALLOW_BULK_DELETE) {
       for (const p of problems) console.error(`           ${p}`)
       fail(
@@ -139,32 +132,7 @@ async function mirrorFirestore(target: BackupTarget, live: Record<string, Docs>)
       return
     }
 
-    let batch = db.batch()
-    let pending = 0
-    let written = 0
-    let removed = 0
-    const commit = async () => {
-      if (pending === 0) return
-      if (!dryRun) await batch.commit()
-      batch = db.batch()
-      pending = 0
-    }
-
-    for (const name of BACKED_UP) {
-      const plan = planCollection(live[name]!, backup[name]!)
-      for (const id of plan.write) {
-        batch.set(db.collection(name).doc(id), live[name]!.get(id)!)
-        written++
-        if (++pending >= 450) await commit()
-      }
-      for (const id of plan.remove) {
-        batch.delete(db.collection(name).doc(id))
-        removed++
-        if (++pending >= 450) await commit()
-      }
-    }
-    await commit()
-
+    const { written, removed } = await applyMirror(db, live, backup, dryRun)
     const verb = dryRun ? 'would write' : 'wrote'
     console.log(`  firestore → ${config.projectId}: ${verb} ${written}, ${dryRun ? 'would remove' : 'removed'} ${removed}`)
   } catch (err) {
@@ -177,56 +145,6 @@ async function mirrorFirestore(target: BackupTarget, live: Record<string, Docs>)
 /* ------------------------------------------------------------------ */
 /* Cloudinary                                                          */
 /* ------------------------------------------------------------------ */
-
-interface Asset {
-  public_id: string
-  format: string
-  secure_url: string
-}
-
-/** Every image under the app's folder. The Admin API pages at 500. */
-async function listAssets(account: CloudinaryConfig, folder: string): Promise<Asset[]> {
-  const auth = Buffer.from(`${account.apiKey}:${account.apiSecret}`).toString('base64')
-  const out: Asset[] = []
-  let cursor: string | undefined
-  do {
-    const query = new URLSearchParams({ prefix: `${folder}/`, max_results: '500' })
-    if (cursor) query.set('next_cursor', cursor)
-    const resp = await fetch(
-      `https://api.cloudinary.com/v1_1/${account.cloudName}/resources/image/upload?${query}`,
-      { headers: { Authorization: `Basic ${auth}` } },
-    )
-    if (!resp.ok) throw new Error(`listing ${account.cloudName} failed: HTTP ${resp.status} ${await resp.text()}`)
-    const page = (await resp.json()) as { resources: Asset[]; next_cursor?: string }
-    out.push(...page.resources)
-    cursor = page.next_cursor
-  } while (cursor)
-  return out
-}
-
-/**
- * Cloudinary fetches the file from the live account itself; nothing passes
- * through this machine. The public_id is kept so that restoring - uploading
- * back under the same ids - makes every URL stored in the database resolve
- * again without rewriting a single document.
- */
-async function copyAsset(to: CloudinaryConfig, asset: Asset): Promise<void> {
-  const timestamp = Math.floor(Date.now() / 1000)
-  const params = { overwrite: 'false', public_id: asset.public_id, timestamp }
-  const body = new URLSearchParams({
-    file: asset.secure_url,
-    overwrite: 'false',
-    public_id: asset.public_id,
-    timestamp: String(timestamp),
-    api_key: to.apiKey,
-    signature: sign(params, to.apiSecret),
-  })
-  const resp = await fetch(`https://api.cloudinary.com/v1_1/${to.cloudName}/image/upload`, {
-    method: 'POST',
-    body,
-  })
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} ${await resp.text()}`)
-}
 
 async function mirrorCloudinary(target: BackupTarget, assets: Asset[], folder: string): Promise<void> {
   const to = target.cloudinary!
@@ -244,7 +162,8 @@ async function mirrorCloudinary(target: BackupTarget, assets: Asset[], folder: s
     let copied = 0
     for (const asset of missing) {
       try {
-        await copyAsset(to, asset)
+        // By URL: Cloudinary fetches it from the live account itself.
+        await uploadAsset(to, asset.secure_url, asset.public_id)
         copied++
       } catch (err) {
         fail(`photo ${asset.public_id} → ${to.cloudName}: ${(err as Error).message}`)
@@ -309,7 +228,7 @@ async function main(): Promise<void> {
 
   if (firebase) {
     try {
-      const live = await readAll(getFirestoreDb())
+      const live = await readCollections(getFirestoreDb(), BACKED_UP)
       const total = Object.values(live).reduce((n, docs) => n + docs.size, 0)
       console.log(`  firestore read ${total} documents from ${firebase.projectId}`)
       writeLocalSnapshot(live)

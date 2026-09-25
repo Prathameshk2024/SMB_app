@@ -81,18 +81,21 @@ export function planCollection(
 export function shrinkProblems(
   liveCounts: Record<string, number>,
   backupCounts: Record<string, number>,
+  // A restore runs the same check the other way round - a local file as the
+  // source, the live project as the target - and says so in its own words.
+  labels = { source: 'live', sourceWhole: 'the live project', target: 'the backup' },
 ): string[] {
   const problems: string[] = []
   const liveTotal = Object.values(liveCounts).reduce((a, b) => a + b, 0)
   const backupTotal = Object.values(backupCounts).reduce((a, b) => a + b, 0)
   if (liveTotal === 0 && backupTotal > 0) {
-    problems.push(`the live project read as EMPTY, and the backup holds ${backupTotal} documents`)
+    problems.push(`${labels.sourceWhole} read as EMPTY, and ${labels.target} holds ${backupTotal} documents`)
   }
   for (const [name, before] of Object.entries(backupCounts)) {
     if (ROLLING.includes(name)) continue
     const now = liveCounts[name] ?? 0
     if (isBulkDelete(before - now, before)) {
-      problems.push(`${name}: ${before} in the backup, only ${now} live`)
+      problems.push(`${name}: ${before} in ${labels.target}, only ${now} ${labels.source}`)
     }
   }
   return problems
@@ -146,6 +149,60 @@ export function snapshotsToPrune(names: string[], now: Date, keepDays: number): 
       return day < cutoff && !firstOfMonth.has(name)
     })
     .map(({ name }) => name)
+}
+
+/**
+ * A local copy, as the collections a restore would write.
+ *
+ * Only backed-up collections are taken: `sessions` is empty in every copy by
+ * design, and a restore must never touch the live one - that would sign out
+ * everybody who is using the app while it runs. A collection the file does
+ * not have is left out rather than read as empty, so an old file never
+ * empties a collection that did not exist when it was written.
+ */
+export function parseSnapshot(json: unknown): {
+  collections: Map<string, Map<string, Record<string, unknown>>>
+  problems: string[]
+} {
+  const collections = new Map<string, Map<string, Record<string, unknown>>>()
+  const problems: string[] = []
+  if (!json || typeof json !== 'object' || Array.isArray(json)) {
+    return { collections, problems: ['the file is not a database copy (expected an object of collections)'] }
+  }
+  const obj = json as Record<string, unknown>
+  for (const name of BACKED_UP) {
+    const rows = obj[name]
+    if (rows === undefined) continue
+    if (!Array.isArray(rows)) {
+      problems.push(`${name} is not a list`)
+      continue
+    }
+    const docs = new Map<string, Record<string, unknown>>()
+    for (const row of rows) {
+      const id = (row as { id?: unknown } | null)?.id
+      if (typeof id !== 'string' || !id) {
+        problems.push(`${name} has a document with no id`)
+        continue
+      }
+      docs.set(id, row as Record<string, unknown>)
+    }
+    collections.set(name, docs)
+  }
+  if (collections.size === 0 && problems.length === 0) {
+    problems.push('the file holds none of the backed-up collections')
+  }
+  return { collections, problems }
+}
+
+/**
+ * The public_id each downloaded photo was stored under, read back from where
+ * the backup put it: `images/<public_id>.<format>`. Paths outside the app's
+ * folder are ignored - nothing else in that directory was put there by us.
+ */
+export function imagePublicIds(relativePaths: string[], folder: string): { path: string; publicId: string }[] {
+  return relativePaths
+    .map((p) => ({ path: p, publicId: p.replace(/\\/g, '/').replace(/\.[^./]+$/, '') }))
+    .filter(({ publicId }) => publicId.startsWith(`${folder}/`))
 }
 
 export interface BackupTarget {
