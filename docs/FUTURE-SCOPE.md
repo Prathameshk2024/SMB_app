@@ -84,6 +84,47 @@ To settle before building it:
 - Editing the bands follows the design rules: one page, not a wizard, and a
   Marathi label for every field (`docs/MARATHI-STYLE.md`).
 
+## Signed-in devices, with sign-out, on her profile screen
+
+*Added 25 September 2026.*
+
+One account can be signed in on up to ten devices at once
+(`MAX_SESSIONS_PER_USER` in `backend/src/auth/sessions.ts`), and signing in on
+a new phone does not sign the old one out. Today nobody but an admin can see
+where an account is signed in or end a session on a lost phone — she can only
+log out of the phone in her hand. Google Play does not require this; it is for
+"my phone was stolen" and for the handset a field coordinator shares.
+
+The server half is already built and unused:
+
+- `GET /api/auth/sessions` lists the caller's own live sessions (`client`,
+  `createdAt`, `lastSeenAt`, `current`), and `DELETE /api/auth/sessions/:id`
+  ends one of them, answering 404 for anyone else's.
+- `api.sessions()` and `api.endSession()` in `frontend/src/lib/api.ts` wrap
+  both. No screen calls them.
+
+Done means:
+
+- A "signed-in devices" section on the seller's profile (`screens/seller/Misc.tsx`)
+  and on the buyer's, listing each session with its device and when it was
+  last used, the current one marked "this phone" and without a sign-out
+  button — Log out already does that.
+- Signing a device out is a confirmation that states the consequence
+  (that phone will need a new OTP), not "Are you sure?".
+- Nothing extra for push: the FCM token lives on the session, so ending the
+  session stops that phone's notifications.
+
+To settle before building it:
+
+- **Telling two phones apart.** `describeClient()` records only "Android",
+  "Windows" and the like, so two Android phones are two identical rows. The
+  last-used time may be enough; if not, record the phone model from the user
+  agent at login. Do not store the raw user agent.
+- **"Sign out everywhere else".** `revokeAllForUser()` exists but no route
+  calls it. One button that ends every session but this one is probably the
+  control a woman with a stolen phone actually needs.
+- Every label in both languages, written separately (`docs/MARATHI-STYLE.md`).
+
 ## Move Firebase to Blaze, with a budget alert
 
 *Added 25 September 2026.*
@@ -114,3 +155,82 @@ recovery become available.
    limits are spent".
 
 The backup project can stay on Spark.
+
+## Read documents per request instead of loading everything at start
+
+*Added 25 September 2026. Not before the scale calls for it — see "When".*
+
+The server loads every document into memory at start and answers from that
+copy (*Persistence* in `CLAUDE.md`). That keeps every route synchronous and
+every read free, and it is correct for exactly one process. Rewriting the
+routes to read from Firestore per request is what lifts both ceilings that
+design has: one instance, and a database that must fit in memory.
+
+**When.** Only once one of these is actually true — until then the rewrite
+costs more than it saves:
+
+- one instance can no longer carry the traffic, and a second is needed;
+- the database is heading for ~50,000 documents, where memory on 512 MiB and
+  the whole-database re-serialise on every save become the limit
+  (`docs/CAPACITY.md` §4, *The memory ceiling*);
+- start-up time from the full load is long enough that buyers notice cold
+  starts even with minimum instances at 1.
+
+The read quota is **not** on this list. *Move Firebase to Blaze* (above)
+fixes that for a few dollars, and on Spark this rewrite can spend reads
+*faster* than today, not slower.
+
+**What it buys.** More than one instance, and deploys that no longer overlap
+two copies of the data. Starts that read nothing. No memory ceiling. Edits in
+the Firebase console take effect at once instead of being overwritten by a
+stale copy. The class of bug behind the 10 September deletion — an in-memory
+copy that was wrong, treated as the truth — goes away. Scripts
+(`admin:users`, `purge:demo`) read what they touch, not everything.
+
+**What it costs — settle each before building:**
+
+- **Reads move from each start to each request.** The session lookup becomes
+  one read on every authenticated request. One catalogue page needs every
+  LIVE product, each one's seller (`publiclyVisible`) and every review
+  (`ratingsByProduct`). The admin console loads whole lists and sorts them in
+  the browser. Without a cache, or ratings and counts stored as fields,
+  ordinary browsing can out-read ten full starts a day.
+- **Rules that scan a whole collection need another shape.** The
+  duplicate-UTR check, slot counting, the per-village serial in the
+  `SMB-<VILLAGE>-<NN>` ID, seller ratings and the dashboard counts each need a
+  query with an index, or a stored counter. The 48-hour sweep of rejected
+  listings and the archive purge need a scheduled job instead of running at
+  boot.
+- **Races that cannot happen today become possible.** One process runs one
+  handler at a time against memory, so two requests cannot both take the
+  last slot or both claim the same UTR. Slot limits, stock, duplicate UTRs,
+  order transitions and single-use OTPs and registration tickets all need
+  Firestore **transactions**.
+- **State held in the process has to move out of it.** The rate limiter
+  (`auth/rateLimit.ts`) is a `Map`; with two instances "three codes a day"
+  becomes six. It needs a shared store.
+- **Latency.** Each request pays network round trips, and reads made one
+  after another (session → order → seller) add up on rural 4G.
+- **Size of the rewrite.** `getDb()` has about 75 call sites in 15 files, and
+  every helper beneath them becomes async. The diffed, batched `save()` gives
+  way to explicit writes in each route — each one a place to forget a write.
+  Tests that build a database in memory need the Firestore emulator or a
+  fake.
+
+**How.** One collection at a time, not all at once. Start with the ones that
+grow without limit — `orders`, `reviews`, `sessions` — and keep the small,
+slow-changing ones (`sellers`, `products`, `admins`) in memory until they
+too need to move. `--max-instances=1` stays until the **last** collection
+has moved; a single in-memory collection is enough for two instances to
+overwrite each other.
+
+Done means:
+
+- `CLAUDE.md` *Persistence* and `docs/DEPLOY.md` §1 (*Exactly one instance*)
+  describe the new model, and the one-instance warning is removed only when
+  it is no longer true.
+- `docs/CAPACITY.md` §4 counts reads per request, not documents × starts.
+- `isBulkDelete()` is kept or replaced by an equivalent guard on any
+  remaining batch path.
+- Tests cover the transactions: two concurrent requests for the last slot,
+  and the same UTR claimed on two orders at once, each succeed exactly once.
