@@ -46,3 +46,42 @@ export function dropCache(key: string): void {
 export function clearScreenCache(): void {
   answers.clear()
 }
+
+/**
+ * WHICH SCREEN AN ANSWER BELONGS TO.
+ *
+ * Product A and product B are the same component at two addresses: tapping a
+ * card under "More from this shop" changes the id and React keeps the screen.
+ * An answer is therefore only good for the id it was fetched for, and every
+ * frame asks whether the answer it holds is still that one. Without the
+ * question, A's page - photo, price and Add button - stood at B's address
+ * until B arrived, and Add put A in the cart.
+ */
+export function screenIdentity(deps: unknown[], cacheKey?: string): string {
+  return JSON.stringify([cacheKey ?? null, ...deps])
+}
+
+export interface Shown<T> {
+  /** The `screenIdentity` this data was fetched for. */
+  for: string
+  data: T | null
+  /** True only while there is nothing to show - never "a refetch is in flight". */
+  loading: boolean
+}
+
+/** A screen arriving: its last answer if it has one, otherwise the spinner. */
+export function openScreen<T>(identity: string, cacheKey?: string): Shown<T> {
+  const kept = cacheKey ? readCache<T>(cacheKey) : undefined
+  return kept === undefined
+    ? { for: identity, data: null, loading: true }
+    : { for: identity, data: kept, loading: false }
+}
+
+/**
+ * What to draw this frame. The same screen keeps what it holds, so a refetch
+ * never collapses a tall list into a spinner; a different screen never shows
+ * the previous one's data, not even for the frame before an effect runs.
+ */
+export function shownFor<T>(state: Shown<T>, identity: string, cacheKey?: string): Shown<T> {
+  return state.for === identity ? state : openScreen<T>(identity, cacheKey)
+}

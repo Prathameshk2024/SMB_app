@@ -7,7 +7,6 @@ import { api, onSessionExpired, onTokenRefresh, setToken } from '../lib/api.js'
 import { clearScreenCache } from '../lib/screenCache.js'
 import { useToast } from './ToastContext.js'
 import { useI18n } from '../i18n/I18nProvider.js'
-import { configureImageCache } from '../lib/imageCache.js'
 
 /**
  * Session state. One phone number can be both a seller and a customer, so the
@@ -60,11 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session) {
         localStorage.setItem(KEY, JSON.stringify(session))
         setToken(session.token)
-        // A seller browses her own handful of products; a customer scrolls a
-        // whole catalog. Different working sets, different cache sizes.
-        if (session.role === 'seller' || session.role === 'customer') {
-          configureImageCache(session.role)
-        }
       } else {
         localStorage.removeItem(KEY)
         setToken(null)

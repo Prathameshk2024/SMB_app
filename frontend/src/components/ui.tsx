@@ -5,7 +5,9 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useI18n, useT } from '../i18n/I18nProvider.js'
 import { useVoiceInput } from '../lib/useVoiceInput.js'
-import { dropCache, readCache, writeCache } from '../lib/screenCache.js'
+import {
+  dropCache, openScreen, screenIdentity, shownFor, writeCache, type Shown,
+} from '../lib/screenCache.js'
 import NotificationBell from './NotificationBell.js'
 import logo from '../assets/logo.png'
 import { useToast } from '../store/ToastContext.js'
@@ -596,17 +598,17 @@ export function useAsync<T>(
   deps: unknown[] = [],
   cacheKey?: string,
 ): [T | null, boolean, (d: T) => void] {
-  const [state, setState] = useState<{ loading: boolean; data: T | null }>(() => {
-    const kept = cacheKey ? readCache<T>(cacheKey) : undefined
-    return { loading: kept === undefined, data: kept ?? null }
-  })
+  const identity = screenIdentity(deps, cacheKey)
+  const [state, setState] = useState<Shown<T>>(() => openScreen<T>(identity, cacheKey))
+  // Decided while drawing, not in the effect: an effect runs after the paint,
+  // which is one frame of the previous product at this product's address.
+  const shown = shownFor(state, identity, cacheKey)
 
   useEffect(() => {
     let alive = true
-    // A key that changed while mounted - one category screen to the next -
-    // gets the same instant first frame as a fresh mount would.
-    const kept = cacheKey ? readCache<T>(cacheKey) : undefined
-    if (kept !== undefined) setState({ loading: false, data: kept })
+    // A different screen starts from its own last answer or a spinner. The
+    // same screen - StrictMode's second run in development - keeps what it has.
+    setState((s) => shownFor(s, identity, cacheKey))
     /**
      * Loading means "there is nothing to show yet", not "something is in
      * flight".
@@ -616,25 +618,24 @@ export function useAsync<T>(
      * and the browser, with nowhere left to scroll, clamped her to the top.
      * From the outside that is "the page jumped up when I did something at the
      * bottom". Keeping the old data on screen until the new data lands has no
-     * such effect, and is what she expects anyway.
+     * such effect, and is what she expects anyway - for the SAME screen.
      */
-    setState((s) => ({ ...s, loading: s.data === null }))
     fn()
       .then((data) => {
         if (cacheKey) writeCache(cacheKey, data)
-        if (alive) setState({ loading: false, data })
+        if (alive) setState({ for: identity, loading: false, data })
       })
       .catch(() => {
         if (cacheKey) dropCache(cacheKey)
-        if (alive) setState((s) => ({ loading: false, data: s.data }))
+        if (alive) setState((s) => ({ ...shownFor(s, identity, cacheKey), loading: false }))
       })
     return () => {
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, cacheKey])
+  }, [identity])
 
-  return [state.data, state.loading, (d: T) => setState({ loading: false, data: d })]
+  return [shown.data, shown.loading, (d: T) => setState({ for: identity, loading: false, data: d })]
 }
 
 /**

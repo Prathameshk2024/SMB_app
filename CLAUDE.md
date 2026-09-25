@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (345) + frontend (126) + admin (37) tests
+npm test               # backend (350) + frontend (134) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -372,6 +372,20 @@ had nowhere to go, and from the outside the page "jumped to the top when I did
 something at the bottom". A refetch now keeps the old data on screen until the
 new data lands.
 
+**But only for the same screen.** Product A and product B are one component at
+two addresses — a card under "More from this shop" changes the id and React
+keeps the screen — so "keep what is on screen" left A's page, and A's Add
+button, standing at B's address until B arrived. `useAsync` now tags its data
+with `screenIdentity(deps, cacheKey)` and asks `shownFor()` on every render: a
+different id gets its own cached answer or a spinner, decided while drawing
+rather than in an effect, which would paint one frame of A first.
+`frontend/tests/screen-cache.test.ts` holds it.
+
+The screen cache saves **no server or database reads** and is not meant to:
+every screen still fetches on every visit, and the API answers from the
+in-memory store (see *Persistence*), so Firestore is read once per boot however
+often a screen is opened.
+
 ### The upload wizard's draft
 
 A half-filled product is written to `localStorage` so that leaving the screen — most often to change the language from the profile screen — does not throw the work away. `frontend/src/screens/seller/productDraft.ts` owns it.
@@ -391,6 +405,8 @@ Known gap: **the server never checks `categoryId` against this list** — `produ
 **Every upload is compressed on the phone, and nothing over 5MB is accepted.** Product photos, her bank's QR and the payment screenshot all go through `uploadImage()` in `frontend/src/lib/upload.ts`, so anything uploaded later gets the same treatment. Each image is re-encoded as JPEG, small ones included, with quality stepped down until it meets a target size. The numbers are in `lib/compress.ts`: product 1200px and ~350KB; payment screenshot 1800px and ~600KB, because the admin has to *read* the UTR and time on it. The canvas is painted white first, since a transparent PNG pixel encodes as black in JPEG. Cloudinary's signed upload transformation in `uploads.routes.ts` repeats the same size caps, as a backstop for a phone that could not compress. `frontend/tests/compress.test.ts` holds it.
 
 `PhotoPicker` takes **one photo, from the gallery, and nothing else**. The camera button and the emoji fallback grid are both gone, so a photo is now required unless Cloudinary is off — the picker reports that upward through `onUnavailable` and the step stops being a wall the seller cannot pass. Once a photo is in, "choose from gallery" is disabled rather than silently replacing it; the ✕ on the thumbnail is the way to change it. The file input resets its own `value`, or removing a photo and picking the same file again fires no `change` event at all.
+
+**Photos are shown by a plain `<img loading="lazy">` on the Cloudinary thumbnail URL** (`ProductImage`, sized by `cloudinaryThumb`), and repeat views come from the browser's own cache, which Cloudinary allows for 30 days. There was an in-memory LRU of blob URLs (`imageCache.ts`) on the belief that it saved reads; photos never touch the API or Firestore, so it saved none. It cost bandwidth instead — every card `fetch()`ed its photo on mount, so a catalogue downloaded whole while she looked at four — and evicting a blob revoked a URL a card on screen still held, so Back to a long list showed category stock photos. It was removed on 25 September 2026; do not bring a blob cache back.
 
 A listing that still has no picture — an old one, or Cloudinary off — falls back to a photograph of its **category**, never of a product: `frontend/src/lib/categoryPhoto.ts`, the same bundled files the landing page already ships, so it costs no new bytes. A generic jar of pickle above a seller's name is honest about being a category picture; a specific-looking photo of someone else's pickle is not. Categories with no honest match (beauty, farm produce, jewellery) are absent on purpose and keep the emoji — a wrong photo is worse than none.
 
