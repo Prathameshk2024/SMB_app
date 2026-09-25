@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **backend/** — Express API serving all three, including `/api/admin/*`
 - **shared/** — domain types and rules imported by all of the above
 
-Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`. Backups and restoring: `docs/BACKUP.md`.
+Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`. Backups and restoring: `docs/BACKUP.md`. Future scope (work decided on but left for later): `docs/FUTURE-SCOPE.md`.
 Marathi style: `docs/MARATHI-STYLE.md` — read it before writing any Marathi string.
 
 `README.md` is deliberately short — layout, run, demo logins, links. Rules and architecture live here and in `docs/`, not there; the long README it replaced repeated them and had drifted from the code in more than a dozen places.
