@@ -22,6 +22,7 @@ import {
 } from './config.js'
 import { sellerWeek } from './db/analytics.js'
 import { purgeArchived, purgeExpiredRejections } from './db/moderation.js'
+import { sweepClosedAccounts } from './db/accountClose.js'
 import { backfillSubscriptionTerms } from './db/subscription.js'
 import { splitOrderReviews } from './db/reviews.js'
 import { onNotice } from './db/notices.js'
@@ -186,6 +187,9 @@ function startHousekeeping(): void {
     // a timer per product: timers do not survive the next deploy, and this is
     // correct however long the process was down.
     if (purgeExpiredRejections(getDb().products) > 0) save()
+    // A closed account is erased a week after she asked, and the same
+    // reasoning applies: the week almost always contains a deploy.
+    if (sweepClosedAccounts(getDb()) > 0) save()
   }, 15 * 60 * 1000)
   timer.unref?.()
 }
@@ -206,6 +210,14 @@ async function main() {
   // nothing has read one since, and a collection that only grows is what makes
   // the database unreadable to the people who have to audit it.
   if (purgeExpiredRejections(getDb().products) + purgeArchived(getDb().products) > 0) save()
+  // Accounts whose seven days ran out while the server was off are erased
+  // before the first request, for the same reason: the promise was a date,
+  // not an uptime.
+  const closed = sweepClosedAccounts(getDb())
+  if (closed > 0) {
+    console.log(`[account] erased ${closed} closed account(s)`)
+    save()
+  }
   // Sellers from before the six-month rule have no end date; they get one
   // once, here, before the first request asks whether their shop is open.
   // Nothing is swept on a timer after that - expiry is read off the date.

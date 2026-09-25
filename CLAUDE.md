@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (333) + frontend (126) + admin (37) tests
+npm test               # backend (345) + frontend (126) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -102,6 +102,20 @@ Firebase is **server-side only**, via `firebase-admin` with a service account. T
 - `attachAuth` never rejects — `requireRole(...)` does, so public routes stay public.
 - On the seller/customer app the refreshed token must reach **`wb.session`**, not just `wb.token`: `api.ts` publishes `onTokenRefresh`/`onSessionExpired` and `AuthContext` is the only subscriber. The admin console publishes `onSessionExpired` the same way, and its `AuthContext` is likewise the only subscriber — clearing storage alone left React holding a signed-in session, so the shell stayed up and every panel on it re-requested with no token and got another 401. Writing it to `wb.token` alone means the next reload restores the original from `wb.session` and the slide is lost — the window then counts from login rather than from last use.
 - **Only two things end a session**: Log out, and a 401. Back, refresh and re-entering `/seller` must never clear one, so the login screens redirect an already-signed-in matching role straight to its home instead of asking for an OTP again.
+
+### Deleting an account
+
+Google Play requires that an app which lets people make an account lets them delete it — in the app **and** from a web page a browser can reach without it. `shared/src/accountClose.ts` is the rule, `backend/src/db/accountClose.ts` applies it, `backend/tests/account-close.test.ts` holds it, and `CloseAccountSheet` in `frontend/src/components/CloseAccount.tsx` is the screen. The public page is `/delete-account` (`screens/landing/DeleteAccount.tsx`), linked from the landing footer — **that URL is what goes in the Play Console data safety form**.
+
+- **The row stays and the person is erased.** `scrubSeller()` empties every field that is her — phone, name, photo, village, UPI, the readiness answers, an admin's notices about her — and leaves the id, `status: 'CLOSED'`, the `womenBizId` printed on packaging, and the money. Three reasons it is not a row delete: a past order is the *buyer's* record and the ₹50 is the programme's accounts (both of which Play allows keeping, disclosed); `isBulkDelete()` refuses a persist that removes more than half a collection, and a seller with five listings in a small catalogue is more than half of it; and orders and the admin console look a seller up by id, so a dangling id is a blank shop name on somebody else's screen. `SELLER_PII_FIELDS` is the one list, walked by the test — a field added to `Seller` and forgotten there is a phone number surviving a deletion.
+- **Her phone goes back into circulation**, because registration's uniqueness check compares stored phones and hers is now blank. Closing is not a ban.
+- **CLOSED is not in `canSellNow()`**, so the shop leaves the catalogue, `GET /sellers/:id` 404s and `POST /orders` refuses — from the status alone, with no product touched and no slot released. That is also what makes the undo a one-line restore.
+- **Seven days between asking and erasing** (`UNDO_DAYS`). The shop closes and every session is revoked the moment she asks; `sweepClosedAccounts()` does the erasing later, at boot and on the 15-minute timer, the same sweep pattern as `purgeExpiredRejections()` and for the same reason — the week almost always contains a deploy. Signing in during it puts a "your account is closing" notice at the top of My Business with one button (`POST /sellers/me/restore`). **A buyer gets no window**: what she loses is an address book, and her account is her phone number, so signing in again gives her a new empty one rather than this one back.
+- **Two screens and four digits stop a stray tap.** The entry point is deliberately nowhere near Log out — its own card at the very bottom of the profile, a quiet line rather than a red button — and the sheet walks the `CancelOrderSheet` shape: what it costs (her own listing count, and that the ₹50 is not refunded), why she is leaving, then **the last four digits of her own number, typed**. Not a word to copy, which is a literacy test, and not a second OTP, which is an SMS against a three-a-day ceiling proving possession of a phone she is already signed in on. The server re-checks all of it.
+- **An order in flight refuses the close** (409 with `openOrders`), on both sides. The sheet names the orders instead of printing an error: a buyer waiting on a delivery cannot be left holding an order whose seller has vanished, and she already has the buttons to finish or cancel one.
+- **A closing buyer leaves the orders she placed**: `customerName` becomes the `ग्राहक` placeholder, `customerPhone` and `address` are emptied, her reviews keep their stars and lose her name. The pincode stays — it is a delivery area, not a doorstep.
+- Her Cloudinary images go too: the seller's bank QR by its stored public id, each payment screenshot by one parsed out of its URL (`publicIdFromUrl`), since a payment stores only the URL and an image nobody can name is one nobody can ever delete.
+- **Still missing for Play:** there is no privacy policy page in this app, and the retention above (orders, the ₹50 ledger) has to be written down in one before submission.
 
 ### Order state machine
 

@@ -326,6 +326,9 @@ const mr: Record<string, string> = {
   'st.ACTIVE': 'सक्रिय',
   'st.PAYMENT_REJECTED': 'भरणा नाकारला',
   'st.BLOCKED': 'बंद',
+  // She closed it herself. Not the same as blocked, and the register must not
+  // make it look like a decision somebody here took.
+  'st.CLOSED': 'खाते बंद केले',
 
   /* ---- orders ---------------------------------------------------- */
   'or.title': 'ऑर्डर',
@@ -706,6 +709,7 @@ const en: Record<string, string> = {
   'st.ACTIVE': 'Active',
   'st.PAYMENT_REJECTED': 'Payment rejected',
   'st.BLOCKED': 'Blocked',
+  'st.CLOSED': 'Account deleted by her',
 
   /* ---- orders ---------------------------------------------------- */
   'or.title': 'Orders',

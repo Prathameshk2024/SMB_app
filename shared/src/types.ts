@@ -177,6 +177,8 @@ export type SellerStatus =
   | 'ACTIVE'
   | 'PAYMENT_REJECTED'
   | 'BLOCKED'
+  /** She asked for her account to be deleted. See shared/src/accountClose.ts. */
+  | 'CLOSED'
 
 export type BusinessType = 'individual' | 'shg' | 'udyam'
 
@@ -291,6 +293,20 @@ export interface Seller {
    */
   blockedAt?: string
   blockReason?: string
+  /**
+   * SHE ASKED FOR THE ACCOUNT TO BE DELETED.
+   *
+   * `closingAt` is when the erasing happens - a week after she asked, so a
+   * woman who did not understand what she was confirming can still stop it by
+   * signing in. Her shop is hidden from the moment she asks, because `status`
+   * is already CLOSED. `closedAt` is stamped when the scrub has actually run;
+   * a row with `closedAt` holds no personal data at all.
+   */
+  closingAt?: string
+  closedAt?: string
+  /** Why she left, as a code from CLOSE_REASONS; `closeNote` has words only for "other". */
+  closeReason?: string
+  closeNote?: string
   /**
    * When her shop pauses unless she renews. Six months from the approval that
    * started or renewed it; absent until her first payment is approved. The

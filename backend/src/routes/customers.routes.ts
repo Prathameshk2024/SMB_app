@@ -1,6 +1,8 @@
 import { Router } from 'express'
+import { confirmProblem } from '@shared/accountClose.js'
 import { requireRole } from '../middleware/auth.js'
 import { getDb, save } from '../db/store.js'
+import { closeCustomer, openOrdersForCustomer } from '../db/accountClose.js'
 import {
   addAddress,
   deleteAddress,
@@ -128,6 +130,42 @@ customersRouter.delete('/me/addresses/:id', (req, res) => {
     return
   }
 
+  save()
+  res.json({ ok: true })
+})
+
+/**
+ * Delete this buyer's account.
+ *
+ * No week to think it over, unlike a seller: what a buyer loses is a name and
+ * a list of addresses, and her account is her phone number, so signing in
+ * again gives her a new empty one rather than this one back.
+ *
+ * Refused while an order is on its way, because the seller on the other end
+ * has cooked or packed for it and needs an address to deliver to.
+ */
+customersRouter.post('/me/close', (req, res) => {
+  const auth = req.auth!
+  const db = getDb()
+  const phone = auth.phone ?? ''
+
+  const problem = confirmProblem(phone, req.body?.confirm)
+  if (problem) {
+    res.status(400).json({ error: 'Confirmation failed', messageMr: problem, fields: { confirm: problem } })
+    return
+  }
+
+  const open = openOrdersForCustomer(db, auth.customerId!, phone)
+  if (open.length > 0) {
+    res.status(409).json({
+      error: 'Open orders',
+      messageMr: 'सुरू असलेली ऑर्डर पूर्ण झाल्यावर खाते बंद करता येईल.',
+      openOrders: open.map((o) => ({ id: o.id, status: o.status })),
+    })
+    return
+  }
+
+  closeCustomer(db, auth.customerId!, phone)
   save()
   res.json({ ok: true })
 })

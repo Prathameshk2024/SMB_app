@@ -17,6 +17,7 @@ import OfflineScreen from './components/OfflineScreen.js'
 import PushBridge from './components/PushBridge.js'
 
 import Landing from './screens/landing/Landing.js'
+import DeleteAccount from './screens/landing/DeleteAccount.js'
 import { OtpScreen, PhoneScreen } from './screens/auth/Auth.js'
 import SellerRegister from './screens/auth/SellerRegister.js'
 import CustomerRegister from './screens/auth/CustomerRegister.js'
@@ -205,6 +206,12 @@ export default function App() {
                   page that immediately threw her somewhere else - and the
                   "carry on to your shop" decision had nowhere to live. */}
               <Route path="/" element={<Landing />} />
+
+              {/* Deleting an account, from outside the app. Google Play wants
+                  this reachable in a browser by somebody who has uninstalled
+                  it or lost the phone, so it is public and links to nothing
+                  that needs a session. */}
+              <Route path="/delete-account" element={<DeleteAccount />} />
 
               {/* Two doors from the landing page, one per role. Both go
                   through login; `join` is only the seller's "I am new" path. */}

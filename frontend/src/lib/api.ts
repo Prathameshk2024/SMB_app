@@ -102,12 +102,19 @@ export class ApiError extends Error {
   status: number
   messageMr?: string
   fields?: Record<string, string>
+  /**
+   * The whole answer, for the failures that carry more than a sentence -
+   * `openOrders` on a refused account closure, which the screen turns into a
+   * list of orders to go and finish rather than a message to read.
+   */
+  body: Record<string, unknown>
 
   constructor(status: number, body: { error?: string; messageMr?: string; fields?: Record<string, string> }) {
     super(body.error ?? 'Request failed')
     this.status = status
     this.messageMr = body.messageMr
     this.fields = body.fields
+    this.body = body as Record<string, unknown>
   }
 }
 
@@ -334,6 +341,23 @@ export const api = {
     patch<{ address: Address }>(`/customers/me/addresses/${id}`, body),
 
   deleteAddress: (id: string) => del<{ ok: true }>(`/customers/me/addresses/${id}`),
+
+  /* ---------------- closing an account ---------------- */
+
+  /**
+   * Delete this account. Both routes answer 409 with `openOrders` while an
+   * order is still in flight, which is a thing to finish rather than an error
+   * to report - the sheet says so and names them.
+   *
+   * The seller's is reversible for a week (`closingAt`); the buyer's is not.
+   */
+  closeSellerAccount: (body: { reason: string; note?: string; confirm: string }) =>
+    post<{ ok: true; closingAt: string }>('/sellers/me/close', body),
+
+  restoreSellerAccount: () => post<{ seller: Seller }>('/sellers/me/restore'),
+
+  closeCustomerAccount: (confirm: string) =>
+    post<{ ok: true }>('/customers/me/close', { confirm }),
 
   /* ---------------- orders ---------------- */
 

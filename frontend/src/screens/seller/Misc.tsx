@@ -16,6 +16,7 @@ import {
   IconWhatsapp,
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
+import { CloseAccountSheet } from '../../components/CloseAccount.js'
 
 /* ================================================================== */
 /* Profile                                                             */
@@ -30,6 +31,7 @@ export function SellerProfile() {
   const [me, loading] = useAsync(() => api.me(), [])
   const [productData] = useAsync(() => api.myProducts(), [])
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
 
   if (loading || !me) {
     return <><AppBar brand title={t('prof.title')} /><div className="screen"><Loading /></div></>
@@ -167,6 +169,21 @@ export function SellerProfile() {
         </Card>
 
         <Button variant="ghost" onClick={() => setLogoutOpen(true)}>{t('prof.logout')}</Button>
+
+        {/* DELETING THE ACCOUNT IS NOT A NEIGHBOUR OF LOGGING OUT.
+            Play requires the option and requires it to be findable; it does
+            not require it to sit under her thumb next to the button she
+            presses every week. Its own card at the very end, a quiet line
+            rather than a red button, and everything that makes it hard to do
+            by accident is inside the sheet. */}
+        <Card>
+          <div className="stack-sm">
+            <div className="small dim">{t('close.sectionTitle')}</div>
+            <Button variant="quiet" size="sm" onClick={() => setCloseOpen(true)}>
+              {t('close.open')}
+            </Button>
+          </div>
+        </Card>
       </div>
 
       <ConfirmSheet
@@ -177,6 +194,14 @@ export function SellerProfile() {
         tone="danger"
         onCancel={() => setLogoutOpen(false)}
         onConfirm={() => { signOut(); nav('/', { replace: true }) }}
+      />
+
+      <CloseAccountSheet
+        role="seller"
+        phone={seller.phone}
+        productCount={productData?.products.length ?? 0}
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
       />
 
       <PageTour id="seller.profile" />

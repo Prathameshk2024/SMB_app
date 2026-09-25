@@ -21,6 +21,7 @@ import { customerCanCancel, sellerCanCancel } from '@shared/orderCancel.js'
 import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
 import { Avatar } from '../../components/Avatar.js'
 import { AddressForm } from '../../components/AddressForm.js'
+import { CloseAccountSheet } from '../../components/CloseAccount.js'
 import {
   AppBar, Button, Card, Choice, ConfirmSheet, CopyValue, EmptyState, Field, LanguagePicker, Loading,
   Notice, Pill, Rupees, SectionTitle, Stepper, TextInput, VoiceInput, useAsync,
@@ -817,6 +818,7 @@ export function CustomerProfile() {
   const [busy, setBusy] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
 
   const customer = data?.customer
   const addresses = customer?.addresses ?? []
@@ -997,6 +999,19 @@ export function CustomerProfile() {
         <Button variant="ghost" onClick={() => setLogoutOpen(true)}>
           {t('prof.logout')}
         </Button>
+
+        {/* Far from Log out, for the reason the seller's is - see
+            components/CloseAccount.tsx. A buyer loses an address book rather
+            than an income, so there is no week to change her mind and the
+            sheet says so plainly instead. */}
+        <Card>
+          <div className="stack-sm">
+            <div className="small dim">{t('close.sectionTitle')}</div>
+            <Button variant="quiet" size="sm" onClick={() => setCloseOpen(true)}>
+              {t('close.open')}
+            </Button>
+          </div>
+        </Card>
       </div>
 
       {/* The same step the seller gets. Getting back in costs an SMS code, and
@@ -1010,6 +1025,13 @@ export function CustomerProfile() {
         tone="danger"
         onCancel={() => setLogoutOpen(false)}
         onConfirm={() => { signOut(); nav('/', { replace: true }) }}
+      />
+
+      <CloseAccountSheet
+        role="customer"
+        phone={session?.phone ?? customer?.phone ?? ''}
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
       />
 
       <PageTour id="shop.profile" />
