@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **backend/** — Express API serving all three, including `/api/admin/*`
 - **shared/** — domain types and rules imported by all of the above
 
-Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`.
+Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`. Backups and restoring: `docs/BACKUP.md`.
 Marathi style: `docs/MARATHI-STYLE.md` — read it before writing any Marathi string.
 
 `README.md` is deliberately short — layout, run, demo logins, links. Rules and architecture live here and in `docs/`, not there; the long README it replaced repeated them and had drifted from the code in more than a dozen places.
@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (333) + frontend (126) + admin (37) tests
+npm test               # backend (338) + frontend (126) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -36,6 +36,7 @@ npm run admin:users -- hash          # a password hash for ADMIN_BOOTSTRAP_PASSW
 npm run backfill:customers -- --help
 npm run purge:demo -- --help
 npm run backup -- --dry-run      # live Firestore + photos to the backup accounts (BACKUP_* in backend/.env.example)
+npm run restore -- --help       # a local backup file or photos back into Firestore / Cloudinary (docs/BACKUP.md)
 ```
 
 Run a single test file — `node:test` via tsx, no framework:
@@ -533,7 +534,7 @@ The service needs two settings that are not Cloud Run's defaults, and neither is
 
 `SESSION_SECRET`, `FIREBASE_SERVICE_ACCOUNT`, `CLOUDINARY_URL` and `MSG91_AUTH_KEY` reach the service from **Secret Manager**, not as plain variables; a new secret version takes effect only on the next revision.
 
-How the container is built is not recorded in this repo: there is no Dockerfile and no `cloudbuild.yaml`. `docs/DEPLOY.md` says so, and is where that command belongs once somebody writes it down.
+The container is the **`Dockerfile` at the repository root**, deployed with `gcloud run deploy shantai-api --source .` from the root (`docs/DEPLOY.md` §1). The build context must be the root, because the backend compiles `../shared/src` with its own code. The image copies only the manifests, `shared/src/`, `backend/src/`, `backend/tsconfig.json` and `backend/scripts/` — never `backend/data/`, so no `db.json` or backup file can reach it — and runs the compiled JS with plain `node`, which is why `fix-shared-imports.js` rewrites every `@shared/*` import after `tsc`. There is no `cloudbuild.yaml`.
 
 **Both apps route in the browser, so both need `vercel.json`** — one catch-all rewrite to `index.html`, already committed in each folder. Without it every URL but the home page 404s on reload, which is the first thing anyone does with a link they were sent.
 
@@ -552,4 +553,4 @@ Do not use Firebase Dynamic Links — it shut down on 25 August 2025. Deferred d
 
 ## Not built yet
 
-Seller replies to reviews · chat · disputes · returns and refunds · coupons · real camera capture · QR decoding · courses and certificates · the seller's own address book.
+Seller replies to reviews · chat · push notifications · disputes · returns and refunds · coupons · real camera capture · QR decoding · courses and certificates · the seller's own address book.

@@ -5,7 +5,7 @@ process.env.SESSION_SECRET = 'test-secret-for-unit-tests'
 
 const {
   BACKED_UP, stableJson, planCollection, shrinkProblems, readTargets, pickTargets,
-  snapshotName, snapshotsToPrune,
+  snapshotName, snapshotsToPrune, parseSnapshot, imagePublicIds,
 } = await import('../src/db/backupPlan.js')
 const { COLLECTIONS } = await import('../src/db/firestore.js')
 
@@ -128,4 +128,55 @@ test('a short history loses nothing', () => {
   const now = new Date('2026-09-23T10:00:00Z')
   assert.deepEqual(snapshotsToPrune(['firestore-2026-09-22T02-00.json.gz'], now, 30), [])
   assert.deepEqual(snapshotsToPrune([], now, 30), [])
+})
+
+test('a local copy is read back as the backed-up collections, and never as sessions', () => {
+  const { collections, problems } = parseSnapshot({
+    sessions: [{ id: 'sess_1' }],
+    sellers: [{ id: 's1', name: 'Sunita' }],
+    orders: [],
+  })
+  assert.deepEqual(problems, [])
+  // A restore that wrote sessions would sign out everybody using the app.
+  assert.ok(!collections.has('sessions'))
+  assert.deepEqual([...collections.get('sellers')!.keys()], ['s1'])
+  // Present and empty is a fact about the file; the restore checks it.
+  assert.equal(collections.get('orders')!.size, 0)
+})
+
+test('a collection the file does not have is left alone, not read as empty', () => {
+  // An old copy predating `reviews` must not empty the live reviews.
+  const { collections } = parseSnapshot({ sellers: [{ id: 's1' }] })
+  assert.ok(!collections.has('reviews'))
+})
+
+test('a file that is not a database copy is refused, not restored', () => {
+  assert.equal(parseSnapshot([1, 2]).problems.length, 1)
+  assert.equal(parseSnapshot({ unrelated: [] }).problems.length, 1)
+  assert.match(parseSnapshot({ sellers: [{ name: 'no id' }] }).problems[0]!, /no id/)
+})
+
+test('a downloaded photo goes back under the public_id it was saved from', () => {
+  // The database stores full URLs, so the id - not the file - is what matters.
+  assert.deepEqual(
+    imagePublicIds(
+      [
+        'shanta-mahila-bazar\\product\\abc123.jpg',
+        'shanta-mahila-bazar/payment/xyz.png',
+        'something-else/photo.jpg',
+      ],
+      'shanta-mahila-bazar',
+    ),
+    [
+      { path: 'shanta-mahila-bazar\\product\\abc123.jpg', publicId: 'shanta-mahila-bazar/product/abc123' },
+      { path: 'shanta-mahila-bazar/payment/xyz.png', publicId: 'shanta-mahila-bazar/payment/xyz' },
+    ],
+  )
+})
+
+test('a restore describes the shrink in its own direction', () => {
+  const [problem] = shrinkProblems({ sellers: 1 }, { sellers: 19 }, {
+    source: 'in the file', sourceWhole: 'the file', target: 'shantaimahilabajar',
+  })
+  assert.equal(problem, 'sellers: 19 in shantaimahilabajar, only 1 in the file')
 })
