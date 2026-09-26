@@ -166,8 +166,8 @@ export const en: LegalSet = {
         id: 'delete',
         heading: 'How to delete your account',
         body: [
-          'In the app: open My Profile and tap "Delete my account" at the very bottom.',
-          `Without the app: open the "Delete your account" page on our website (linked at the bottom of the home page), or phone or WhatsApp ${GRIEVANCE_OFFICER.phone}.`,
+          'On our website in any browser, or in the app: sign in, open My Profile and tap "Delete my account" at the very bottom.',
+          `If you cannot sign in, because the phone is lost or the OTP does not arrive: open the "Delete your account" page on our website (linked at the bottom of the home page), or phone or WhatsApp ${GRIEVANCE_OFFICER.phone}, or email ${GRIEVANCE_OFFICER.email}, with the mobile number you registered with. We will contact you to make sure the account is yours before we delete it.`,
           'An account with an order still in progress cannot be deleted until that order is finished or cancelled, so that nobody is left waiting for a delivery or a payment.',
         ],
       },

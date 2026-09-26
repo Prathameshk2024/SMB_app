@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom'
 import { UNDO_DAYS } from '@shared/accountClose.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { AppBar, Button, Card, LanguagePicker, Notice, SectionTitle } from '../../components/ui.js'
-import { IconCall, IconWhatsapp } from '../../components/icons.js'
+import { IconCall, IconMail, IconWhatsapp } from '../../components/icons.js'
+import { GRIEVANCE_OFFICER } from '../../legal/operator.js'
 import { SUPPORT_PHONE } from '../seller/Misc.js'
 
 /**
@@ -71,6 +72,18 @@ export default function DeleteAccount() {
             >
               <IconWhatsapp aria-hidden="true" /> {t('help.whatsapp')}
             </a>
+          </div>
+          {/* A written request as well as a spoken one. Play reviewers look
+              for a form or an address on this page, and an email is a record
+              the desk can find again - a phone call is not. */}
+          <div style={{ marginTop: 'var(--s3)' }}>
+            <a
+              className="btn btn--ghost"
+              href={`mailto:${GRIEVANCE_OFFICER.email}?subject=${encodeURIComponent(t('del.emailSubject'))}&body=${encodeURIComponent(`${t('del.emailBody')} `)}`}
+            >
+              <IconMail aria-hidden="true" /> {t('del.email')}
+            </a>
+            <div className="small dim" style={{ marginTop: 'var(--s2)' }}>{GRIEVANCE_OFFICER.email}</div>
           </div>
         </Card>
 
