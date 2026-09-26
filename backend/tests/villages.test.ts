@@ -16,8 +16,36 @@ test('येळी is one of the supported villages', () => {
   const yeli = VILLAGES.find((v) => v.mr === 'येळी')
   assert.ok(yeli, 'येळी is missing from VILLAGES')
   assert.equal(yeli.code, 'YELI')
-  assert.equal(yeli.taluka, 'तुळजापूर')
+  assert.equal(yeli.taluka, 'उमरगा')
   assert.equal(yeli.district, 'धाराशिव')
+})
+
+/**
+ * EACH VILLAGE CARRIES ITS OWN TALUKA.
+ *
+ * Every row used to say तुळजापूर - true of the first village and then copied
+ * down the list, which put four women in the wrong taluka on their own seller
+ * records. The taluka is printed with her address and is how a coordinator
+ * works out whose round she is on, so this pins the four that are not
+ * Tuljapur. Correct one only against the register.
+ */
+test('the taluka is the village\'s own, not the first one on the list', () => {
+  const taluka = (mr: string) => VILLAGES.find((v) => v.mr === mr)?.taluka
+
+  assert.equal(taluka('आणदुर'), 'तुळजापूर')
+  assert.equal(taluka('चिवरी'), 'तुळजापूर')
+  assert.equal(taluka('जेवळी'), 'लोहारा')
+  assert.equal(taluka('भोसगा'), 'लोहारा')
+  assert.equal(taluka('रुद्रवाडी'), 'लोहारा')
+  assert.equal(taluka('येळी'), 'उमरगा')
+
+  // The guard against the bug coming back: one taluka for every village is
+  // what a copied-down list looks like.
+  assert.ok(new Set(VILLAGES.map((v) => v.taluka)).size > 1, 'every village has the same taluka')
+})
+
+test('all six survey villages are in धाराशिव', () => {
+  for (const v of VILLAGES) assert.equal(v.district, 'धाराशिव', `${v.mr} is filed under ${v.district}`)
 })
 
 test('every fixed village code matches what transliteration would produce', () => {

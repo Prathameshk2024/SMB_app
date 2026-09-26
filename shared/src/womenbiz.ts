@@ -21,13 +21,28 @@
  * Adding one here is all it takes: the serial is counted per prefix, so a new
  * village starts at 001 without touching anybody else's number.
  */
+/**
+ * THE TALUKA IS PER VILLAGE, NOT ONE FOR THE LIST.
+ *
+ * Every row here said तुळजापूर, which was true of the first village and then
+ * copied down the list. Four of the six are not in Tuljapur at all, and the
+ * taluka is not decoration: it is written onto her seller record, printed
+ * with her address, and is how a field coordinator works out whose round she
+ * is on. A woman in Umarga filed under Tuljapur is a woman nobody visits.
+ *
+ * Checked against the 2011 census village lists and the Dharashiv district
+ * village directory, September 2026. All six are in धाराशिव (Osmanabad).
+ * Correct one of these only against the register, never by inference from a
+ * neighbouring village - `wadi` hamlets in particular sit under a different
+ * taluka from the village they are named after.
+ */
 export const VILLAGES: { mr: string; code: string; taluka: string; district: string }[] = [
   { mr: 'आणदुर', code: 'ANADUR', taluka: 'तुळजापूर', district: 'धाराशिव' },
-  { mr: 'जेवळी', code: 'JEVALI', taluka: 'तुळजापूर', district: 'धाराशिव' },
-  { mr: 'भोसगा', code: 'BHOSGA', taluka: 'तुळजापूर', district: 'धाराशिव' },
+  { mr: 'जेवळी', code: 'JEVALI', taluka: 'लोहारा', district: 'धाराशिव' },
+  { mr: 'भोसगा', code: 'BHOSGA', taluka: 'लोहारा', district: 'धाराशिव' },
   { mr: 'चिवरी', code: 'CHIVARI', taluka: 'तुळजापूर', district: 'धाराशिव' },
-  { mr: 'रुद्रवाडी', code: 'RUDRAWADI', taluka: 'तुळजापूर', district: 'धाराशिव' },
-  { mr: 'येळी', code: 'YELI', taluka: 'तुळजापूर', district: 'धाराशिव' },
+  { mr: 'रुद्रवाडी', code: 'RUDRAWADI', taluka: 'लोहारा', district: 'धाराशिव' },
+  { mr: 'येळी', code: 'YELI', taluka: 'उमरगा', district: 'धाराशिव' },
 ]
 
 /* Devanagari -> Latin. Deliberately lossy: this produces a readable code, not
