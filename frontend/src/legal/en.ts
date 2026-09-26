@@ -35,7 +35,7 @@ export const en: LegalSet = {
         heading: 'Who we are',
         body: [
           `Shantai Mahila Bazar is run by ${OPERATOR.nameEn}, ${OPERATOR.addressEn} ("the college", "we"). The college decides what information this app collects and why, and is responsible for it under the Digital Personal Data Protection Act, 2023.`,
-          'This policy covers the Shantai Mahila Bazar app, its website, and the Android app that opens it.',
+          'This policy covers Shantai Mahila Bazar on its website and in its Android app. On Google Play the Android app is published under the developer name "Team Zenith", an account registered to Sampanna Rajesh Nampalli, a member of the project team, who publishes it on the college\'s behalf. The college remains responsible for your information.',
         ],
       },
       {
