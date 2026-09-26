@@ -408,6 +408,15 @@ const mr: Record<string, string> = {
   'ord.status.PACKED': 'तयार आहे', 'ord.status.OUT_FOR_DELIVERY': 'पाठवले आहे',
   'ord.status.DELIVERED': 'पोहोचले',
   'ord.status.REJECTED': 'नाकारले', 'ord.status.CANCELLED': 'रद्द झाले',
+
+  // ---- how long the delivery will take, asked when she accepts ----------
+  'ord.etaTitle': 'किती वेळात पोहोचवाल?',
+  'ord.etaHint': 'तुम्ही सांगाल तेच ग्राहकाला दिसेल. नक्की नसेल तर नंतरही सांगता येईल.',
+  'ord.etaPlaceholder': 'उदा. 2 दिवसांत',
+  'ord.etaToday': 'आज', 'ord.etaTomorrow': 'उद्या',
+  'ord.eta2Days': '2 दिवसांत', 'ord.eta3Days': '3 दिवसांत',
+  'ord.etaSkip': 'वेळ न सांगता स्वीकारा',
+  'ord.etaLabel': 'अपेक्षित वेळ',
   // The buyer's tracker: four stages, one bold line each.
   'track.title': 'ऑर्डरचे तपशील',
   'track.orderNo': 'ऑर्डर क्र.',
@@ -1168,6 +1177,14 @@ const en: Record<string, string> = {
   'ord.status.PACKED': 'Packed', 'ord.status.OUT_FOR_DELIVERY': 'Out for delivery',
   'ord.status.DELIVERED': 'Delivered',
   'ord.status.REJECTED': 'Rejected', 'ord.status.CANCELLED': 'Cancelled',
+
+  'ord.etaTitle': 'How soon can you deliver?',
+  'ord.etaHint': 'The customer sees exactly what you say here. If you are not sure, you can tell them later.',
+  'ord.etaPlaceholder': 'e.g. in 2 days',
+  'ord.etaToday': 'Today', 'ord.etaTomorrow': 'Tomorrow',
+  'ord.eta2Days': 'In 2 days', 'ord.eta3Days': 'In 3 days',
+  'ord.etaSkip': 'Accept without saying',
+  'ord.etaLabel': 'Expected delivery',
   'track.title': 'Order details',
   'track.orderNo': 'Order #',
   'track.copied': 'Order number copied',

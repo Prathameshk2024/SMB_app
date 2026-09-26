@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { Order, OrderStatus, PaymentMode, SellerGroup } from '@shared/types.js'
 import {
   actionFor, awaitingCustomerPayment, awaitingPaymentConfirmation, canTransition,
-  initialPaymentStatus,
+  cleanDeliveryEstimate, initialPaymentStatus,
 } from '@shared/orderFlow.js'
 import { isMaharashtraPincode } from '@shared/seller.js'
 import { normalizeUtr, utrProblem } from '@shared/payment.js'
@@ -286,6 +286,19 @@ ordersRouter.post('/:id/advance', requireRole('seller'), (req, res) => {
     by: 'seller',
     note: req.body?.reason,
   })
+
+  /**
+   * What she told the buyer it would take, kept only on acceptance.
+   *
+   * Accepting is the one moment she knows: she has just read the address and
+   * the quantity. Skipping the question is allowed - the buyer then sees no
+   * promise rather than an invented one - so an empty answer clears nothing
+   * and stores nothing.
+   */
+  if (to === 'ACCEPTED') {
+    const estimate = cleanDeliveryEstimate(req.body?.deliveryEstimate)
+    if (estimate) order.deliveryEstimate = estimate
+  }
 
   // Cash is collected at the doorstep, so delivery and collection are the same
   // moment. UPI is confirmed separately, by her, before she packs.

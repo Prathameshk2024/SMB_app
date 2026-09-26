@@ -5,6 +5,7 @@ import {
   HAPPY_PATH, SELLER_ACTIONS, STATUS_STYLE, awaitingPaymentConfirmation,
   statusLabelKey, stepIndex, type SellerAction,
 } from '@shared/orderFlow.js'
+import { MAX_DELIVERY_ESTIMATE } from '@shared/orderFlow.js'
 import { sellerCanCancel } from '@shared/orderCancel.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
@@ -12,7 +13,7 @@ import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
 import {
   AppBar, Button, Card, Choice, ConfirmSheet, EmptyState,
-  Loading, Notice, Pill, Rupees, SectionTitle, useAsync,
+  Loading, Notice, Pill, Rupees, SectionTitle, VoiceInput, useAsync,
 } from '../../components/ui.js'
 import { ReviewList } from '../../components/Reviews.js'
 import {
@@ -101,6 +102,8 @@ export function SellerOrderDetail() {
   const [confirm, setConfirm] = useState<SellerAction | null>(null)
   const [actionErr, setActionErr] = useState('')
   const [rejectOpen, setRejectOpen] = useState(false)
+  /** The Accept she has tapped, while she is being asked how long it will take. */
+  const [estimateFor, setEstimateFor] = useState<SellerAction | null>(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -124,7 +127,7 @@ export function SellerOrderDetail() {
   const waitingForBuyer = order.paymentMode === 'UPI' && order.paymentStatus === 'UPI_PENDING'
   const style = STATUS_STYLE[order.status]
 
-  async function run(action: SellerAction, extra?: { reason?: string }) {
+  async function run(action: SellerAction, extra?: { reason?: string; deliveryEstimate?: string }) {
     setBusy(true)
     setActionErr('')
     try {
@@ -163,6 +166,12 @@ export function SellerOrderDetail() {
           <Pill tone={style.tone} icon={<StatusIcon name={style.icon} />}>{t(statusLabelKey(order.status))}</Pill>
           <strong style={{ fontSize: 'var(--t-lg)' }}><Rupees value={order.total} /></strong>
         </div>
+
+        {/* What she promised this buyer when she accepted, so she can see it
+            on the screen where she decides what to do next. */}
+        {order.deliveryEstimate && (
+          <Notice tone="info" title={t('ord.etaLabel')}>{order.deliveryEstimate}</Notice>
+        )}
 
         <OrderEndedNotice order={order} viewer="seller" />
         <RefundNotice order={order} viewer="seller" />
@@ -289,6 +298,7 @@ export function SellerOrderDetail() {
                 disabled={busy}
                 onClick={() => {
                   if (a.needsReason) setRejectOpen(true)
+                  else if (a.needsEstimate) setEstimateFor(a)
                   else if (a.confirmKey) setConfirm(a)
                   else void run(a)
                 }}
@@ -323,6 +333,28 @@ export function SellerOrderDetail() {
           void run(a)
         }}
       />
+
+      {/* "Yes" and "when?" are one moment for the buyer, so they are one
+          moment here: she cannot accept without being asked how long it will
+          take. She may still decline to answer - a promise nobody asked her
+          to keep is worse than no promise - and the chips are there because
+          typing Marathi is the barrier, not knowing the answer. */}
+      {estimateFor && (
+        <DeliveryEstimateSheet
+          busy={busy}
+          onSkip={() => {
+            const a = estimateFor
+            setEstimateFor(null)
+            void run(a)
+          }}
+          onAccept={(deliveryEstimate) => {
+            const a = estimateFor
+            setEstimateFor(null)
+            void run(a, { deliveryEstimate })
+          }}
+          onClose={() => setEstimateFor(null)}
+        />
+      )}
 
       {rejectOpen && (
         <div className="sheet-backdrop" onClick={() => setRejectOpen(false)}>
@@ -381,6 +413,77 @@ export function Timeline({ order }: { order: Order }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * HOW LONG WILL IT TAKE?
+ *
+ * The buyer's next question after "yes" is always "when?", and until now the
+ * app had no answer: she accepted, and the order screen said ACCEPTED and
+ * nothing about time. So Accept asks her, at the one moment she knows - she
+ * has just read the address, the quantity and what is on her shelf.
+ *
+ * Her words, not a date picker. The honest answer in a village with one bus a
+ * day is "two days" or "Thursday, after the market", and a calendar would
+ * make her invent a precision she does not have. The chips are the common
+ * answers, because typing Marathi is the barrier here, not knowing the reply.
+ *
+ * Answering is not compulsory: "I will say later" accepts the order without a
+ * promise. A time she was pushed into inventing is worse for the buyer than
+ * no time at all.
+ */
+function DeliveryEstimateSheet({
+  busy, onAccept, onSkip, onClose,
+}: {
+  busy: boolean
+  onAccept: (estimate: string) => void
+  onSkip: () => void
+  onClose: () => void
+}) {
+  const t = useT()
+  const [text, setText] = useState('')
+  const quick = ['ord.etaToday', 'ord.etaTomorrow', 'ord.eta2Days', 'ord.eta3Days']
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="stack">
+          <div className="stack-sm">
+            <h2 className="h2">{t('ord.etaTitle')}</h2>
+            <p className="body muted">{t('ord.etaHint')}</p>
+          </div>
+
+          <div className="wrap-row">
+            {quick.map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={`chip ${text === t(k) ? 'chip--on' : ''}`}
+                onClick={() => setText(t(k))}
+              >
+                {t(k)}
+              </button>
+            ))}
+          </div>
+
+          <VoiceInput
+            value={text}
+            onChange={setText}
+            maxLength={MAX_DELIVERY_ESTIMATE}
+            placeholder={t('ord.etaPlaceholder')}
+            speakHint
+          />
+
+          <div className="stack-sm">
+            <Button disabled={busy || !text.trim()} onClick={() => onAccept(text.trim())}>
+              {t('ord.accept')}
+            </Button>
+            <Button variant="quiet" disabled={busy} onClick={onSkip}>{t('ord.etaSkip')}</Button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

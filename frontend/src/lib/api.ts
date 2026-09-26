@@ -394,7 +394,11 @@ export const api = {
     customerName?: string
   }) => post<{ orders: Order[]; groupId: string }>('/orders', body),
 
-  advanceOrder: (id: string, to: Order['status'], extra?: { otp?: string; reason?: string }) =>
+  advanceOrder: (
+    id: string,
+    to: Order['status'],
+    extra?: { otp?: string; reason?: string; deliveryEstimate?: string },
+  ) =>
     post<{ order: Order }>(`/orders/${id}/advance`, { to, ...extra }),
 
   /** The buyer paying, after the seller has accepted. */

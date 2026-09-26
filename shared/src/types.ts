@@ -101,6 +101,18 @@ export interface Order {
   outsideArea?: boolean
   events: OrderEvent[]
   sourceShareCode?: string
+  /**
+   * How long the seller said the delivery would take, in her own words - "2
+   * दिवसांत", "उद्या संध्याकाळी". Asked at the moment she ACCEPTS, because
+   * that is the first time she knows: she has just read the address, the
+   * quantity and what is on her shelf. Free text rather than a date, because
+   * the honest answer to "when?" in a village with one bus is a phrase, not a
+   * timestamp - and a false precision is worse than none.
+   *
+   * Optional: an order accepted before this existed, or by a seller who
+   * skipped the question, simply does not carry one.
+   */
+  deliveryEstimate?: string
 }
 
 /* ------------------------------------------------------------------ */

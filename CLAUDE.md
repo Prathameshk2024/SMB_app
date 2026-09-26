@@ -495,6 +495,23 @@ The tap after paying is Back, so `lib/useReturnFromApp.ts` is armed when she cop
 The admin queue shows the screenshot inline and opens it large beside the UTR, the stated time and the amount. **Approve stays disabled until three checks are ticked** — the UTR matches, the date and time match, the money is on the bank statement — and `POST /admin/payments/:id/approve` refuses any request whose `checks` lack one of `PAYMENT_CHECKS`, so the checklist is the rule and not decoration. The CLI takes `approve <id> --verified` and no longer offers `approve all`. Rejecting needs no checklist: refusing an unproven payment is always safe. `backend/tests/payment-proof.test.ts` holds all of it.
 
 Because approval is by hand, **how long she has been waiting is the number that makes somebody act on it**, and the console owns it: `waited()` in `admin/src/lib/format.ts` computes it from `submittedAt` — minutes under the hour, hours to two days, then days — and `Payments.tsx` re-reads the clock every 30 minutes so a console left open on a desk stops showing the age it had at page load. `/admin/payments` deliberately sends no `waitingHours`: a number computed on the server is frozen at the moment of the response, and two sources for one figure is how an admin stops trusting either.
+
+### How long the delivery will take
+
+`Order.deliveryEstimate` — free text in her own words ("2 दिवसांत"), asked at
+the one moment she knows: `SELLER_ACTIONS.PLACED` carries `needsEstimate`, so
+tapping **Accept** opens the sheet before the order moves. A buyer whose order
+was accepted used to be told `ACCEPTED` and nothing about time, and "when?" is
+her next question.
+
+Not a date picker: the honest answer in a village with one bus a day is a
+phrase, and a calendar would make her invent a precision she does not have.
+Four chips carry the common answers because typing Marathi is the barrier, not
+knowing the reply. **Skipping is allowed** — a time she was pushed into
+inventing is worse for the buyer than none — and `cleanDeliveryEstimate()`
+stores nothing for an empty answer. It is kept only on the `ACCEPTED`
+transition, and shown on both order screens under the status.
+
 ### What size is it
 
 `Product.packSize` counts in the listing's own `unit` (500 with `g`), and

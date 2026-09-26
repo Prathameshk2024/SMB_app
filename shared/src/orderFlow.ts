@@ -39,13 +39,30 @@ export interface SellerAction {
   labelKey: string
   tone: 'primary' | 'ghost'
   needsReason?: boolean
+  /**
+   * Ask how long the delivery will take before the move goes through. Only
+   * Accept carries it: that is the moment she has read the address and knows,
+   * and the buyer's next question after "yes" is always "when?".
+   */
+  needsEstimate?: boolean
   confirmKey?: string
   confirmSubKey?: string
 }
 
+/**
+ * A phrase, not an essay. Long enough for "उद्या संध्याकाळपर्यंत", short
+ * enough to sit on one line of the buyer's order screen without being cut.
+ */
+export const MAX_DELIVERY_ESTIMATE = 40
+
+export function cleanDeliveryEstimate(raw: unknown): string | undefined {
+  const text = String(raw ?? '').trim().replace(/\s+/g, ' ')
+  return text ? text.slice(0, MAX_DELIVERY_ESTIMATE) : undefined
+}
+
 export const SELLER_ACTIONS: Record<OrderStatus, SellerAction[]> = {
   PLACED: [
-    { to: 'ACCEPTED', labelKey: 'ord.accept', tone: 'primary' },
+    { to: 'ACCEPTED', labelKey: 'ord.accept', tone: 'primary', needsEstimate: true },
     { to: 'REJECTED', labelKey: 'ord.reject', tone: 'ghost', needsReason: true },
   ],
   ACCEPTED: [{ to: 'PACKED', labelKey: 'ord.markPacked', tone: 'primary' }],

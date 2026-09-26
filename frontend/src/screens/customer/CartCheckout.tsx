@@ -653,6 +653,14 @@ export function TrackOrder() {
 
         <OrderStatusBox order={order} />
 
+        {/* What the seller said it would take, in her own words, given at the
+            moment she accepted. Directly under the status, because "when?"
+            is the question the status does not answer. It is not a guarantee
+            and does not pretend to be one - it is what she said. */}
+        {order.deliveryEstimate && (
+          <Notice tone="info" title={t('ord.etaLabel')}>{order.deliveryEstimate}</Notice>
+        )}
+
         {/* What she said about each product, under the status that turned
             green. Asking for it is RateOrderGate's job, over the whole app. */}
         <OrderRatings
