@@ -7,6 +7,8 @@ import { useToast } from '../../store/ToastContext.js'
 import ProductImage from '../../components/ProductImage.js'
 import { Avatar } from '../../components/Avatar.js'
 import { api } from '../../lib/api.js'
+import { sizeLabel } from '../../lib/productSize.js'
+import { ReportLink, ReportSheet } from '../../components/ReportSheet.js'
 import { categoryPhoto } from '../../lib/categoryPhoto.js'
 import {
   AppBar, Button, Card, EmptyState, Loading, Notice, Pill,
@@ -43,6 +45,7 @@ function CategoryTileArt({ category }: { category: Category }) {
 type CardProduct = Product & { seller?: Partial<Seller>; rating?: number; ratingCount?: number }
 
 export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen: () => void }) {
+  const t = useT()
   return (
     <div className="pcard">
       {/* The card opens the product; the control below adds it. Two jobs, two
@@ -58,6 +61,8 @@ export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen:
         <div className="pcard__body">
           <div className="pcard__name">{product.name}</div>
           <div className="pcard__price"><Rupees value={product.price} /></div>
+          {/* A price with no size cannot be compared with the shop next door. */}
+          <div className="pcard__size">{sizeLabel(product, t)}</div>
           {/* Its own stars, from buyers who received it. Nothing at all on a
               product nobody has rated - "no reviews" down a grid is noise. */}
           <RatingLine average={product.rating} count={product.ratingCount} hideEmpty />
@@ -268,6 +273,8 @@ export function ProductDetail() {
   const { add, has, canAdd, sellerName: cartShop } = useCart()
 
   const [data, loading] = useAsync(() => api.product(productId!), [productId], `product:${productId}`)
+  /** Open while she is saying what is wrong with this listing. */
+  const [reporting, setReporting] = useState(false)
 
   /**
    * The rest of this shop's window. Fetched by seller rather than filtered
@@ -326,7 +333,7 @@ export function ProductDetail() {
                 <Rupees value={product.mrp} />
               </span>
             )}
-            <span className="dim">/ {t(`unit.${product.unit}`)}</span>
+            <span className="dim">/ {sizeLabel(product, t)}</span>
           </div>
           <div className="wrap-row">
             {product.isFood && product.vegType && (
@@ -363,6 +370,13 @@ export function ProductDetail() {
           )
         )}
 
+        {/* Printed for the buyer because that is the point of having one:
+            a number she can check against the FSSAI register. Only shown
+            when the seller gave one. */}
+        {product.isFood && product.fssai && (
+          <div className="small dim num">{t('prod.fssai')}: {product.fssai}</div>
+        )}
+
         {seller && (
           <Notice tone="info">
             {/* ₹0 read as "free"; nobody set it (see CartContext). */}
@@ -383,6 +397,22 @@ export function ProductDetail() {
             </div>
           </div>
         )}
+
+        {/* Anyone looking at a listing can say it should not be here: a
+            photo that is not hers, food that looks unsafe, a price that is a
+            trick. Quiet, at the foot of what it reports, and never beside
+            the button that adds it to a basket. Google Play asks any app
+            carrying what its users write to offer exactly this. */}
+        <div className="center" style={{ paddingTop: 'var(--s3)' }}>
+          <ReportLink onClick={() => setReporting(true)} />
+        </div>
+        <ReportSheet
+          targetType="product"
+          targetId={product.id}
+          title={product.name}
+          open={reporting}
+          onClose={() => setReporting(false)}
+        />
 
         {/* Three, then the door to the rest. One shop owns the cart now, so
             what else that shop sells is the most useful thing on this screen:

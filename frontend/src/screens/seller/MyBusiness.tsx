@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Order } from '@shared/types.js'
+import { daysUntilScrub } from '@shared/accountClose.js'
 import { needsSellerAction, STATUS_STYLE, statusLabelKey } from '@shared/orderFlow.js'
 import { slotInfo } from '@shared/seller.js'
 import { useT } from '../../i18n/I18nProvider.js'
+import { useToast } from '../../store/ToastContext.js'
 import { api } from '../../lib/api.js'
 import {
   AppBar, Button, Card, EmptyState, Loading, Notice,
@@ -28,6 +31,8 @@ export default function MyBusiness() {
   const [productData, loadingProducts] = useAsync(() => api.myProducts(), [], 'seller:products')
   // Not waited on: reviews are not what she opened this screen to act on.
   const [reviewData] = useAsync(() => api.myReviews(), [])
+  const { toast } = useToast()
+  const [restoring, setRestoring] = useState(false)
 
   if (loadingMe || loadingOrders || loadingProducts) {
     return (
@@ -92,6 +97,32 @@ export default function MyBusiness() {
                 <strong>{t('biz.blockedReason')}:</strong> {seller.blockReason}
               </div>
             )}
+          </Notice>
+        )}
+
+        {/* SHE ASKED FOR THE ACCOUNT TO BE DELETED, AND CAME BACK.
+            The week between asking and erasing exists for exactly this
+            moment, so the way out of it is the first thing on her home
+            screen - not buried in the profile she would have to go looking
+            through, having already decided once to leave. */}
+        {seller.status === 'CLOSED' && seller.closingAt && (
+          <Notice tone="danger" title={t('close.closingTitle')}>
+            <div>{t('close.closingBody', { days: daysUntilScrub(seller.closingAt) })}</div>
+            <div style={{ marginTop: 'var(--s3)' }}>
+              <Button
+                size="sm"
+                disabled={restoring}
+                onClick={() => {
+                  setRestoring(true)
+                  void api.restoreSellerAccount()
+                    .then(async () => { toast(t('close.restored')); setMe(await api.me()) })
+                    .catch(() => toast(t('close.restoreFailed')))
+                    .finally(() => setRestoring(false))
+                }}
+              >
+                {t('close.restore')}
+              </Button>
+            </div>
           </Notice>
         )}
 

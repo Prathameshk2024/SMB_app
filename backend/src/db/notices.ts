@@ -30,7 +30,7 @@ export function onNotice(fn: NoticeListener | null): void {
 export function appendNotice(
   seller: Seller,
   kind: AdminNoticeKind,
-  extra: { n?: number; note?: string } = {},
+  extra: { n?: number; subject?: string; note?: string } = {},
   at = new Date().toISOString(),
 ): AdminNotice[] {
   const notice: AdminNotice = { id: `${kind}:${at}`, at, kind, ...extra }

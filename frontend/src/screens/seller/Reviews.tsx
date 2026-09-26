@@ -31,7 +31,7 @@ export function SellerReviews() {
         ) : (
           <>
             {data && <RatingSummaryCard summary={data.summary} />}
-            <ReviewList reviews={reviews} showProduct />
+            <ReviewList reviews={reviews} showProduct reportable />
             <Notice tone="info">{t('rev.sellerHelp')}</Notice>
           </>
         )}

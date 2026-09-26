@@ -1,50 +1,35 @@
 import type { Product } from '@shared/types.js'
-import { isRemovable } from '@shared/moderation.js'
 import { destroyImage } from '../routes/uploads.routes.js'
 
 /**
- * The other half of "rejected, not deleted": something has to actually remove
- * it when the 48 hours are up.
+ * A REJECTED ROW SHOULD NOT EXIST, SO SWEEP THE ONES THAT DO.
  *
- * A sweep rather than a per-product timer. Timers do not survive a restart,
- * and this process restarts on every deploy; a sweep only has to run
- * occasionally and is correct however long the server was down. It is called
- * at boot and hourly from index.ts, and again whenever the admin console asks
- * for the rejected list, so nobody is ever shown a row that has expired.
- */
-export function expiredRejections(products: Product[], now = Date.now()): Product[] {
-  return products.filter((p) => isRemovable(p, now))
-}
-
-/**
- * Drops expired rejections from the array IN PLACE and reports how many went.
+ * A rejection used to leave the listing in place for 48 hours so she could
+ * read the reason on the row. It now deletes the product on the spot (see
+ * `POST /admin/products/:id/moderate`), because the slot frees at the same
+ * moment: the grace period meant a refused listing sitting next to the new
+ * one she had already put in its place.
  *
- * In place because `db.products` is the live array every route holds a
- * reference to - reassigning it would leave handlers reading a stale copy.
- * The caller decides whether to `save()`: sweeping nothing must not schedule
- * a write.
+ * This clears the rows rejected under the old rule - at boot and on the
+ * housekeeping timer - and is a no-op once they are gone.
  */
-export function purgeExpiredRejections(
+export function purgeRejected(
   products: Product[],
-  now = Date.now(),
   // A parameter only so a test can see what would be destroyed.
   destroy: (publicId: string | undefined) => unknown = destroyImage,
 ): number {
-  const doomed = new Set(expiredRejections(products, now).map((p) => p.id))
-  if (doomed.size === 0) return 0
-
+  let removed = 0
   for (let i = products.length - 1; i >= 0; i--) {
-    if (doomed.has(products[i]!.id)) {
-      // Its photo goes with it. The row was the only record of the image's
-      // public id, so a photo left behind here is one nobody can ever find to
-      // delete - Cloudinary storage paid for ever. Safe because nothing else
-      // points at it: an order copies name and price, never the picture.
-      // Best effort and not awaited, like deleting a draft.
-      void destroy(products[i]!.imagePublicId)
-      products.splice(i, 1)
-    }
+    if (products[i]!.status !== 'REJECTED') continue
+    // Its photo goes with it. The row was the only record of the image's
+    // public id, so one left behind here is a photo nobody can ever find to
+    // delete - Cloudinary storage paid for ever. Safe because nothing else
+    // points at it: an order copies name and price, never the picture.
+    void destroy(products[i]!.imagePublicId)
+    products.splice(i, 1)
+    removed++
   }
-  return doomed.size
+  return removed
 }
 
 /**
@@ -56,7 +41,7 @@ export function purgeExpiredRejections(
  * is what made the Firebase console unreadable. Swept on read, like an expired
  * rejection, because there is no other moment that reliably arrives.
  *
- * In place, for the same reason `purgeExpiredRejections` is: `db.products` is
+ * In place, for the same reason `purgeRejected` is: `db.products` is
  * the live array every route holds a reference to.
  */
 export function purgeArchived(products: Product[]): number {

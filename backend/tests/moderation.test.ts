@@ -1,116 +1,79 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Product } from '@shared/types.js'
-import { REJECT_GRACE_MS, hoursUntilRemoval, isRemovable } from '@shared/moderation.js'
-import { purgeExpiredRejections } from '../src/db/moderation.js'
+import { purgeRejected } from '../src/db/moderation.js'
 
 /**
- * REJECTED IS NOT DELETED.
+ * A REJECTION IS A REMOVAL, THE MOMENT IT IS MADE.
  *
- * An admin used to be able to make a listing disappear, which from her side is
- * indistinguishable from a bug: the product she photographed and priced is
- * simply gone, with nothing to read. A rejection now carries a reason, stays
- * where she can see it, and removes itself 48 hours later - so these are about
- * the clock: it starts on the decision, it is not restarted, and a rejection
- * with no stamp is never swept.
+ * A rejected listing used to stay in her app for 48 hours so that she could
+ * read the reason on the row itself, and a sweeper took it afterwards. That
+ * made sense while a rejected listing still held her slot. It no longer does:
+ * the slot frees at the moment of the decision, so the grace period left a
+ * refused listing sitting on her screen beside the new one she had already
+ * put in its place - two listings for one slot, one of them dead.
+ *
+ * `POST /admin/products/:id/moderate` now deletes on rejection, and the reason
+ * reaches her as a notice, where she reads every other admin decision. What is
+ * left here is the sweep that clears rows rejected under the old rule.
  */
-
-const NOW = Date.parse('2026-09-08T12:00:00.000Z')
 
 function product(over: Partial<Product> = {}): Product {
   return { id: 'p1', sellerId: 's1', name: 'लोणचे', status: 'LIVE', ...over } as Product
 }
 
-test('the clock runs from the rejection, not from now', () => {
-  const p = product({
-    status: 'REJECTED',
-    rejectedAt: new Date(NOW - 10 * 3_600_000).toISOString(),
-  })
-
-  assert.equal(hoursUntilRemoval(p, NOW), 38)
-  assert.equal(isRemovable(p, NOW), false)
-})
-
-test('at 48 hours it goes', () => {
-  const p = product({
-    status: 'REJECTED',
-    rejectedAt: new Date(NOW - REJECT_GRACE_MS).toISOString(),
-  })
-
-  assert.equal(hoursUntilRemoval(p, NOW), 0)
-  assert.equal(isRemovable(p, NOW), true)
-})
-
-/**
- * Rows rejected before this rule existed carry no stamp. "We do not know when
- * this was rejected" must read as "the clock has not started" - deleting them
- * on sight is the exact behaviour the reject flow replaced.
- */
-test('a rejection with no timestamp is never swept', () => {
-  const p = product({ status: 'REJECTED' })
-
-  assert.equal(hoursUntilRemoval(p, NOW), null)
-  assert.equal(isRemovable(p, NOW), false)
-})
-
-test('the sweep takes only what is expired, and leaves everything else alone', () => {
+test('a rejected row left by the old rule is swept', () => {
   const products = [
     product({ id: 'live' }),
-    product({ id: 'pending', status: 'PENDING' }),
-    product({
-      id: 'fresh',
-      status: 'REJECTED',
-      rejectedAt: new Date(NOW - 3_600_000).toISOString(),
-    }),
-    product({
-      id: 'expired',
-      status: 'REJECTED',
-      rejectedAt: new Date(NOW - REJECT_GRACE_MS - 1000).toISOString(),
-    }),
-    product({ id: 'unstamped', status: 'REJECTED' }),
+    product({ id: 'old-rejection', status: 'REJECTED', rejectedAt: '2026-09-08T12:00:00.000Z' }),
+    product({ id: 'draft', status: 'DRAFT' }),
   ]
 
-  const removed = purgeExpiredRejections(products, NOW)
-
-  assert.equal(removed, 1)
-  assert.deepEqual(products.map((p) => p.id), ['live', 'pending', 'fresh', 'unstamped'])
+  assert.equal(purgeRejected(products, () => {}), 1)
+  assert.deepEqual(products.map((p) => p.id), ['live', 'draft'])
 })
 
 /**
- * The row is the only record of its photo's public id. A sweep that removed
- * the row and kept the photo left an image nobody could ever name again, so
- * Cloudinary storage grew by one abandoned picture per refused listing. The
- * photo goes with the row - and only the swept row's photo.
+ * A rejection with no stamp was swept only once the old clock could read it,
+ * which meant never. Nothing is waiting on a timestamp any more.
  */
-test('the sweep destroys the photo of each listing it removes, and no other', () => {
-  const products = [
-    product({ id: 'live', imagePublicId: 'shanta-mahila-bazar/product/live' }),
-    product({
-      id: 'fresh',
-      status: 'REJECTED',
-      rejectedAt: new Date(NOW - 3_600_000).toISOString(),
-      imagePublicId: 'shanta-mahila-bazar/product/fresh',
-    }),
-    product({
-      id: 'expired',
-      status: 'REJECTED',
-      rejectedAt: new Date(NOW - REJECT_GRACE_MS - 1000).toISOString(),
-      imagePublicId: 'shanta-mahila-bazar/product/expired',
-    }),
-  ]
+test('an unstamped rejection goes too', () => {
+  const products = [product({ id: 'unstamped', status: 'REJECTED' })]
+  assert.equal(purgeRejected(products, () => {}), 1)
+  assert.equal(products.length, 0)
+})
+
+/**
+ * The row is the only record of the image's public id. A photo left behind is
+ * one nobody can ever find to delete - Cloudinary storage paid for ever.
+ */
+test('the photograph goes with the row', () => {
   const destroyed: (string | undefined)[] = []
+  const products = [
+    product({ id: 'r1', status: 'REJECTED', imagePublicId: 'shanta/p1' }),
+    product({ id: 'live', imagePublicId: 'shanta/keep' }),
+  ]
 
-  purgeExpiredRejections(products, NOW, (id) => destroyed.push(id))
+  purgeRejected(products, (id) => destroyed.push(id))
 
-  assert.deepEqual(destroyed, ['shanta-mahila-bazar/product/expired'])
+  assert.deepEqual(destroyed, ['shanta/p1'])
+  assert.deepEqual(products.map((p) => p.id), ['live'], 'and nothing else is touched')
+})
+
+/** Sweeping nothing must report nothing, or every read schedules a write. */
+test('a list with nothing to sweep is left alone', () => {
+  const products = [product({ id: 'a' }), product({ id: 'b', status: 'PENDING' })]
+  assert.equal(purgeRejected(products, () => {}), 0)
+  assert.equal(products.length, 2)
 })
 
 /**
- * The array is the live one every route holds a reference to, and the caller
- * only writes to disk when something actually changed.
+ * In place, on the same array: `db.products` is the live array every route
+ * holds a reference to - replacing it leaves handlers reading a stale copy.
  */
-test('a sweep that removes nothing reports nothing', () => {
-  const products = [product({ id: 'live' })]
-  assert.equal(purgeExpiredRejections(products, NOW), 0)
-  assert.equal(products.length, 1)
+test('the sweep mutates the array it was given', () => {
+  const products = [product({ id: 'r', status: 'REJECTED' })]
+  const same = products
+  purgeRejected(products, () => {})
+  assert.equal(same.length, 0)
 })

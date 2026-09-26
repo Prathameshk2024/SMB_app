@@ -108,6 +108,10 @@ export default function Notifications() {
           {(n.who || n.orderId) && (
             <span className="notif__meta">{[n.who, n.orderId].filter(Boolean).join(' · ')}</span>
           )}
+          {/* The admin's own words, under the label that says what they are. */}
+          {n.reason && (
+            <span className="notif__meta">{t('notif.reasonLabel')}: {n.reason}</span>
+          )}
 
           {(n.status || n.total != null) && (
             <span className="notif__foot">

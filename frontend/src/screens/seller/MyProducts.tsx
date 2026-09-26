@@ -2,9 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Product } from '@shared/types.js'
 import { PRODUCT_STATUS_STYLE, sellerMayDelete } from '@shared/seller.js'
-import { REJECT_GRACE_HOURS, hoursUntilRemoval } from '@shared/moderation.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api } from '../../lib/api.js'
+import { sizeLabel } from '../../lib/productSize.js'
 import { useToast } from '../../store/ToastContext.js'
 import ProductImage from '../../components/ProductImage.js'
 import { SubscriptionNotice } from '../../components/SubscriptionNotice.js'
@@ -99,7 +99,7 @@ export default function MyProducts() {
                       <div className="tile__title">{p.name}</div>
                       <div className="row" style={{ gap: 6 }}>
                         <strong><Rupees value={p.price} /></strong>
-                        <span className="small dim">/ {t(`unit.${p.unit}`)}</span>
+                        <span className="small dim">/ {sizeLabel(p, t)}</span>
                       </div>
                       <div className="wrap-row" style={{ marginTop: 4 }}>
                         {/* While the shop is paused a LIVE listing is not live
@@ -121,25 +121,6 @@ export default function MyProducts() {
                     </div>
                     <span className="tile-tap__go" aria-hidden="true"><IconEdit /></span>
                   </button>
-
-                  {/* Rejected is not deleted. She reads why, and how long the
-                      listing stays before it removes itself - so a product
-                      disappearing is something she was told about first. */}
-                  {p.status === 'REJECTED' && (
-                    <div style={{ marginTop: 'var(--s3)' }}>
-                      <Notice tone="danger" title={t('prod.rejected')}>
-                        {p.rejectReason}
-                        {/* The one way a slot comes back, so say it where
-                            she can see it happened. */}
-                        <div className="small" style={{ marginTop: 4 }}>{t('prod.rejectedSlotFree')}</div>
-                        <div className="small" style={{ marginTop: 4 }}>
-                          {hoursUntilRemoval(p) == null
-                            ? t('prod.rejectedRemoval', { n: REJECT_GRACE_HOURS })
-                            : t('prod.rejectedRemovalIn', { n: hoursUntilRemoval(p)! })}
-                        </div>
-                      </Notice>
-                    </div>
-                  )}
 
                   <div className="btn-row" style={{ marginTop: 'var(--s3)' }}>
                     {(p.status === 'LIVE' || p.status === 'PAUSED') && (

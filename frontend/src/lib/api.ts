@@ -5,6 +5,8 @@ import type {
   SubscriptionPayment,
 } from '@shared/types.js'
 import type { SlotInfo } from '@shared/seller.js'
+import type { ReportReason, ReportTarget } from '@shared/report.js'
+import type { ComplaintSubject } from '@shared/complaint.js'
 import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
 import type { LangCode } from '../i18n/strings.js'
 
@@ -102,12 +104,19 @@ export class ApiError extends Error {
   status: number
   messageMr?: string
   fields?: Record<string, string>
+  /**
+   * The whole answer, for the failures that carry more than a sentence -
+   * `openOrders` on a refused account closure, which the screen turns into a
+   * list of orders to go and finish rather than a message to read.
+   */
+  body: Record<string, unknown>
 
   constructor(status: number, body: { error?: string; messageMr?: string; fields?: Record<string, string> }) {
     super(body.error ?? 'Request failed')
     this.status = status
     this.messageMr = body.messageMr
     this.fields = body.fields
+    this.body = body as Record<string, unknown>
   }
 }
 
@@ -335,6 +344,23 @@ export const api = {
 
   deleteAddress: (id: string) => del<{ ok: true }>(`/customers/me/addresses/${id}`),
 
+  /* ---------------- closing an account ---------------- */
+
+  /**
+   * Delete this account. Both routes answer 409 with `openOrders` while an
+   * order is still in flight, which is a thing to finish rather than an error
+   * to report - the sheet says so and names them.
+   *
+   * The seller's is reversible for a week (`closingAt`); the buyer's is not.
+   */
+  closeSellerAccount: (body: { reason: string; note?: string; confirm: string }) =>
+    post<{ ok: true; closingAt: string }>('/sellers/me/close', body),
+
+  restoreSellerAccount: () => post<{ seller: Seller }>('/sellers/me/restore'),
+
+  closeCustomerAccount: (confirm: string) =>
+    post<{ ok: true }>('/customers/me/close', { confirm }),
+
   /* ---------------- orders ---------------- */
 
   /**
@@ -370,8 +396,38 @@ export const api = {
     customerName?: string
   }) => post<{ orders: Order[]; groupId: string }>('/orders', body),
 
-  advanceOrder: (id: string, to: Order['status'], extra?: { otp?: string; reason?: string }) =>
+  advanceOrder: (
+    id: string,
+    to: Order['status'],
+    extra?: { otp?: string; reason?: string; deliveryEstimate?: string },
+  ) =>
     post<{ order: Order }>(`/orders/${id}/advance`, { to, ...extra }),
+
+  /**
+   * Something has gone wrong and she needs a person. Recorded against her
+   * account, so an admin can open it and answer - see complaints.routes.ts.
+   */
+  raiseComplaint: (body: { subject: ComplaintSubject; message: string }) =>
+    post<{ ok: true }>('/complaints', body),
+
+  /**
+   * Her number, so a buyer can ask what delivery costs before she commits to
+   * an order. Fetched on the tap, never carried in the catalogue - see the
+   * route's comment for why.
+   */
+  sellerContact: (sellerId: string) =>
+    get<{ phone: string; whatsapp: string }>(`/catalog/sellers/${sellerId}/contact`),
+
+  /**
+   * A buyer flagging a listing or a review. One report per person per thing;
+   * a second tap is answered as if it were the first.
+   */
+  report: (body: {
+    targetType: ReportTarget
+    targetId: string
+    reason: ReportReason
+    note?: string
+  }) => post<{ ok: true }>('/reports', body),
 
   /** The buyer paying, after the seller has accepted. */
   payOrder: (id: string, utr: string) =>
@@ -438,6 +494,7 @@ export interface SellerRegistration {
   yearsInBusiness?: number
   monthlyCapacity?: number
   sellsFood: boolean
+  fssai?: string
   upiId: string
   upiQrUrl?: string
   upiQrPublicId?: string

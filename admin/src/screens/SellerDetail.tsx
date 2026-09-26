@@ -259,6 +259,7 @@ function ShopSettings({ detail }: { detail: Detail }) {
           {seller.minOrder > 0 ? rupees(seller.minOrder) : t('c.none')}
         </Row>
         <Row label={t('sd.dispatch')}>{seller.dispatch}</Row>
+        {seller.fssai && <Row label={t('sd.fssai')}>{seller.fssai}</Row>}
         {/* The pincodes she delivers to. An order outside them is refused by
             the API, so this is the answer to "why can she not see my area". */}
         <Row label={t('sd.serves')}>

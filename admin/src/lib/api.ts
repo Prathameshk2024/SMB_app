@@ -1,5 +1,5 @@
 import type {
-  AdminStats, Order, Product, RatingSummary, ReadinessBand, Review, Seller,
+  AdminStats, Complaint, Order, Product, RatingSummary, ReadinessBand, Report, Review, Seller,
   SubscriptionPayment,
 } from '@shared/types.js'
 import type { SubscriptionView } from '@shared/subscription.js'
@@ -167,9 +167,10 @@ export interface AdminSession {
 export type PaymentRow = SubscriptionPayment
 /** /admin/orders decorates each order with the seller's shop name and id. */
 export type OrderRow = Order & { seller?: string; womenBizId?: string }
-export type ProductRow = Product & { seller?: Seller }
+/** /admin/products decorates each listing with its seller and any open reports. */
+export type ProductRow = Product & { seller?: Seller; reports?: Report[] }
 /** /admin/reviews decorates each review with the seller's shop name and id. */
-export type ReviewRow = Review & { seller?: string; womenBizId?: string }
+export type ReviewRow = Review & { seller?: string; womenBizId?: string; reports?: Report[] }
 export type SellerRow = Seller & {
   productCount: number
   /** Delivered orders only, summed on the server. */
@@ -241,10 +242,24 @@ export const api = {
 
   /** status: PENDING (default) | LIVE | REJECTED | ALL */
   products: (status = 'PENDING') =>
-    get<{ products: ProductRow[] }>(`/admin/products?status=${encodeURIComponent(status)}`),
+    get<{ products: ProductRow[]; reportedCount: number }>(
+      `/admin/products?status=${encodeURIComponent(status)}`,
+    ),
+
+  /** Looked at, and the listing stays up. The reports close; the row does not. */
+  clearReports: (id: string) => post<{ ok: true }>(`/admin/products/${id}/clear-reports`, {}),
 
   moderateProduct: (id: string, approve: boolean, reason?: string) =>
     post<{ product: Product }>(`/admin/products/${id}/moderate`, { approve, reason }),
+
+  /** What sellers and buyers wrote from Help & Training. A queue to empty. */
+  complaints: (status = 'OPEN') =>
+    get<{ complaints: Complaint[]; openCount: number }>(
+      `/admin/complaints?status=${encodeURIComponent(status)}`,
+    ),
+
+  resolveComplaint: (id: string) =>
+    post<{ complaint: Complaint }>(`/admin/complaints/${id}/resolve`, {}),
 
   sellers: () => get<{ sellers: SellerRow[] }>('/admin/sellers'),
 
@@ -272,12 +287,19 @@ export const api = {
   impact: () => get<ImpactReport>('/admin/impact'),
 
   /** Every review, hidden ones included. `maxRating: 2` is the low-ratings view. */
-  reviews: (params: { sellerId?: string; maxRating?: number; hidden?: boolean } = {}) => {
+  reviews: (
+    params: { sellerId?: string; maxRating?: number; hidden?: boolean; reported?: boolean } = {},
+  ) => {
     const qs = new URLSearchParams()
     for (const [k, v] of Object.entries(params)) if (v !== undefined) qs.set(k, String(v))
     const s = qs.toString()
-    return get<{ reviews: ReviewRow[]; summary: RatingSummary }>(`/admin/reviews${s ? `?${s}` : ''}`)
+    return get<{ reviews: ReviewRow[]; summary: RatingSummary; reportedCount: number }>(
+      `/admin/reviews${s ? `?${s}` : ''}`,
+    )
   },
+
+  /** Looked at, and the review stays up. */
+  clearReviewReports: (id: string) => post<{ ok: true }>(`/admin/reviews/${id}/clear-reports`, {}),
 
   /** Take a review down (reason required, and kept) or put it back. */
   hideReview: (id: string, hidden: boolean, reason?: string) =>

@@ -40,6 +40,7 @@ export interface Draft {
   monthlyCapacity: string
   about: string
   sellsFood: boolean | null
+  fssai: string
   upiId: string
   upiQrUrl: string
   upiQrPublicId: string
@@ -52,7 +53,7 @@ export const EMPTY: Draft = {
   villagePreset: '', villageOther: '', taluka: '', district: '', pincode: '',
   shopName: '', businessType: 'individual', shgName: '',
   yearsInBusiness: '', monthlyCapacity: '', about: '',
-  sellsFood: null,
+  sellsFood: null, fssai: '',
   upiId: '', upiQrUrl: '', upiQrPublicId: '', dispatch: 'same',
   digital: {},
 }

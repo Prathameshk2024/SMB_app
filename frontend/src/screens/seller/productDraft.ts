@@ -27,6 +27,8 @@ export const BLANK = {
   price: '',
   mrp: '',
   unit: 'piece' as Unit,
+  packSize: '',
+  piecesPerPack: '',
   stock: '',
   madeToOrder: false,
 }

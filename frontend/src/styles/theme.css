@@ -128,6 +128,24 @@ body {
   -webkit-tap-highlight-color: transparent;
   /* Nothing may push the page sideways on a 360px phone. */
   overflow-x: hidden;
+  /* An app, not a document: a long press on a label or a button must not
+     start a text selection with its drag handles and "Copy" bar — on a
+     phone that is what a slow thumb produces, and it reads as the app
+     breaking. What she might need to copy (UPI ID, order number) has its
+     own copy button. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Fields she types into must stay selectable, or she cannot fix a digit
+   in the middle of a UTR or paste a UPI ID she copied. */
+/* So must the value beside a copy button: when the clipboard refuses
+   ("copy failed"), a long press on the UPI ID is her only way round it. */
+input, textarea, [contenteditable="true"], .copyrow .num {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 img { max-width: 100%; display: block; }
@@ -1849,3 +1867,11 @@ textarea::placeholder {
 /* A product line with no picture: a larger tile at the top of an order. */
 .lineicon--lg { width: 56px; height: 56px; border-radius: var(--r-sm); background: var(--gold-soft); font-size: 1.6rem; }
 .tile__img svg { font-size: 1.5rem; }
+
+/* The size the price is for, under it on a product card. */
+.pcard__size { font-size: var(--t-sm); color: var(--ink-3); line-height: 1.3; }
+
+/* "Report" sits quietly at the foot of what it reports: available to anyone
+   who needs it, never competing with Add to basket. */
+.linkbtn--quiet { color: var(--ink-3); font-weight: 600; text-decoration: underline; }
+.linkbtn--quiet:active { color: var(--danger); }

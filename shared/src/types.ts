@@ -101,6 +101,18 @@ export interface Order {
   outsideArea?: boolean
   events: OrderEvent[]
   sourceShareCode?: string
+  /**
+   * How long the seller said the delivery would take, in her own words - "2
+   * दिवसांत", "उद्या संध्याकाळी". Asked at the moment she ACCEPTS, because
+   * that is the first time she knows: she has just read the address, the
+   * quantity and what is on her shelf. Free text rather than a date, because
+   * the honest answer to "when?" in a village with one bus is a phrase, not a
+   * timestamp - and a false precision is worse than none.
+   *
+   * Optional: an order accepted before this existed, or by a seller who
+   * skipped the question, simply does not carry one.
+   */
+  deliveryEstimate?: string
 }
 
 /* ------------------------------------------------------------------ */
@@ -177,6 +189,8 @@ export type SellerStatus =
   | 'ACTIVE'
   | 'PAYMENT_REJECTED'
   | 'BLOCKED'
+  /** She asked for her account to be deleted. See shared/src/accountClose.ts. */
+  | 'CLOSED'
 
 export type BusinessType = 'individual' | 'shg' | 'udyam'
 
@@ -224,7 +238,18 @@ export interface AdminNotice {
   kind: AdminNoticeKind
   /** Slots, where the sentence carries a number. Slots, not packs - a pack is our word. */
   n?: number
-  /** A reason, or the product's name. Shown to her as written, so keep it plain. */
+  /**
+   * WHAT the decision was about - the product's name. Kept apart from the
+   * reason so each side can be labelled in her own language: "dustbin" and
+   * "कारण: Invalid" read as two facts, where "dustbin - Invalid" reads as a
+   * product with a strange name.
+   */
+  subject?: string
+  /**
+   * WHY, in the admin's own words. Shown to her as written, so keep it plain.
+   * Older rows carry the subject and the reason joined in here; they are
+   * printed as they stand.
+   */
   note?: string
 }
 
@@ -258,6 +283,13 @@ export interface Seller {
   /** Units she can make per month. Drives what admin can realistically promise. */
   monthlyCapacity?: number
   sellsFood: boolean
+  /**
+   * Her FSSAI licence number, asked once at registration and only if she
+   * sells food. Optional (see fssaiProblem), though the form does not say
+   * so: labelled "optional", nearly everyone skips it, including the women
+   * who hold a licence and gain by showing it.
+   */
+  fssai?: string
 
   // money in. `upiId` is collected at registration because she cannot be paid
   // without it. The payment QR is a SEPARATE, later step: it is generated from
@@ -291,6 +323,20 @@ export interface Seller {
    */
   blockedAt?: string
   blockReason?: string
+  /**
+   * SHE ASKED FOR THE ACCOUNT TO BE DELETED.
+   *
+   * `closingAt` is when the erasing happens - a week after she asked, so a
+   * woman who did not understand what she was confirming can still stop it by
+   * signing in. Her shop is hidden from the moment she asks, because `status`
+   * is already CLOSED. `closedAt` is stamped when the scrub has actually run;
+   * a row with `closedAt` holds no personal data at all.
+   */
+  closingAt?: string
+  closedAt?: string
+  /** Why she left, as a code from CLOSE_REASONS; `closeNote` has words only for "other". */
+  closeReason?: string
+  closeNote?: string
   /**
    * When her shop pauses unless she renews. Six months from the approval that
    * started or renewed it; absent until her first payment is approved. The
@@ -369,6 +415,14 @@ export interface Product {
   // food only - all four are required when isFood is true
   ingredients?: string
   vegType?: 'veg' | 'nonveg'
+  /**
+   * Her FSSAI licence number, if she has one. OPTIONAL and staying that way:
+   * most women here cook at home and are below the registration threshold, and
+   * a required licence number would shut them out of the market this exists
+   * to open. The ones who do have it gain by showing it, which is why it is
+   * asked at all - and only on food, where it means anything.
+   */
+  fssai?: string
 
   // non-food only
   material?: string
@@ -376,6 +430,22 @@ export interface Product {
   price: number
   mrp: number
   unit: Unit
+  /**
+   * HOW MUCH ONE OF THESE IS, counted in `unit`: 500 with unit `g`, 1 with
+   * unit `set`. A price with no size is not a price - "₹80 for pickle" tells
+   * a buyer nothing until she knows whether that is a 200g jar or a kilo, and
+   * she cannot compare two sellers without it.
+   *
+   * Optional on the type because listings published before the question
+   * existed do not carry one; required by `listingProblems` on anything
+   * submitted since.
+   */
+  packSize?: number
+  /**
+   * For a `set`: how many items are inside one. "1 set" is not an amount -
+   * a set of four ladoos and a set of twenty are the same word.
+   */
+  piecesPerPack?: number
   stock: number
   madeToOrder?: boolean
 
@@ -600,3 +670,61 @@ export interface ApiError {
   messageMr?: string
   fields?: Record<string, string>
 }
+
+/**
+ * A buyer saying a listing or a review should not be here.
+ *
+ * Stored rather than derived, because it is the only record that the report
+ * was ever made: nothing else on the product changes when somebody reports
+ * it. An admin reads the queue, and either takes the listing down - which
+ * deletes it and these rows with it - or closes the reports as looked at.
+ */
+export interface Report {
+  id: string
+  targetType: import('./report.js').ReportTarget
+  targetId: string
+  /** Whose listing or review, copied so the queue can be read without joins. */
+  sellerId?: string
+  /** What the row is about, copied for the same reason: a name in the queue. */
+  targetName?: string
+  reason: import('./report.js').ReportReason
+  /** Only 'other' carries words; every other reason is the code alone. */
+  note?: string
+  /**
+   * Who flagged it - a buyer, or the seller the review is about. She is the
+   * person an abusive review is aimed at, so she gets the same way out as
+   * anyone reading it.
+   */
+  byUserId: string
+  byRole: 'customer' | 'seller'
+  at: string
+  /** Closed by an admin who looked and left the listing up. */
+  reviewedAt?: string
+  reviewedBy?: string
+}
+
+/**
+ * A complaint somebody raised from Help & Training.
+ *
+ * Stored with who wrote it, because that is the whole difference between
+ * this and a WhatsApp message: an admin can open her account, see the ₹50 she
+ * is asking about, and answer. Her name and number are copied in so the queue
+ * can be read and she can be rung back without a lookup per row.
+ */
+export interface Complaint {
+  id: string
+  byRole: 'seller' | 'customer'
+  byUserId: string
+  /** Copied at the time, so the queue reads without joins. */
+  name: string
+  phone: string
+  /** Sellers only - the id a field coordinator recognises. */
+  womenBizId?: string
+  subject: import('./complaint.js').ComplaintSubject
+  message: string
+  at: string
+  /** Dealt with. Who, so "who answered this?" has an answer months later. */
+  resolvedAt?: string
+  resolvedBy?: string
+}
+

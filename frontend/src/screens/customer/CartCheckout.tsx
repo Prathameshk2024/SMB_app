@@ -21,6 +21,7 @@ import { customerCanCancel, sellerCanCancel } from '@shared/orderCancel.js'
 import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../components/OrderCancel.js'
 import { Avatar } from '../../components/Avatar.js'
 import { AddressForm } from '../../components/AddressForm.js'
+import { CloseAccountSheet } from '../../components/CloseAccount.js'
 import {
   AppBar, Button, Card, Choice, ConfirmSheet, CopyValue, EmptyState, Field, LanguagePicker, Loading,
   Notice, Pill, Rupees, SectionTitle, Stepper, TextInput, VoiceInput, useAsync,
@@ -30,6 +31,69 @@ import {
   IconAddressHome, IconAddressOther, IconAllClear, IconCall, IconCart, IconCash, IconChevron, IconNext, IconOrders, IconPlus, IconProduct, IconProfile, IconUpi, IconWhatsapp, StatusIcon,
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
+
+/**
+ * "ASK THE SELLER" WITH SOMETHING TO ASK WITH.
+ *
+ * Delivery is a hint rather than a price for most sellers here - she writes
+ * one pincode at registration and works the rest out per order - so the cart
+ * says what delivery costs is hers to tell, and until now a buyer had no way
+ * to ask without first placing the order.
+ *
+ * Her number is not in the catalogue and must not be: `publicSeller` is an
+ * allow-list and her phone is deliberately outside it. So the button fetches
+ * it when a buyer actually taps, which is a buyer asking one seller a
+ * question rather than a directory of village women's phone numbers attached
+ * to their names. Once it is here, Call and WhatsApp replace the button.
+ */
+function AskSellerButton({ sellerId }: { sellerId: string }) {
+  const t = useT()
+  const [contact, setContact] = useState<{ phone: string; whatsapp: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  if (contact) {
+    return (
+      <div className="stack-sm" style={{ marginTop: 'var(--s2)' }}>
+        <div className="num">+91 {contact.phone}</div>
+        <div className="btn-row">
+          <a className="btn btn--ghost btn--sm" href={`tel:+91${contact.phone}`}>
+            <IconCall aria-hidden="true" /> {t('cart.callSeller')}
+          </a>
+          <a
+            className="btn btn--ghost btn--sm"
+            href={`https://wa.me/91${contact.whatsapp}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <IconWhatsapp aria-hidden="true" /> {t('cart.whatsappSeller')}
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  async function ask() {
+    setBusy(true)
+    setErr('')
+    try {
+      setContact(await api.sellerContact(sellerId))
+    } catch (e) {
+      setErr(e instanceof ApiError ? (e.messageMr ?? e.message) : t('cart.contactFailed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 'var(--s2)' }}>
+      <Button variant="ghost" size="sm" disabled={busy} onClick={() => void ask()}>
+        <IconCall aria-hidden="true" /> {t('cart.contactSeller')}
+      </Button>
+      {err && <div className="field__err" style={{ marginTop: 4 }}>{err}</div>}
+    </div>
+  )
+}
 
 /**
  * Cart - grouped by seller, because each seller becomes a separate order with
@@ -186,7 +250,15 @@ export function Cart() {
                     ? <span className="pill pill--ok">{t('cart.free')}</span>
                     : <Rupees value={g.deliveryFee} />}
               </div>
-              {g.deliveryToAsk && <div className="dim">{t('cart.deliveryAskHint')}</div>}
+              {g.deliveryToAsk && (
+                <>
+                  <div className="dim">{t('cart.deliveryAskHint')}</div>
+                  {/* The question the line above raises, with the means to ask
+                      it. Her number is fetched on the tap rather than carried
+                      in the catalogue - see the route in catalog.routes.ts. */}
+                  <AskSellerButton sellerId={g.sellerId} />
+                </>
+              )}
               <div className="row-between" style={{ fontSize: 'var(--t-base)' }}>
                 <strong>{t(g.deliveryToAsk ? 'cus.grandTotalNoDelivery' : 'cus.grandTotal')}</strong>
                 <strong><Rupees value={g.total} /></strong>
@@ -652,6 +724,14 @@ export function TrackOrder() {
 
         <OrderStatusBox order={order} />
 
+        {/* What the seller said it would take, in her own words, given at the
+            moment she accepted. Directly under the status, because "when?"
+            is the question the status does not answer. It is not a guarantee
+            and does not pretend to be one - it is what she said. */}
+        {order.deliveryEstimate && (
+          <Notice tone="info" title={t('ord.etaLabel')}>{order.deliveryEstimate}</Notice>
+        )}
+
         {/* What she said about each product, under the status that turned
             green. Asking for it is RateOrderGate's job, over the whole app. */}
         <OrderRatings
@@ -817,6 +897,7 @@ export function CustomerProfile() {
   const [busy, setBusy] = useState(false)
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
 
   const customer = data?.customer
   const addresses = customer?.addresses ?? []
@@ -997,6 +1078,19 @@ export function CustomerProfile() {
         <Button variant="ghost" onClick={() => setLogoutOpen(true)}>
           {t('prof.logout')}
         </Button>
+
+        {/* Far from Log out, for the reason the seller's is - see
+            components/CloseAccount.tsx. A buyer loses an address book rather
+            than an income, so there is no week to change her mind and the
+            sheet says so plainly instead. */}
+        <Card>
+          <div className="stack-sm">
+            <div className="small dim">{t('close.sectionTitle')}</div>
+            <Button variant="quiet" size="sm" onClick={() => setCloseOpen(true)}>
+              {t('close.open')}
+            </Button>
+          </div>
+        </Card>
       </div>
 
       {/* The same step the seller gets. Getting back in costs an SMS code, and
@@ -1010,6 +1104,13 @@ export function CustomerProfile() {
         tone="danger"
         onCancel={() => setLogoutOpen(false)}
         onConfirm={() => { signOut(); nav('/', { replace: true }) }}
+      />
+
+      <CloseAccountSheet
+        role="customer"
+        phone={session?.phone ?? customer?.phone ?? ''}
+        open={closeOpen}
+        onClose={() => setCloseOpen(false)}
       />
 
       <PageTour id="shop.profile" />

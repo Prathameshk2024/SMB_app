@@ -62,6 +62,12 @@ export interface Notice {
   /** Where tapping the row goes, when it is not an order. */
   to?: string
   /**
+   * WHY an admin decided what they decided, in their own words. Printed under
+   * its own label, because "dustbin - Invalid" reads as a product with a
+   * strange name, while "कारण: Invalid" reads as the answer to her question.
+   */
+  reason?: string
+  /**
    * A state of her shop rather than something that happened at a moment: it
    * stays on the list however old it is, because it is still true. Only the
    * paused shop qualifies today - see `visibleFeed`.
@@ -302,8 +308,10 @@ export function adminFeed(seller: Seller | null | undefined): Notice[] {
       at: n.at,
       labelKey: `notif.adm.${n.kind}`,
       vars: n.n == null ? undefined : { n: n.n },
-      // The reason, or the product's name - whatever the decision was about.
-      who: n.note ?? '',
+      // What it was about. An older row has no `subject` and carries the name
+      // and the reason joined in `note`; it prints as it always did.
+      who: n.subject ?? n.note ?? '',
+      reason: n.subject ? n.note : undefined,
       to: ADMIN_NOTICE_PATH[n.kind],
     }
   })

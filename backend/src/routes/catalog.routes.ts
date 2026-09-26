@@ -7,6 +7,7 @@ import {
 } from '../db/reviews.js'
 import { publicSeller } from '../db/publicSeller.js'
 import { canSellNow } from '@shared/subscription.js'
+import { requireRole } from '../middleware/auth.js'
 
 /** Public, unauthenticated. This is what a shopper and a scanned QR both hit. */
 export const catalogRouter: Router = Router()
@@ -159,6 +160,34 @@ catalogRouter.post('/share/:slug/scan', (req, res) => {
  * seller delivers there and has something live to sell. The customer app asks
  * this once, stores the answer, and every later screen reuses it.
  */
+/**
+ * HER NUMBER, TO ASK WHAT DELIVERY COSTS - AND NOT A DIGIT SOONER.
+ *
+ * Delivery is a hint rather than a price for most sellers: she writes one
+ * pincode at registration and works the rest out per order, so the cart says
+ * "ask the seller" and the buyer had no way to ask until she had committed to
+ * an order. This is that way.
+ *
+ * It is NOT on the public seller card (`publicSeller` is an allow-list and
+ * her phone is deliberately absent): the catalogue is readable by anyone at
+ * all, and a village woman's phone number attached to her name and village is
+ * not something to hand out with a product listing. Here it takes a signed-in
+ * buyer asking for one seller, one at a time, which is the difference between
+ * answering a customer and publishing a directory.
+ *
+ * Only for a shop that is actually open for orders - the same rule the
+ * listings use.
+ */
+catalogRouter.get('/sellers/:id/contact', requireRole('customer'), (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.id)
+  if (!seller || !canSellNow(seller) || !seller.isOpen) {
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
+    return
+  }
+  res.json({ phone: seller.phone, whatsapp: seller.whatsapp || seller.phone })
+})
+
 catalogRouter.get('/serviceability', (req, res) => {
   const pincode = String(req.query.pincode ?? '').trim()
 

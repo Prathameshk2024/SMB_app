@@ -1,10 +1,12 @@
 import { Router } from 'express'
 import type { DigitalProfile, Seller, SubscriptionPayment } from '@shared/types.js'
 import {
-  defaultAbout, isValidPhone, isValidPincode,
+  defaultAbout, fssaiProblem, isValidPhone, isValidPincode, normalizeFssai,
   normalizePhone, PLAN, samePhone, slotInfo, validateSellerProfile,
 } from '@shared/seller.js'
 import { normalizeUtr, paidAtProblem, upiProblem, utrProblem } from '@shared/payment.js'
+import { closeReasonProblem, confirmProblem } from '@shared/accountClose.js'
+import { openOrdersForSeller, requestSellerClose, restoreSeller } from '../db/accountClose.js'
 import { screenshotProblem } from '../db/payments.js'
 import { makeShopSlug, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import { computeReadiness, readinessBand, recomputeForSeller } from '@shared/readiness.js'
@@ -53,6 +55,7 @@ interface RegisterBody {
   yearsInBusiness?: number
   monthlyCapacity?: number
   sellsFood: boolean
+  fssai?: string
   upiId: string
   upiQrUrl?: string
   upiQrPublicId?: string
@@ -121,6 +124,8 @@ sellersRouter.post('/register', (req, res) => {
   if (!isValidPincode(b.pincode)) fields.pincode = '6 अंकी पिनकोड टाका'
   const upiFault = upiProblem(b.upiId)
   if (upiFault) fields.upiId = upiFault
+  const fssaiFault = fssaiProblem(b.fssai)
+  if (fssaiFault) fields.fssai = fssaiFault
   if (b.age != null && (b.age < 18 || b.age > 90)) fields.age = 'वय 18 ते 90 दरम्यान असावे'
 
   if (Object.keys(fields).length) {
@@ -182,6 +187,7 @@ sellersRouter.post('/register', (req, res) => {
     yearsInBusiness: b.yearsInBusiness,
     monthlyCapacity: b.monthlyCapacity,
     sellsFood: !!b.sellsFood,
+    fssai: b.sellsFood ? normalizeFssai(b.fssai) || undefined : undefined,
     upiId: b.upiId.trim(),
     upiVerified: false,
     // Her own bank's QR, if she photographed it during registration. It is
@@ -339,6 +345,93 @@ sellersRouter.patch('/me', requireRole('seller'), (req, res) => {
   db.sellers[i] = next
   save()
   res.json({ seller: next })
+})
+
+/* ------------------------------------------------------------------ */
+/* Closing the account                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * She asked for her account to be deleted.
+ *
+ * Three things have to be true before anything happens, and the server checks
+ * all three however carefully the app already did: a reason, the last four
+ * digits of her own number, and no order still in flight. The last one is not
+ * a formality - a buyer waiting on a delivery cannot be left holding an order
+ * whose seller has vanished, so the answer names the orders and she finishes
+ * or cancels them with the buttons she already has.
+ *
+ * What this does NOT do is erase her. That is a week away - see
+ * `db/accountClose.ts` - and every screen tells her so.
+ */
+sellersRouter.post('/me/close', requireRole('seller'), (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.auth!.sellerId)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found' })
+    return
+  }
+
+  const reason = String(req.body?.reason ?? '')
+  const note = req.body?.note === undefined ? undefined : String(req.body.note).trim()
+
+  const reasonProblem = closeReasonProblem(reason, note)
+  if (reasonProblem) {
+    res.status(400).json({ error: 'Reason required', messageMr: reasonProblem, fields: { reason: reasonProblem } })
+    return
+  }
+
+  const digitsProblem = confirmProblem(seller.phone, req.body?.confirm)
+  if (digitsProblem) {
+    res.status(400).json({ error: 'Confirmation failed', messageMr: digitsProblem, fields: { confirm: digitsProblem } })
+    return
+  }
+
+  const open = openOrdersForSeller(db, seller.id)
+  if (open.length > 0) {
+    res.status(409).json({
+      error: 'Open orders',
+      messageMr: 'सुरू असलेली ऑर्डर आधी पूर्ण करा किंवा रद्द करा. त्यानंतर खाते बंद करता येईल.',
+      openOrders: open.map((o) => ({ id: o.id, status: o.status })),
+    })
+    return
+  }
+
+  requestSellerClose(db, seller, { reason, note })
+  recordAuthEvent(db, {
+    type: 'session.end', subject: maskPhone(seller.phone), role: 'seller',
+    ip: callerIp(req), detail: 'account.close',
+  })
+  save()
+  res.json({ ok: true, closingAt: seller.closingAt })
+})
+
+/**
+ * She changed her mind inside the week.
+ *
+ * Reached by signing in again, which is the whole point: the person who can
+ * stop it is the person who can still pass an OTP on that number.
+ */
+sellersRouter.post('/me/restore', requireRole('seller'), (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.auth!.sellerId)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found' })
+    return
+  }
+  if (seller.status !== 'CLOSED' || !seller.closingAt) {
+    // Already erased, or never closing. Either way there is nothing to undo,
+    // and saying so beats pretending an empty record came back.
+    res.status(409).json({
+      error: 'Not closing',
+      messageMr: 'हे खाते बंद होत नाही आहे.',
+    })
+    return
+  }
+
+  restoreSeller(seller)
+  save()
+  res.json({ seller })
 })
 
 /* ------------------------------------------------------------------ */

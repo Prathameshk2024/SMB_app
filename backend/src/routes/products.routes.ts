@@ -2,11 +2,11 @@ import { Router } from 'express'
 import type { Product } from '@shared/types.js'
 import {
   MAX_EDITS, countsAsEdit, editsAreLimited, editsLeft, initialListingStatus,
-  sellerMayDelete, slotInfo,
+  fssaiProblem, normalizeFssai, sellerMayDelete, sizeProblems, slotInfo,
 } from '@shared/seller.js'
 import { getDb, newId, save } from '../db/store.js'
 import { requireRole } from '../middleware/auth.js'
-import { purgeArchived, purgeExpiredRejections } from '../db/moderation.js'
+import { purgeArchived, purgeRejected } from '../db/moderation.js'
 import { isExpired, subscriptionView } from '@shared/subscription.js'
 import { destroyImage } from './uploads.routes.js'
 
@@ -24,10 +24,17 @@ function listingProblems(b: Partial<Product>): Record<string, string> {
   if (!b.name?.trim()) fields.name = 'उत्पादनाचे नाव आवश्यक आहे'
   if (!b.categoryId) fields.categoryId = 'प्रकार निवडा'
   if (!b.price || Number(b.price) <= 0) fields.price = 'किंमत टाका'
+  // How much one of these IS. A price without it cannot be compared with the
+  // shop next door - see sizeProblems in shared/src/seller.ts.
+  Object.assign(fields, sizeProblems(b))
 
   if (b.isFood) {
     if (!b.ingredients?.trim()) fields.ingredients = 'यात काय आहे ते सांगा'
     if (!b.vegType) fields.vegType = 'शाकाहारी की मांसाहारी ते निवडा'
+    // Never required - most home kitchens are under the threshold - but a
+    // number that cannot be a licence is refused rather than published.
+    const fssai = fssaiProblem(b.fssai)
+    if (fssai) fields.fssai = fssai
   } else if (!b.material?.trim()) {
     fields.material = 'कोणत्या वस्तूपासून बनवले ते सांगा'
   }
@@ -40,7 +47,7 @@ productsRouter.get('/mine', requireRole('seller'), (req, res) => {
   // A rejection she has already had 48 hours to read is gone by now. Swept on
   // read as well as on the timer, so her list and the server never disagree.
   // `purgeArchived` clears tombstones from before deleting meant deleting.
-  if (purgeExpiredRejections(db.products) + purgeArchived(db.products)) save()
+  if (purgeRejected(db.products) + purgeArchived(db.products)) save()
   const sellerId = req.auth!.sellerId!
   const products = db.products.filter((p) => p.sellerId === sellerId)
   const seller = db.sellers.find((s) => s.id === sellerId)!
@@ -113,10 +120,13 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
     // Stamped from her seller record - one source of truth.
     ingredients: b.isFood ? b.ingredients : undefined,
     vegType: b.isFood ? b.vegType : undefined,
+    fssai: b.isFood ? normalizeFssai(b.fssai) || undefined : undefined,
     material: b.isFood ? undefined : b.material,
     price: Number(b.price ?? 0),
     mrp: Number(b.mrp ?? 0),
     unit: b.unit ?? 'piece',
+    packSize: Number(b.packSize) > 0 ? Number(b.packSize) : undefined,
+    piecesPerPack: Number(b.piecesPerPack) > 0 ? Number(b.piecesPerPack) : undefined,
     stock: b.madeToOrder ? 0 : Number(b.stock ?? 0),
     madeToOrder: !!b.madeToOrder,
     // PENDING, never LIVE - see initialListingStatus. An admin publishes it.
@@ -142,12 +152,35 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
 
   const allowed = [
     'name', 'nameEn', 'emoji', 'categoryId', 'price', 'mrp', 'unit', 'stock',
+    'packSize', 'piecesPerPack', 'fssai',
     'madeToOrder', 'ingredients', 'vegType', 'material',
     'imageUrl', 'imagePublicId',
   ] as const
 
   const patch: Record<string, unknown> = {}
   for (const key of allowed) if (key in req.body) patch[key] = req.body[key]
+
+  /**
+   * The licence number is checked on the way in HERE too, not only when a
+   * listing is first submitted.
+   *
+   * `listingProblems` runs on a submission, so without this an edit was the
+   * way round it: a live listing could be given "oops" as its FSSAI number
+   * and publish it to buyers as if somebody had looked. Blank still clears
+   * it - a woman whose licence lapsed must be able to take the number down.
+   */
+  if ('fssai' in patch) {
+    const problem = fssaiProblem(patch.fssai)
+    if (problem) {
+      res.status(400).json({
+        error: 'Invalid FSSAI number',
+        messageMr: problem,
+        fields: { fssai: problem },
+      })
+      return
+    }
+    patch.fssai = normalizeFssai(patch.fssai) || undefined
+  }
 
   const current = db.products[i]!
 

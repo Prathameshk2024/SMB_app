@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Category, Unit } from '@shared/types.js'
-import { slotInfo } from '@shared/seller.js'
+import { needsPieceCount, slotInfo } from '@shared/seller.js'
+import { sizeLabel } from '../../lib/productSize.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { useAuth } from '../../store/AuthContext.js'
 import { api, ApiError } from '../../lib/api.js'
@@ -176,7 +177,13 @@ export default function UploadProduct() {
         e.material = t('common.required')
       }
     }
-    if (which === 'price' && (!d.price || Number(d.price) <= 0)) e.price = t('common.required')
+    if (which === 'price') {
+      if (!d.price || Number(d.price) <= 0) e.price = t('common.required')
+      if (!d.packSize || Number(d.packSize) <= 0) e.packSize = t('common.required')
+      if (needsPieceCount(d.unit) && (!d.piecesPerPack || Number(d.piecesPerPack) <= 0)) {
+        e.piecesPerPack = t('common.required')
+      }
+    }
     // Made-to-order is an answer, so it satisfies the question. A woman who
     // cooks each order fresh has no shelf to count.
     if (which === 'stock' && !d.madeToOrder && d.stock === '') e.stock = t('common.required')
@@ -223,6 +230,8 @@ export default function UploadProduct() {
         price: Number(d.price),
         mrp: Number(d.mrp) || 0,
         unit: d.unit,
+        packSize: Number(d.packSize) || undefined,
+        piecesPerPack: needsPieceCount(d.unit) ? Number(d.piecesPerPack) || undefined : undefined,
         stock: d.madeToOrder ? 0 : Number(d.stock),
         madeToOrder: d.madeToOrder,
         asDraft,
@@ -407,6 +416,48 @@ export default function UploadProduct() {
                 ))}
               </div>
             </Field>
+
+            {/* The size the price is FOR. Asked next to the unit she has just
+                chosen, so the two read as one answer: "500" then "ग्रॅम". */}
+            <Field
+              label={t('prod.packSize')}
+              hint={t('prod.packSizeHint')}
+              error={errors.packSize}
+              required
+              htmlFor="packSize"
+            >
+              <div className="row" style={{ gap: 'var(--s2)' }}>
+                <TextInput
+                  id="packSize"
+                  inputMode="numeric"
+                  value={d.packSize}
+                  error={!!errors.packSize}
+                  onChange={(e) => set('packSize', e.target.value.replace(/\D/g, ''))}
+                  placeholder="500"
+                />
+                <strong style={{ flex: 'none' }}>{t(`unit.${d.unit}`)}</strong>
+              </div>
+            </Field>
+
+            {/* A set of four ladoos and a set of twenty are the same word. */}
+            {needsPieceCount(d.unit) && (
+              <Field
+                label={t('prod.piecesPerPack')}
+                hint={t('prod.piecesPerPackHint')}
+                error={errors.piecesPerPack}
+                required
+                htmlFor="piecesPerPack"
+              >
+                <TextInput
+                  id="piecesPerPack"
+                  inputMode="numeric"
+                  value={d.piecesPerPack}
+                  error={!!errors.piecesPerPack}
+                  onChange={(e) => set('piecesPerPack', e.target.value.replace(/\D/g, ''))}
+                  placeholder="6"
+                />
+              </Field>
+            )}
           </>
         )}
 
@@ -475,7 +526,16 @@ export default function UploadProduct() {
                   <strong style={{ fontSize: 'var(--t-md)' }}>{d.name}</strong>
                   <div className="row" style={{ gap: 8 }}>
                     <strong style={{ fontSize: 'var(--t-lg)' }}><Rupees value={Number(d.price)} /></strong>
-                    <span className="small dim">/ {t(`unit.${d.unit}`)}</span>
+                    <span className="small dim">
+                      / {sizeLabel(
+                        {
+                          unit: d.unit,
+                          packSize: Number(d.packSize) || undefined,
+                          piecesPerPack: Number(d.piecesPerPack) || undefined,
+                        },
+                        t,
+                      )}
+                    </span>
                   </div>
                   {d.isFood && d.vegType && (
                     <span className={`pill pill--${d.vegType === 'veg' ? 'ok' : 'danger'}`}>

@@ -1,5 +1,5 @@
 import type {
-  Category, Customer, Order, Product, Review, Seller, SubscriptionPayment,
+  Category, Complaint, Customer, Order, Product, Report, Review, Seller, SubscriptionPayment,
 } from '@shared/types.js'
 import { computeReadiness, readinessBand } from '@shared/readiness.js'
 import type { DigitalProfile } from '@shared/types.js'
@@ -14,6 +14,10 @@ export interface Db {
   customers: Customer[]
   /** Buyers' feedback on delivered orders. Never seeded - see `seed()`. */
   reviews: Review[]
+  /** Buyers flagging a listing or a review. Never seeded. */
+  reports: Report[]
+  /** What sellers and buyers have written to the desk. Never seeded. */
+  complaints: Complaint[]
   /**
    * The auth collections. They live in the same store as everything else so
    * they get the same durability - a session that vanished on restart would
@@ -40,7 +44,7 @@ export interface Db {
 export function emptyDb(): Db {
   return {
     sellers: [], products: [], orders: [], payments: [], customers: [], reviews: [],
-    sessions: [], admins: [], authEvents: [],
+    reports: [], complaints: [], sessions: [], admins: [], authEvents: [],
   }
 }
 
@@ -52,6 +56,8 @@ export function withDefaults(raw: Partial<Db>): Db {
     payments: raw.payments ?? [],
     customers: raw.customers ?? [],
     reviews: raw.reviews ?? [],
+    reports: raw.reports ?? [],
+    complaints: raw.complaints ?? [],
     sessions: raw.sessions ?? [],
     admins: raw.admins ?? [],
     authEvents: raw.authEvents ?? [],
@@ -316,7 +322,7 @@ export function seed(): Db {
   // No seeded reviews either: invented praise in front of real customers is
   // the one thing feedback exists to rule out.
   return {
-    sellers, products, orders, payments, customers, reviews: [],
+    sellers, products, orders, payments, customers, reviews: [], reports: [], complaints: [],
     sessions: [], admins: [], authEvents: [],
   }
 }

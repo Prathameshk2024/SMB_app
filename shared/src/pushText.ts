@@ -35,7 +35,8 @@ export const PUSH_LINES: Record<PushLang, Record<string, string>> = {
     'notif.adm.BLOCKED': 'तुमचे दुकान सध्या बंद केले आहे',
     'notif.adm.UNBLOCKED': 'तुमचे दुकान पुन्हा सुरू झाले आहे',
     'notif.adm.PRODUCT_APPROVED': 'तुमचे उत्पादन मंजूर झाले आणि आता दिसत आहे',
-    'notif.adm.PRODUCT_REJECTED': 'तुमचे उत्पादन मंजूर झाले नाही — {n} तासांनी ते काढून टाकले जाईल',
+    'notif.adm.PRODUCT_REJECTED': 'तुमचे उत्पादन मंजूर झाले नाही आणि काढून टाकले आहे',
+    'notif.reasonLabel': 'कारण',
     'notif.adm.SUBSCRIPTION_RENEWED': 'नूतनीकरण मंजूर झाले — तुमचे दुकान {date} पर्यंत सुरू राहील',
     // Lifted from 'cancel.sel.q3Paid' and 'refund.claimedBody' - see the test.
     'push.paid.title': 'ग्राहकाने या ऑर्डरसाठी ₹{total} भरल्याचे कळवले आहे',
@@ -57,7 +58,8 @@ export const PUSH_LINES: Record<PushLang, Record<string, string>> = {
     'notif.adm.BLOCKED': 'Your shop has been closed for now',
     'notif.adm.UNBLOCKED': 'Your shop is open again',
     'notif.adm.PRODUCT_APPROVED': 'Your product was approved and is live',
-    'notif.adm.PRODUCT_REJECTED': 'Your product was not approved - it will be removed in {n} hours',
+    'notif.adm.PRODUCT_REJECTED': 'Your product was not approved and has been removed',
+    'notif.reasonLabel': 'Reason',
     'notif.adm.SUBSCRIPTION_RENEWED': 'Renewal approved - your shop is open until {date}',
     'push.paid.title': 'The customer says they have paid ₹{total} for this order',
     'push.paid.body': 'Check your UPI app to see whether it arrived.',
@@ -142,9 +144,15 @@ export function adminNoticePush(notice: AdminNotice, lang: PushLang): PushText {
   if (notice.kind === 'SUBSCRIPTION_RENEWED') {
     return { title: line(lang, 'notif.adm.SUBSCRIPTION_RENEWED', { date: shortDate(notice.note) }), body: '', path }
   }
+  // "dustbin" and "कारण: Invalid" are two facts; joined by a hyphen they read
+  // as one strange product name. An older notice has no subject and carries
+  // both in `note`, which is printed as it stands.
+  const body = notice.subject && notice.note
+    ? `${notice.subject} · ${line(lang, 'notif.reasonLabel')}: ${notice.note}`
+    : notice.subject ?? notice.note ?? ''
   return {
     title: line(lang, `notif.adm.${notice.kind}`, notice.n == null ? {} : { n: notice.n }),
-    body: notice.note ?? '',
+    body,
     path,
   }
 }

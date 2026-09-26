@@ -1,7 +1,6 @@
 import { Router, type Request } from 'express'
 import type { AdminStats, ReadinessBand } from '@shared/types.js'
 import { PLAN, countUsedSlots, slotInfo } from '@shared/seller.js'
-import { REJECT_GRACE_HOURS } from '@shared/moderation.js'
 import { allChecksDone } from '@shared/payment.js'
 import { BAND_LABEL } from '@shared/readiness.js'
 import { summarizeReviews } from '@shared/review.js'
@@ -13,8 +12,8 @@ import { getDb, save } from '../db/store.js'
 import { documentCount, startsWithinFreeReads } from '../db/firestore.js'
 import { sellerStatusAfterReject } from '../db/payments.js'
 import { appendNotice as notifySeller } from '../db/notices.js'
-import { purgeExpiredRejections } from '../db/moderation.js'
 import { requireRole } from '../middleware/auth.js'
+import { destroyImage } from './uploads.routes.js'
 
 /**
  * ADMIN API - BACKEND ONLY.
@@ -316,14 +315,50 @@ adminRouter.post('/sellers/:id/revoke-slots', (req, res) => {
 
 adminRouter.get('/products', (req, res) => {
   const db = getDb()
-  // Swept here too, not only on the hourly timer: the list an admin reads must
-  // not offer a row the next request would refuse to act on.
-  if (purgeExpiredRejections(db.products)) save()
   const status = (req.query.status as string) ?? 'PENDING'
-  const list = db.products
-    .filter((p) => (status === 'ALL' ? true : p.status === status))
-    .map((p) => ({ ...p, seller: db.sellers.find((s) => s.id === p.sellerId) }))
-  res.json({ products: list })
+
+  const open = db.reports.filter((r) => !r.reviewedAt)
+  const reportsFor = (id: string) => open.filter((r) => r.targetId === id)
+
+  /**
+   * REPORTED is not a product status, it is a queue.
+   *
+   * A listing a buyer has flagged is still LIVE - nothing hides on a report
+   * alone, or one annoyed person could empty a woman's shop. It joins this
+   * list so an admin can look, and leaves it when they either take the
+   * listing down or close the reports.
+   */
+  const list = (status === 'REPORTED'
+    ? db.products.filter((p) => reportsFor(p.id).length > 0)
+    : db.products.filter((p) => (status === 'ALL' ? true : p.status === status))
+  ).map((p) => ({
+    ...p,
+    seller: db.sellers.find((s) => s.id === p.sellerId),
+    reports: reportsFor(p.id),
+  }))
+
+  res.json({ products: list, reportedCount: new Set(open.map((r) => r.targetId)).size })
+})
+
+/**
+ * Looked at, and the listing stays. The reports are closed rather than
+ * deleted: "three people complained and an admin disagreed" is a different
+ * fact from "nobody ever complained", and the next report starts a new row.
+ */
+adminRouter.post('/products/:id/clear-reports', (req, res) => {
+  const db = getDb()
+  const now = new Date().toISOString()
+  const by = verifierName(db, req)
+  let closed = 0
+  for (const r of db.reports) {
+    if (r.targetId === req.params.id && !r.reviewedAt) {
+      r.reviewedAt = now
+      r.reviewedBy = by
+      closed++
+    }
+  }
+  if (closed) save()
+  res.json({ ok: true, closed })
 })
 
 adminRouter.post('/products/:id/moderate', (req, res) => {
@@ -354,37 +389,83 @@ adminRouter.post('/products/:id/moderate', (req, res) => {
     return
   }
 
-  // Rejecting the same product twice would restart its 48 hours, which is how
-  // a listing stays in limbo forever. Say so instead.
-  if (!approve && product.status === 'REJECTED') {
-    res.status(409).json({
-      error: 'Already rejected',
-      messageMr: 'हे उत्पादन आधीच नाकारले आहे',
-    })
+  /**
+   * A REJECTION IS A REMOVAL, THE MOMENT IT IS MADE.
+   *
+   * A rejected listing used to sit in her app for 48 hours before a sweeper
+   * took it, so that she could read the reason on the row itself. Since a
+   * rejection frees her slot immediately, that left a dead listing occupying
+   * her screen - and next to it the new one she had already put in its place.
+   * Two listings for one slot, one of them refused, is not a grace period; it
+   * is clutter she cannot clear.
+   *
+   * The reason still reaches her, on the notice below, which is where she
+   * reads every other admin decision. It is not lost with the row.
+   */
+  const owner = db.sellers.find((s) => s.id === product.sellerId)
+
+  if (!approve) {
+    db.products.splice(db.products.indexOf(product), 1)
+    // Its reports go with it: they are about a listing that no longer exists.
+    for (let i = db.reports.length - 1; i >= 0; i--) {
+      if (db.reports[i]!.targetId === product.id) db.reports.splice(i, 1)
+    }
+    // Best effort and not awaited: the record is already gone and an image
+    // left behind is a smaller problem than a decision that appears to hang.
+    // This is the last moment we know the public id.
+    void destroyImage(product.imagePublicId)
+    if (owner) {
+      notifySeller(owner, 'PRODUCT_REJECTED', { subject: product.name, note: reason })
+    }
+    save()
+    res.json({ product: { ...product, status: 'REJECTED', rejectReason: reason } })
     return
   }
 
-  // Rejecting - a new submission or a live listing taken down - is what frees
-  // her slot, immediately: REJECTED is not in SLOT_CONSUMING. She cannot free
-  // one herself.
-  product.status = approve ? 'LIVE' : 'REJECTED'
-  product.rejectReason = approve ? undefined : reason
-  // The clock the automatic removal runs on. Cleared on approval, so a product
-  // rejected once and then approved is not carrying a deadline any more.
-  product.rejectedAt = approve ? undefined : new Date().toISOString()
+  product.status = 'LIVE'
+  product.rejectReason = undefined
+  product.rejectedAt = undefined
 
-  // She is told about her own product by name: "which one?" is the first thing
-  // she asks, and the id on the row means nothing to her. A rejection also
-  // carries the number of hours before it disappears.
-  const owner = db.sellers.find((s) => s.id === product.sellerId)
-  if (owner) {
-    notifySeller(owner, approve ? 'PRODUCT_APPROVED' : 'PRODUCT_REJECTED', {
-      note: approve ? product.name : `${product.name} - ${reason}`,
-      n: approve ? undefined : REJECT_GRACE_HOURS,
-    })
-  }
+  // She is told about her own product by name: "which one?" is the first
+  // thing she asks, and the id on the row means nothing to her.
+  if (owner) notifySeller(owner, 'PRODUCT_APPROVED', { subject: product.name })
+
   save()
   res.json({ product })
+})
+
+/* ------------------------------------------------------------------ */
+/* Complaints                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What sellers and buyers have written from Help & Training, newest first.
+ * Open ones by default: this is a queue to work through, not an archive.
+ */
+adminRouter.get('/complaints', (req, res) => {
+  const db = getDb()
+  const status = (req.query.status as string) ?? 'OPEN'
+  const list = db.complaints
+    .filter((c) => (status === 'ALL' ? true : status === 'RESOLVED' ? !!c.resolvedAt : !c.resolvedAt))
+    .sort((a, b) => b.at.localeCompare(a.at))
+  res.json({ complaints: list, openCount: db.complaints.filter((c) => !c.resolvedAt).length })
+})
+
+/**
+ * Dealt with. Who did it is stored for the same reason it is on a payment:
+ * "who answered this woman?" has to be answerable months later.
+ */
+adminRouter.post('/complaints/:id/resolve', (req, res) => {
+  const db = getDb()
+  const complaint = db.complaints.find((c) => c.id === req.params.id)
+  if (!complaint) {
+    res.status(404).json({ error: 'Not found', messageMr: 'ही तक्रार सापडली नाही' })
+    return
+  }
+  complaint.resolvedAt = new Date().toISOString()
+  complaint.resolvedBy = verifierName(db, req)
+  save()
+  res.json({ complaint })
 })
 
 /* ------------------------------------------------------------------ */
@@ -425,13 +506,19 @@ adminRouter.get('/orders', (req, res) => {
  */
 adminRouter.get('/reviews', (req, res) => {
   const db = getDb()
-  const { sellerId, maxRating, hidden } = req.query as Record<string, string | undefined>
+  const { sellerId, maxRating, hidden, reported } = req.query as Record<string, string | undefined>
+
+  const open = db.reports.filter((r) => r.targetType === 'review' && !r.reviewedAt)
+  const reportsFor = (id: string) => open.filter((r) => r.targetId === id)
 
   let list = [...db.reviews]
   if (sellerId) list = list.filter((r) => r.sellerId === sellerId)
   if (maxRating) list = list.filter((r) => r.rating <= Number(maxRating))
   if (hidden === 'true') list = list.filter((r) => r.hidden)
   if (hidden === 'false') list = list.filter((r) => !r.hidden)
+  // Reported reviews are a queue like reported listings: flagging one hides
+  // nothing by itself, it puts it in front of somebody who can decide.
+  if (reported === 'true') list = list.filter((r) => reportsFor(r.id).length > 0)
 
   const sellerById = new Map(db.sellers.map((s) => [s.id, s]))
   res.json({
@@ -441,9 +528,32 @@ adminRouter.get('/reviews', (req, res) => {
         ...r,
         seller: sellerById.get(r.sellerId)?.shopName,
         womenBizId: sellerById.get(r.sellerId)?.womenBizId,
+        reports: reportsFor(r.id),
       })),
     summary: summarizeReviews(list),
+    reportedCount: new Set(open.map((r) => r.targetId)).size,
   })
+})
+
+/**
+ * Looked at, and the review stays. Same decision as closing a listing's
+ * reports: hiding a buyer's words because somebody objected to them is a
+ * judgement, not an automatic consequence of being reported.
+ */
+adminRouter.post('/reviews/:id/clear-reports', (req, res) => {
+  const db = getDb()
+  const now = new Date().toISOString()
+  const by = verifierName(db, req)
+  let closed = 0
+  for (const r of db.reports) {
+    if (r.targetId === req.params.id && !r.reviewedAt) {
+      r.reviewedAt = now
+      r.reviewedBy = by
+      closed++
+    }
+  }
+  if (closed) save()
+  res.json({ ok: true, closed })
 })
 
 /**
