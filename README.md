@@ -69,7 +69,9 @@ several required settings are not the platform defaults.
 The APK is not built from this repo. It is a separate Expo project, a React
 Native WebView whose one screen loads the deployed `frontend/` from Vercel, so
 deploying `frontend/` updates the app on every phone. Rebuild the APK only when
-the wrapper itself changes. See
+the wrapper itself changes. Its source is
+[`Prathameshk2024/Android_app`](https://github.com/Prathameshk2024/Android_app),
+branch `sub-main`. See
 [`docs/DEPLOY.md`](docs/DEPLOY.md#6-the-android-build).
 
 ## Further reading

@@ -388,13 +388,23 @@ passes:
 ## 6. The Android build
 
 The APK is **not built from this repo**. It is a React Native WebView: an Expo
-project (SDK 54) kept in its own folder, `appgold-main`, where `app/index.tsx`
-is the whole app. Its one screen loads the production deployment of Vercel
-project 1 over the network:
+project (SDK 54) where `app/index.tsx` is the whole app. Its one screen loads
+the production deployment of Vercel project 1 over the network:
 
 ```
 https://shantai-mahila-bajar-app-frontend.vercel.app/
 ```
+
+**Build from `https://github.com/Prathameshk2024/Android_app`, branch
+`sub-main`** (checked 26 September 2026). It is the only copy with both push
+notifications and the navigation fixes below. The other copies are older and
+must not be built from:
+
+| Copy | What it lacks |
+|---|---|
+| `Prathameshk2024/Android_app` `main` | Back via `window.history.back()`, reopening on the last page, the sideways-drift fix |
+| `ArpitaHanjagi/Android_App` | Push notifications entirely |
+| a local `appgold-main` folder (named here before) | Superseded by the repos above |
 
 What follows from that:
 
@@ -418,12 +428,21 @@ display the page:
 - Any URL containing `.pdf`, `.csv`, `.xlsx`, `.xls`, `.doc`, `.txt`, `.zip`,
   `download=`, `export=` or `attachment=` goes to a native downloader instead of
   loading. A page link that merely contains one of those never opens in the app.
-  **"Save QR to phone" depends on this**: inside the APK it opens
-  `/api/qr/upi.png?download=1&…`, and this rule is what saves the picture.
-  Changing the rule in the wrapper breaks QR saving.
-- Android Back walks the WebView's history, so it behaves like browser Back.
-- The Android permissions the site relies on — `RECORD_AUDIO` for voice input
-  among them — are declared in the wrapper's `app.json`.
+  Nothing in the site triggers a download inside the APK any more — the "Save
+  QR to phone" button that relied on this was removed.
+- **Android Back runs `window.history.back()` in the page**, never the
+  WebView's native `goBack()`. Native `goBack()` does not reliably keep
+  `window.history.state`; React Router then falls back to the key `"default"`
+  and the site's scroll memory breaks — Back lands at the top of the catalogue.
+- **It reopens on the last page.** An allow-list of routes (`RESTORABLE_ROUTES`)
+  is saved as she moves; checkout, payment and the upload wizard are never
+  restored. After a cold launch on a deep page, Back steps up to `/shop` or
+  `/seller` once, then exits. A tapped notification's page outranks the saved
+  one.
+- **It injects `overscroll-behavior-x: none`** so the product carousels stop
+  dragging the whole page sideways. Never add an `overflow` rule to `<html>`
+  there: it turns `<body>` into the scroll container, `window.scrollY` reads 0
+  for ever, and scroll restoration stops working.
 
 A web API that works in Chrome is not guaranteed there (`navigator.share` is
 absent), so anything that touches the phone has to be tried inside the APK —
@@ -435,6 +454,54 @@ release build type is currently signed with the debug keystore
 (`android/app/build.gradle`), which the Play Store refuses; a Play listing
 needs its own upload keystore first, and the package name
 (`com.siddharam_sutar.mywebviewapp`) cannot change after the first upload.
+The wrapper's own error pop-ups ("WebView error", "UPI App Not Found") are
+still in English.
+
+### Permissions
+
+Declared in both the wrapper's `app.json` and its committed
+`android/app/src/main/AndroidManifest.xml`. As of `sub-main` on 26 September
+2026:
+
+| Permission | Why | What to do |
+|---|---|---|
+| `INTERNET` | The whole app | Keep |
+| `RECORD_AUDIO` (listed twice) | Voice typing | Keep once |
+| `CAMERA` | Nothing uses the camera | **Keep, on purpose** — see below |
+| `ACCESS_BACKGROUND_LOCATION` | Nothing | **Remove before any Play submission.** Play demands a declaration and a video for it and rejects apps that cannot justify it |
+| `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` | Nothing — the site never asks for location | Remove |
+| `SYSTEM_ALERT_WINDOW` in the main manifest | Nothing | Remove; it belongs only in the debug manifests, where it already is |
+| `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` | Only a fallback download path; no effect on Android 13+ | Remove |
+| `VIBRATE` | Nothing | Harmless |
+| `POST_NOTIFICATIONS` | Push on Android 13+ | Not declared in the repo; expected from the Firebase Messaging library's manifest at build time. **Check the built APK** |
+
+**`CAMERA` decides what the photo picker offers.** `react-native-webview`
+(13.16, `needsCameraPermission`) offers a "take photo" choice beside the
+gallery only when `CAMERA` is *not* declared, or is declared and granted.
+Declared and never granted — the current state — gives the gallery alone,
+which is the product rule. Removing `CAMERA` therefore *adds* camera capture.
+
+**Who asks for what, and when:**
+
+- **Notifications:** Android's prompt, raised by the wrapper when the page
+  sends `push:enable` — so after a seller or buyer signs in, never on the
+  landing page. Android 12 and older has no prompt. A refusal is currently
+  invisible: the wrapper simply stops, and after two refusals Android stops
+  asking. Nothing tells her or sends her to Settings.
+- **Microphone:** the wrapper never requests it at runtime.
+  `react-native-webview` asks Android only for `getUserMedia`, which the Web
+  Speech API may not use. Test on a fresh install; if the mic reports
+  "denied", calling `getUserMedia({ audio: true })` once before starting
+  recognition raises the real prompt without a new APK.
+- **Clipboard, gallery, background running:** nothing to ask. The site only
+  writes to the clipboard, Android's photo picker needs no permission, and
+  FCM delivers to a closed app.
+
+To change a permission, edit `app.json` and the manifest identically, or edit
+`app.json` and prebuild (never `--clean`, see below). Libraries merge in their
+own, so confirm the result on the built APK with
+`aapt dump permissions app-release.apk`; `android.blockedPermissions` in
+`app.json` removes one a library added.
 
 ### Push notifications
 
