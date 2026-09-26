@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { Product } from '@shared/types.js'
 import {
   MAX_EDITS, countsAsEdit, editsAreLimited, editsLeft, initialListingStatus,
-  sellerMayDelete, sizeProblems, slotInfo,
+  fssaiProblem, normalizeFssai, sellerMayDelete, sizeProblems, slotInfo,
 } from '@shared/seller.js'
 import { getDb, newId, save } from '../db/store.js'
 import { requireRole } from '../middleware/auth.js'
@@ -31,6 +31,10 @@ function listingProblems(b: Partial<Product>): Record<string, string> {
   if (b.isFood) {
     if (!b.ingredients?.trim()) fields.ingredients = 'यात काय आहे ते सांगा'
     if (!b.vegType) fields.vegType = 'शाकाहारी की मांसाहारी ते निवडा'
+    // Never required - most home kitchens are under the threshold - but a
+    // number that cannot be a licence is refused rather than published.
+    const fssai = fssaiProblem(b.fssai)
+    if (fssai) fields.fssai = fssai
   } else if (!b.material?.trim()) {
     fields.material = 'कोणत्या वस्तूपासून बनवले ते सांगा'
   }
@@ -116,6 +120,7 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
     // Stamped from her seller record - one source of truth.
     ingredients: b.isFood ? b.ingredients : undefined,
     vegType: b.isFood ? b.vegType : undefined,
+    fssai: b.isFood ? normalizeFssai(b.fssai) || undefined : undefined,
     material: b.isFood ? undefined : b.material,
     price: Number(b.price ?? 0),
     mrp: Number(b.mrp ?? 0),
@@ -147,13 +152,35 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
 
   const allowed = [
     'name', 'nameEn', 'emoji', 'categoryId', 'price', 'mrp', 'unit', 'stock',
-    'packSize', 'piecesPerPack', 
+    'packSize', 'piecesPerPack', 'fssai',
     'madeToOrder', 'ingredients', 'vegType', 'material',
     'imageUrl', 'imagePublicId',
   ] as const
 
   const patch: Record<string, unknown> = {}
   for (const key of allowed) if (key in req.body) patch[key] = req.body[key]
+
+  /**
+   * The licence number is checked on the way in HERE too, not only when a
+   * listing is first submitted.
+   *
+   * `listingProblems` runs on a submission, so without this an edit was the
+   * way round it: a live listing could be given "oops" as its FSSAI number
+   * and publish it to buyers as if somebody had looked. Blank still clears
+   * it - a woman whose licence lapsed must be able to take the number down.
+   */
+  if ('fssai' in patch) {
+    const problem = fssaiProblem(patch.fssai)
+    if (problem) {
+      res.status(400).json({
+        error: 'Invalid FSSAI number',
+        messageMr: problem,
+        fields: { fssai: problem },
+      })
+      return
+    }
+    patch.fssai = normalizeFssai(patch.fssai) || undefined
+  }
 
   const current = db.products[i]!
 

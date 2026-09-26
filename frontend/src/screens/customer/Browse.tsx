@@ -367,6 +367,13 @@ export function ProductDetail() {
           )
         )}
 
+        {/* Printed for the buyer because that is the point of having one:
+            a number she can check against the FSSAI register. Only shown
+            when the seller gave one. */}
+        {product.isFood && product.fssai && (
+          <div className="small dim num">{t('prod.fssai')}: {product.fssai}</div>
+        )}
+
         {seller && (
           <Notice tone="info">
             {/* ₹0 read as "free"; nobody set it (see CartContext). */}

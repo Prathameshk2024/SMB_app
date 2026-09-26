@@ -392,6 +392,14 @@ export interface Product {
   // food only - all four are required when isFood is true
   ingredients?: string
   vegType?: 'veg' | 'nonveg'
+  /**
+   * Her FSSAI licence number, if she has one. OPTIONAL and staying that way:
+   * most women here cook at home and are below the registration threshold, and
+   * a required licence number would shut them out of the market this exists
+   * to open. The ones who do have it gain by showing it, which is why it is
+   * asked at all - and only on food, where it means anything.
+   */
+  fssai?: string
 
   // non-food only
   material?: string

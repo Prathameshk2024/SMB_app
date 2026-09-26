@@ -745,6 +745,8 @@ const mr: Record<string, string> = {
   'grow.needMoreData': 'अजून माहिती कमी आहे',
   'grow.needMoreDataSub': 'पहिले ऑर्डर आल्यावर तुमचा आलेख इथे दिसेल',
 
+  'prod.fssai': 'FSSAI क्रमांक',
+  'prod.fssaiHint': 'अन्न परवाना असेल तर लिहा. नसेल तरी उत्पादन टाकता येईल.',
   'prod.packSize': 'एका नगात किती?',
   'prod.packSizeHint': 'किंमत कशासाठी आहे ते सांगा. उदा. 500 ग्रॅम, 1 लिटर.',
   'prod.piecesPerPack': 'एका सेटमध्ये किती नग?',
@@ -1485,6 +1487,8 @@ const en: Record<string, string> = {
   'grow.needMoreData': 'Not enough information yet',
   'grow.needMoreDataSub': 'Your chart will appear here after your first order',
 
+  'prod.fssai': 'FSSAI number',
+  'prod.fssaiHint': 'Write it if you have a food licence. You can list without one.',
   'prod.packSize': 'How much is one?',
   'prod.packSizeHint': 'Say what the price is for. For example 500 g, or 1 litre.',
   'prod.piecesPerPack': 'How many in one set?',
