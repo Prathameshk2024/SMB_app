@@ -54,6 +54,16 @@ Security practices:
 
 ## Other declarations
 
+- **Developer:** a personal Play account with the developer name **Team Zenith**,
+  registered to Sampanna Rajesh Nampalli, publishing for the college. The
+  privacy policy's "Who we are" section (`frontend/src/legal/en.ts`, `mr.ts`)
+  names both, because Play expects the policy to name the developer on the
+  listing. Change one, change the other.
+- **Package name:** `in.shantai.mahilabazar`, fixed at the first upload.
+- **Reviewer login:** the MSG91 widget's Demo Credentials number, `9579642050`,
+  which is sent no SMS. It is exempt from the three-a-day send ceiling
+  (`SEND_LIMIT_EXEMPT` in `backend/src/auth/rateLimit.ts`); change both if the
+  number changes.
 - **Target audience:** 18 and over. Not designed for children.
 - **Ads:** None.
 - **User-generated content:** Reviews. In-app reporting exists (Report on

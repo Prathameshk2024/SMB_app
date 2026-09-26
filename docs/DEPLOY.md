@@ -450,12 +450,14 @@ suite P of `docs/MANUAL-TEST-PLAN.md`.
 
 To build it, from the wrapper's folder: `npm install`, then
 `npm run android` (`expo run:android`) for a build on a connected phone. Its
-release build type is currently signed with the debug keystore
-(`android/app/build.gradle`), which the Play Store refuses; a Play listing
-needs its own upload keystore first, and the package name
-(`com.siddharam_sutar.mywebviewapp`) cannot change after the first upload.
-The wrapper's own error pop-ups ("WebView error", "UPI App Not Found") are
-still in English.
+release build is signed with the Play upload key when the four
+`SMB_UPLOAD_*` properties are set in `~/.gradle/gradle.properties`, and falls
+back to the debug key (which the Play Store refuses) when they are not — see
+the wrapper's README. The package name is `in.shantai.mahilabazar`, and it
+cannot change after the first upload. It replaced
+`com.siddharam_sutar.mywebviewapp` on 27 September 2026, before any upload;
+`in` is a Kotlin keyword, so the wrapper's two Kotlin files declare
+``package `in`.shantai.mahilabazar``.
 
 ### Permissions
 
@@ -512,7 +514,7 @@ it takes to turn a phone notification on:
   Firestore lives in — `npm run dev:api` prints the project id, and
   production is whichever project `FIREBASE_SERVICE_ACCOUNT` points at.
   ⚙ Project settings → General → Your apps → Add app → Android, package
-  name `com.siddharam_sutar.mywebviewapp` (exactly as in the wrapper's
+  name `in.shantai.mahilabazar` (exactly as in the wrapper's
   `app.json`), no SHA-1 needed. Download `google-services.json`. Under
   Project settings → Cloud Messaging, confirm "Firebase Cloud Messaging API
   (V1)" says Enabled — if not, enable it from the Google Cloud console
