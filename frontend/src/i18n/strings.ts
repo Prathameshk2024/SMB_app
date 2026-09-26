@@ -744,7 +744,6 @@ const mr: Record<string, string> = {
   'grow.repeatCustomers': 'परत आलेले ग्राहक',
   'grow.needMoreData': 'अजून माहिती कमी आहे',
   'grow.needMoreDataSub': 'पहिले ऑर्डर आल्यावर तुमचा आलेख इथे दिसेल',
-  'grow.shareMonth': 'ही माहिती पाठवा',
 
   'unit.kg': 'किलो', 'unit.g': 'ग्रॅम', 'unit.piece': 'नग', 'unit.dozen': 'डझन',
   'unit.litre': 'लिटर', 'unit.ml': 'मिली', 'unit.set': 'सेट',
@@ -1481,7 +1480,6 @@ const en: Record<string, string> = {
   'grow.repeatCustomers': 'Customers who came back',
   'grow.needMoreData': 'Not enough information yet',
   'grow.needMoreDataSub': 'Your chart will appear here after your first order',
-  'grow.shareMonth': 'Share this',
 
   'unit.kg': 'kg', 'unit.g': 'g', 'unit.piece': 'piece', 'unit.dozen': 'dozen',
   'unit.litre': 'litre', 'unit.ml': 'ml', 'unit.set': 'set',

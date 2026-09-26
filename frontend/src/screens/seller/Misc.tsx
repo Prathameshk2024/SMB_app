@@ -12,7 +12,7 @@ import {
 } from '../../components/ui.js'
 import {
   IconCall, IconCheck, IconDown, IconEdit, IconGrowth,
-  IconNext, IconPlus, IconQr, IconShare, IconUp, IconWaiting,
+  IconNext, IconPlus, IconQr, IconUp, IconWaiting,
   IconWhatsapp,
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
@@ -371,7 +371,6 @@ export function SellerGrowth() {
           </div>
         </Card>
 
-        <Button variant="ghost"><IconShare aria-hidden="true" /> {t('grow.shareMonth')}</Button>
       </div>
     </>
   )
