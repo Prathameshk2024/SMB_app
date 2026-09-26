@@ -341,7 +341,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-radius: var(--r);
   background: var(--surface);
 }
-.textarea { min-height: 72px; resize: vertical; }
+/* Fixed, like the seller app's. The drag handle in the corner invited an
+   admin to resize a box that is part of a form's layout, and a stretched one
+   pushed the buttons under it off the screen. Long text scrolls instead. */
+.textarea { min-height: 72px; resize: none; }
 .input:focus-visible, .select:focus-visible, .textarea:focus-visible,
 .btn:focus-visible, .navlink:focus-visible, .langtoggle button:focus-visible {
   outline: 2px solid var(--maroon-mid);
