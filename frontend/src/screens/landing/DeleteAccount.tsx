@@ -3,6 +3,7 @@ import { UNDO_DAYS } from '@shared/accountClose.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { AppBar, Button, Card, LanguagePicker, Notice, SectionTitle } from '../../components/ui.js'
 import { IconCall, IconWhatsapp } from '../../components/icons.js'
+import { SUPPORT_PHONE } from '../seller/Misc.js'
 
 /**
  * THE PAGE GOOGLE PLAY ASKS FOR.
@@ -58,12 +59,12 @@ export default function DeleteAccount() {
           <SectionTitle>{t('del.noAppTitle')}</SectionTitle>
           <p className="body">{t('del.noApp')}</p>
           <div className="btn-row" style={{ marginTop: 'var(--s3)' }}>
-            <a className="btn btn--ghost" href="tel:+919000000000">
+            <a className="btn btn--ghost" href={`tel:+91${SUPPORT_PHONE}`}>
               <IconCall aria-hidden="true" /> {t('help.call')}
             </a>
             <a
               className="btn btn--ghost"
-              href="https://wa.me/919000000000"
+              href={`https://wa.me/91${SUPPORT_PHONE}`}
               target="_blank"
               rel="noreferrer"
             >
