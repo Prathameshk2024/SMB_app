@@ -7,6 +7,7 @@ import {
   IconHelp, IconProfile, type IconType,
 } from './icons.js'
 import { RateOrderGate } from './Reviews.js'
+import { PolicyGate } from './Policies.js'
 
 /**
  * Four bottom tabs, one level deep, icon AND word together.
@@ -43,19 +44,39 @@ function BottomNav({ items }: { items: NavItem[] }) {
   )
 }
 
+/**
+ * While a screen covers the app, everything under it is `inert`: not
+ * clickable, not focusable, not read out. Covering it is not enough on its
+ * own - a keyboard or a screen reader would still reach the tabs behind.
+ */
+function useInertBehind(blocked: boolean) {
+  const behind = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (behind.current) behind.current.inert = blocked
+  }, [blocked])
+  return behind
+}
+
 export function SellerLayout() {
   const t = useT()
+  const [policyBlocked, setPolicyBlocked] = useState(false)
+  const onPolicyChange = useCallback((b: boolean) => setPolicyBlocked(b), [])
+  const behind = useInertBehind(policyBlocked)
+
   return (
     <div className="app-shell app-shell--nav">
-      <Outlet />
-      <BottomNav
-        items={[
-          { to: '/seller', end: true, icon: IconBusiness, label: t('nav.business') },
-          { to: '/seller/upload', icon: IconAddProduct, label: t('nav.upload') },
-          { to: '/seller/profile', icon: IconProfile, label: t('nav.profile') },
-          { to: '/seller/help', icon: IconHelp, label: t('nav.help') },
-        ]}
-      />
+      <div ref={behind} aria-hidden={policyBlocked || undefined} style={{ display: 'contents' }}>
+        <Outlet />
+        <BottomNav
+          items={[
+            { to: '/seller', end: true, icon: IconBusiness, label: t('nav.business') },
+            { to: '/seller/upload', icon: IconAddProduct, label: t('nav.upload') },
+            { to: '/seller/profile', icon: IconProfile, label: t('nav.profile') },
+            { to: '/seller/help', icon: IconHelp, label: t('nav.help') },
+          ]}
+        />
+      </div>
+      <PolicyGate onBlockingChange={onPolicyChange} />
     </div>
   )
 }
@@ -65,17 +86,17 @@ export function CustomerLayout() {
   const { count } = useCart()
 
   /**
-   * While a delivered order waits for its rating, everything under the rating
-   * screen is `inert`: not clickable, not focusable, not read out. Covering it
-   * is not enough on its own - a keyboard or a screen reader would still reach
-   * the tabs behind. See RateOrderGate.
+   * Two screens can cover the customer app: the rating screen while a
+   * delivered order waits for its stars (RateOrderGate), and the policy
+   * screen. The policy screen is drawn last, so it sits on top and comes
+   * first; the app behind stays inert while either is up.
    */
-  const [blocked, setBlocked] = useState(false)
-  const onBlockingChange = useCallback((b: boolean) => setBlocked(b), [])
-  const behind = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (behind.current) behind.current.inert = blocked
-  }, [blocked])
+  const [rateBlocked, setRateBlocked] = useState(false)
+  const onBlockingChange = useCallback((b: boolean) => setRateBlocked(b), [])
+  const [policyBlocked, setPolicyBlocked] = useState(false)
+  const onPolicyChange = useCallback((b: boolean) => setPolicyBlocked(b), [])
+  const blocked = rateBlocked || policyBlocked
+  const behind = useInertBehind(blocked)
 
   return (
     <div className="app-shell app-shell--nav">
@@ -91,6 +112,7 @@ export function CustomerLayout() {
         />
       </div>
       <RateOrderGate onBlockingChange={onBlockingChange} />
+      <PolicyGate onBlockingChange={onPolicyChange} />
     </div>
   )
 }

@@ -7,6 +7,7 @@ import type {
 import type { SlotInfo } from '@shared/seller.js'
 import type { ReportReason, ReportTarget } from '@shared/report.js'
 import type { ComplaintSubject } from '@shared/complaint.js'
+import type { PolicyAcceptance } from '@shared/legal.js'
 import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
 import type { LangCode } from '../i18n/strings.js'
 
@@ -334,7 +335,16 @@ export const api = {
    */
   customerMe: () => get<{ customer: Customer }>('/customers/me'),
 
-  updateCustomerMe: (name: string) => patch<{ customer: Customer }>('/customers/me', { name }),
+  /**
+   * `acceptPolicies` is only read the first time - the name that completes
+   * her registration. Changing a name later asks nothing.
+   */
+  updateCustomerMe: (name: string, acceptPolicies?: boolean) =>
+    patch<{ customer: Customer }>('/customers/me', { name, acceptPolicies }),
+
+  /** "I agree" on the acceptance screen, for either side. */
+  acceptPolicies: () =>
+    post<{ acceptedPolicies: PolicyAcceptance }>('/policies/accept', { acceptPolicies: true }),
 
   addAddress: (body: AddressInput) =>
     post<{ address: Address }>('/customers/me/addresses', body),
@@ -473,6 +483,8 @@ export interface AddressInput {
 }
 
 export interface SellerRegistration {
+  /** The review screen's checkbox. The server refuses anything but `true`. */
+  acceptPolicies: boolean
   /**
    * From `verifyOtp`. The server takes the phone number from THIS and ignores
    * anything the body claims, so registration cannot be pointed at a number

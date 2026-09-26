@@ -260,6 +260,13 @@ function ShopSettings({ detail }: { detail: Detail }) {
         </Row>
         <Row label={t('sd.dispatch')}>{seller.dispatch}</Row>
         {seller.fssai && <Row label={t('sd.fssai')}>{seller.fssai}</Row>}
+        {/* The consent record the DPDP Act asks the college to be able to
+            show: which text she agreed to, and when. */}
+        <Row label={t('sd.policies')}>
+          {seller.acceptedPolicies
+            ? <><span className="mono">{seller.acceptedPolicies.version}</span> · {when(seller.acceptedPolicies.at)}</>
+            : t('sd.policiesNone')}
+        </Row>
         {/* The pincodes she delivers to. An order outside them is refused by
             the API, so this is the answer to "why can she not see my area". */}
         <Row label={t('sd.serves')}>

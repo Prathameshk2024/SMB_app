@@ -53,6 +53,7 @@ export default function DeleteAccount() {
           <p className="body muted" style={{ marginTop: 'var(--s3)' }}>
             {t('del.sellerWindow', { days: UNDO_DAYS })}
           </p>
+          <Link to="/legal/privacy">{t('legal.privacyLink')}</Link>
         </Card>
 
         <Card>

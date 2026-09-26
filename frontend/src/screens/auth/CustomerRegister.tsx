@@ -9,6 +9,7 @@ import {
 } from '../../components/ui.js'
 import { sessionStore } from './sellerDraft.js'
 import { clearName, readName, writeName } from './customerDraft.js'
+import { PolicyConsent } from '../../components/Policies.js'
 
 /**
  * CUSTOMER REGISTRATION - phone, OTP, name
@@ -50,6 +51,7 @@ export default function CustomerRegister() {
   // Snapshot on mount: someone who already has a name and came back to change
   // it should not be told she is unregistered.
   const [isNew] = useState(() => !session?.name?.trim())
+  const [agreed, setAgreed] = useState(false)
 
   async function submit() {
     if (!name.trim()) {
@@ -59,7 +61,7 @@ export default function CustomerRegister() {
     setErr('')
     setBusy(true)
     try {
-      const res = await api.updateCustomerMe(name.trim())
+      const res = await api.updateCustomerMe(name.trim(), isNew ? agreed : undefined)
       // Kept on the session too, so her name shows on the very next screen
       // without waiting for a fetch.
       patchSession({ name: res.customer.name })
@@ -107,7 +109,12 @@ export default function CustomerRegister() {
           />
         </Field>
 
-        <Button onClick={submit} disabled={busy}>
+        {/* Only for a new account. A woman who already has a name and came
+            back to change it agreed when she first gave one; the server asks
+            nothing then either. */}
+        {isNew && <PolicyConsent role="customer" checked={agreed} onChange={setAgreed} />}
+
+        <Button onClick={submit} disabled={busy || (isNew && !agreed)}>
           {busy ? t('common.loading') : t('creg.submit')}
         </Button>
       </div>

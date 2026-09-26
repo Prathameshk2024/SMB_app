@@ -10,7 +10,7 @@ import {
   FiPlusCircle, FiSearch, FiShare2, FiShoppingBag, FiShoppingCart,
   FiSmartphone, FiSquare, FiStar, FiThumbsDown, FiThumbsUp, FiTrash2,
   FiTrendingDown, FiTrendingUp, FiTruck, FiUpload, FiUser, FiUsers, FiWifiOff, FiX, FiXCircle,
-  FiCircle,
+  FiCircle, FiShield,
 } from 'react-icons/fi'
 import { MdCurrencyRupee, MdOutlineFastfood, MdQrCode2 } from 'react-icons/md'
 import { FaWhatsapp } from 'react-icons/fa'
@@ -47,6 +47,8 @@ export type IconType = ComponentType<{ size?: number | string; className?: strin
 export const IconBack: IconType = FiArrowLeft
 export const IconNext: IconType = FiArrowRight
 export const IconChevron: IconType = FiChevronRight
+/** The policies. Not FiFileText: that is Orders, one tile above on her profile. */
+export const IconPolicy: IconType = FiShield
 export const IconCheck: IconType = FiCheck
 export const IconWarn: IconType = FiAlertTriangle
 export const IconPlus: IconType = FiPlus

@@ -638,6 +638,23 @@ const mr: Record<string, string> = {
 
   /* ---- the public page Google Play asks for ------------------------ */
   'del.title': 'खाते बंद करा',
+
+  // ---- policies (frontend/src/legal) ------------------------------------
+  'legal.title': 'धोरणे आणि अटी',
+  'legal.lede': 'हा बाजार कोण चालवते, तुमची माहिती कशी वापरली जाते, आणि ग्राहक व विक्रेती यांचे नियम काय आहेत, ते इथे लिहिले आहे.',
+  'legal.effective': '{date} पासून लागू',
+  'legal.otherDocs': 'इतर धोरणे',
+  'legal.privacyLink': 'गोपनीयता धोरण',
+  'legal.tileSub': 'गोपनीयता, अटी, परतावा आणि तक्रार',
+  'legal.readFirst': 'मान्य करण्याआधी वाचा:',
+  'legal.agreeSeller': 'मी वरील करार, अटी आणि धोरणे वाचली आहेत, आणि मला ती मान्य आहेत',
+  'legal.agreeBuyer': 'मी वरील अटी आणि धोरणे वाचली आहेत, आणि मला ती मान्य आहेत',
+  'legal.continueNote': 'पुढे जाऊन तुम्ही हे मान्य करता:',
+  'legal.gateTitle': 'बाजाराचे नियम',
+  'legal.gateFirst': 'तुमची माहिती आम्ही कशी वापरतो आणि बाजाराचे नियम काय आहेत, हे आता लिहून ठेवले आहे. पुढे जाण्याआधी एकदा वाचा आणि मान्य करा.',
+  'legal.gateChanged': 'आमच्या धोरणांत बदल झाला आहे. पुढे जाण्याआधी नवी धोरणे वाचा आणि मान्य करा.',
+  'legal.gateAgree': 'मान्य आहे, पुढे चला',
+  'legal.gateFailed': 'जतन झाले नाही. पुन्हा प्रयत्न करा.',
   'del.inAppTitle': 'ॲपमधून खाते बंद करा',
   'del.step1': 'ॲप उघडा आणि तुमच्या नंबरने लॉगिन करा.',
   'del.step2': 'प्रोफाइल उघडा आणि सर्वात खाली जा.',
@@ -1422,6 +1439,23 @@ const en: Record<string, string> = {
   'close.reason.other': 'Another reason',
 
   'del.title': 'Delete your account',
+
+  // ---- policies (frontend/src/legal) ------------------------------------
+  'legal.title': 'Policies and terms',
+  'legal.lede': 'Who runs this market, how your information is used, and the rules for buyers and sellers.',
+  'legal.effective': 'In effect from {date}',
+  'legal.otherDocs': 'Other policies',
+  'legal.privacyLink': 'Privacy Policy',
+  'legal.tileSub': 'Privacy, terms, refunds and complaints',
+  'legal.readFirst': 'Please read before you agree:',
+  'legal.agreeSeller': 'I have read and agree to the agreement, terms and policies above',
+  'legal.agreeBuyer': 'I have read and agree to the terms and policies above',
+  'legal.continueNote': 'By continuing you agree to:',
+  'legal.gateTitle': 'The market\'s rules',
+  'legal.gateFirst': 'We have written down how we use your information and what the rules of the market are. Please read them once and agree before you carry on.',
+  'legal.gateChanged': 'Our policies have changed. Please read the new versions and agree before you carry on.',
+  'legal.gateAgree': 'I agree, continue',
+  'legal.gateFailed': 'That did not save. Please try again.',
   'del.inAppTitle': 'Delete it from the app',
   'del.step1': 'Open the app and sign in with your number.',
   'del.step2': 'Open your profile and scroll to the bottom.',

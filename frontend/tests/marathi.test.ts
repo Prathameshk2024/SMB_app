@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { dictionaries } from '../src/i18n/strings.js'
+import { LEGAL } from '../src/legal/index.js'
 
 /**
  * THE MECHANICAL HALF OF docs/MARATHI-STYLE.md
@@ -30,6 +31,8 @@ function sharedAndBackendMarathi(): { where: string; value: string }[] {
     '../../shared/src/orderCancel.ts',
     '../../shared/src/review.ts',
     '../../shared/src/subscription.ts',
+    '../../shared/src/legal.ts',
+    '../../backend/src/routes/policies.routes.ts',
     '../../backend/src/routes/products.routes.ts',
     '../../backend/src/db/reviews.ts',
     '../../backend/src/db/orderCancel.ts',
@@ -45,9 +48,30 @@ function sharedAndBackendMarathi(): { where: string; value: string }[] {
   return out
 }
 
+/**
+ * The policies are the longest Marathi in the app and the text a woman is
+ * asked to agree to, so they are held to the same sheet as every button.
+ */
+function legalMarathi(): { where: string; value: string }[] {
+  const out: { where: string; value: string }[] = []
+  for (const [id, doc] of Object.entries(LEGAL.mr)) {
+    out.push({ where: `legal.${id}.title`, value: doc.title })
+    out.push({ where: `legal.${id}.summary`, value: doc.summary })
+    for (const s of doc.sections) {
+      out.push({ where: `legal.${id}.${s.id}.heading`, value: s.heading })
+      s.body.forEach((b, i) => {
+        const lines = typeof b === 'string' ? [b] : b.list
+        lines.forEach((value, j) => out.push({ where: `legal.${id}.${s.id}[${i}.${j}]`, value }))
+      })
+    }
+  }
+  return out
+}
+
 const everything = [
   ...Object.entries(mr).map(([k, v]) => ({ where: k, value: v })),
   ...sharedAndBackendMarathi(),
+  ...legalMarathi(),
 ]
 
 test('postpositions are joined to the word they follow', () => {

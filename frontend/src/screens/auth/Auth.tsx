@@ -14,6 +14,7 @@ import {
   AppBar, Button, Field, Notice, OtpInput, TextInput,
 } from '../../components/ui.js'
 import { IconNext } from '../../components/icons.js'
+import { ContinueNote } from '../../components/Policies.js'
 import { useToast } from '../../store/ToastContext.js'
 import {
   WIDGET_SESSION_LOST, forgetWidgetSession,
@@ -214,6 +215,11 @@ export function PhoneScreen({ mode }: { mode: 'join' | 'login' }) {
             {busy ? t('common.loading') : t('onb.sendOtp')}
           </Button>
         )}
+
+        {/* A notice, not the agreement: that is asked at registration and on
+            the acceptance screen, where it is recorded. This is here so the
+            terms can be read before a phone number is given at all. */}
+        <ContinueNote />
       </div>
     </div>
   )

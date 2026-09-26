@@ -18,6 +18,7 @@ import PushBridge from './components/PushBridge.js'
 
 import Landing from './screens/landing/Landing.js'
 import DeleteAccount from './screens/landing/DeleteAccount.js'
+import { LegalDocScreen, LegalIndex } from './screens/legal/Legal.js'
 import { OtpScreen, PhoneScreen } from './screens/auth/Auth.js'
 import SellerRegister from './screens/auth/SellerRegister.js'
 import CustomerRegister from './screens/auth/CustomerRegister.js'
@@ -212,6 +213,12 @@ export default function App() {
                   it or lost the phone, so it is public and links to nothing
                   that needs a session. */}
               <Route path="/delete-account" element={<DeleteAccount />} />
+
+              {/* The policies. Public for the same reason: the Play Console
+                  needs a privacy-policy URL a browser can open, and a buyer
+                  should be able to read the terms before giving a number. */}
+              <Route path="/legal" element={<LegalIndex />} />
+              <Route path="/legal/:docId" element={<LegalDocScreen />} />
 
               {/* Two doors from the landing page, one per role. Both go
                   through login; `join` is only the seller's "I am new" path. */}

@@ -22,6 +22,7 @@ import { CancelOrderSheet, OrderEndedNotice, RefundNotice } from '../../componen
 import { Avatar } from '../../components/Avatar.js'
 import { AddressForm } from '../../components/AddressForm.js'
 import { CloseAccountSheet } from '../../components/CloseAccount.js'
+import { PoliciesTile } from '../../components/Policies.js'
 import {
   AppBar, Button, Card, Choice, ConfirmSheet, CopyValue, EmptyState, Field, LanguagePicker, Loading,
   Notice, Pill, Rupees, SectionTitle, Stepper, TextInput, VoiceInput, useAsync,
@@ -1070,6 +1071,8 @@ export function CustomerProfile() {
           </p>
           <TourMenu role="customer" />
         </div>
+
+        <PoliciesTile />
 
         <Card>
           <LanguagePicker />

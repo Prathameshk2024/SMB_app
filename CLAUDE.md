@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **backend/** — Express API serving all three, including `/api/admin/*`
 - **shared/** — domain types and rules imported by all of the above
 
-Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`.
+Product spec: `docs/FEATURE-SPEC.md`. Deployment: `docs/DEPLOY.md`. Play Console answers: `docs/PLAY-STORE.md`.
 Marathi style: `docs/MARATHI-STYLE.md` — read it before writing any Marathi string.
 
 `README.md` is deliberately short — layout, run, demo logins, links. Rules and architecture live here and in `docs/`, not there; the long README it replaced repeated them and had drifted from the code in more than a dozen places.
@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (350) + frontend (136) + admin (37) tests
+npm test               # backend (382) + frontend (141) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -115,7 +115,18 @@ Google Play requires that an app which lets people make an account lets them del
 - **An order in flight refuses the close** (409 with `openOrders`), on both sides. The sheet names the orders instead of printing an error: a buyer waiting on a delivery cannot be left holding an order whose seller has vanished, and she already has the buttons to finish or cancel one.
 - **A closing buyer leaves the orders she placed**: `customerName` becomes the `ग्राहक` placeholder, `customerPhone` and `address` are emptied, her reviews keep their stars and lose her name. The pincode stays — it is a delivery area, not a doorstep.
 - Her Cloudinary images go too: the seller's bank QR by its stored public id, each payment screenshot by one parsed out of its URL (`publicIdFromUrl`), since a payment stores only the URL and an image nobody can name is one nobody can ever delete.
-- **Still missing for Play:** there is no privacy policy page in this app, and the retention above (orders, the ₹50 ledger) has to be written down in one before submission.
+- The retention above (orders, the ₹50 ledger) is written down in the privacy policy — see *Policies and consent*. Change one, change the other.
+
+### Policies and consent
+
+Five documents — privacy policy, terms of use, seller agreement, returns and refunds, grievances and contact — in `frontend/src/legal/`, as plain data in `mr.ts` and `en.ts` (written independently, like the dictionaries), drawn by `screens/legal/Legal.tsx` at the public routes `/legal` and `/legal/:docId`. Public for the same reason as `/delete-account`: the Play Console needs a privacy-policy URL a browser opens, and a buyer should read the terms before giving a number. `docs/PLAY-STORE.md` has the URLs and the data safety answers.
+
+- **The operator and the grievance officer are in `legal/operator.ts`**, quoted by every document. The E-Commerce Rules and the IT Rules require both to be published; the officer's phone must stay equal to `SUPPORT_PHONE` (a test holds it).
+- **Every number in the text is imported from the rule that enforces it** — `PLAN`, `MAX_EDITS`, `UNDO_DAYS`, `REVIEW_WINDOW_DAYS`, `RENEW_REMINDER_DAYS` — so the policy cannot say ₹50 after the code says ₹60. **Every other claim is a claim about code**: what is collected, who sees it (`publicSeller()`), what closing an account erases. Changing any of those changes the policy too.
+- **Consent is recorded, not assumed** (`shared/src/legal.ts`): `acceptedPolicies: { version, at }` on the `Seller` and `Customer` record. The seller wizard's review step and the customer's name screen each carry a `PolicyConsent` tick-box, and `/sellers/register` and the first `PATCH /customers/me` refuse anything but a literal `acceptPolicies: true` (`saidYes`) — a missing field is an old app that never drew the box. The seller's check runs **before** her single-use ticket is spent, or a missing tick would cost her another OTP. It survives an account being closed: it is the evidence, not personal data.
+- **Everyone else meets `PolicyGate` once**: a full-screen notice over both layouts, like `RateOrderGate` and above it, until `POST /policies/accept`. It asks on layout mount only, and lets her through if the check fails offline — never lock a woman out of her own shop over a network blip.
+- **`POLICY_VERSION` is the effective date.** Move it only when what someone agreed to changes; every signed-in person is then asked again. A clearer sentence is not a new version — asking for nothing teaches people to tap "I agree" blind.
+- `frontend/tests/legal.test.ts` holds the two languages to the same documents and sections; `marathi.test.ts` runs the Marathi policy text through the style sheet; `backend/tests/policies.test.ts` holds the consent rules.
 
 ### Order state machine
 

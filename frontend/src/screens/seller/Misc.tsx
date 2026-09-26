@@ -18,6 +18,7 @@ import {
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
 import { CloseAccountSheet } from '../../components/CloseAccount.js'
 import { ComplaintSheet } from '../../components/ComplaintSheet.js'
+import { PoliciesTile } from '../../components/Policies.js'
 
 /* ================================================================== */
 /* Profile                                                             */
@@ -164,6 +165,8 @@ export function SellerProfile() {
         <Button variant="ghost" onClick={() => nav('/seller/profile/edit')}>
           <IconEdit aria-hidden="true" /> {t('prof.edit')}
         </Button>
+
+        <PoliciesTile />
 
         <Card data-wt="prof-lang">
           <LanguagePicker />

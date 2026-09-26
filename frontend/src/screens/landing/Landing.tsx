@@ -357,6 +357,8 @@ export default function Landing() {
               somebody who no longer has the app. A link nobody can find is
               a URL in a form, so it is on the one page that is always
               public. */}
+          <div><Link to="/legal">{t('legal.title')}</Link></div>
+          <div><Link to="/legal/privacy">{t('legal.privacyLink')}</Link></div>
           <div><Link to="/delete-account">{t('del.title')}</Link></div>
         </div>
       </footer>

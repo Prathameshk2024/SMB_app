@@ -17,6 +17,7 @@ import {
   clearDraft, EMPTY, readDraft, sessionStore, writeDraft, type Draft,
 } from './sellerDraft.js'
 import PhotoPicker from '../../components/PhotoPicker.js'
+import { PolicyConsent } from '../../components/Policies.js'
 import {
   AppBar, Button, Card, Choice, Dots, Field, Notice,
   TextInput, VoiceInput, YesNo,
@@ -63,6 +64,7 @@ export default function SellerRegister() {
 
   const [step, setStep] = useState(restored?.step ?? 0)
   const [d, setD] = useState<Draft>(restored?.d ?? EMPTY)
+  const [agreed, setAgreed] = useState(false)
 
   useEffect(() => {
     writeDraft(store, phone, step, d)
@@ -178,6 +180,7 @@ export default function SellerRegister() {
         // the body claims, so registration cannot be aimed at a number whose
         // OTP was never passed.
         ticket: takeRegisterTicket(),
+        acceptPolicies: agreed,
         name: d.name.trim(),
         age: d.age ? Number(d.age) : undefined,
         education: d.education || undefined,
@@ -660,6 +663,11 @@ export default function SellerRegister() {
               </div>
             </Card>
 
+            {/* Last thing before the button, so what she agrees to is the
+                last thing she reads. Not kept in the draft: consent is given
+                now, on this screen, not restored from last Tuesday. */}
+            <PolicyConsent role="seller" checked={agreed} onChange={setAgreed} />
+
             {serverError && <Notice tone="danger">{serverError}</Notice>}
           </>
         )}
@@ -678,7 +686,7 @@ export default function SellerRegister() {
               {t('common.next')} <IconNext aria-hidden="true" />
             </Button>
           ) : (
-            <Button onClick={submit} disabled={busy}>
+            <Button onClick={submit} disabled={busy || !agreed}>
               {busy ? t('common.loading') : t('reg.submit')}
             </Button>
           )}
