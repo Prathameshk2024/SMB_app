@@ -7,6 +7,8 @@
  * project is in TypeScript.
  */
 
+import type { PolicyAcceptance } from './legal.js'
+
 /* ------------------------------------------------------------------ */
 /* Roles & auth                                                        */
 /* ------------------------------------------------------------------ */
@@ -317,6 +319,12 @@ export interface Seller {
   // platform
   status: SellerStatus
   /**
+   * Which version of the policies she accepted, and when (`shared/src/legal.ts`).
+   * Absent on everyone who registered before the policies existed; the app
+   * asks them once, and records it here.
+   */
+  acceptedPolicies?: PolicyAcceptance
+  /**
    * When an admin blocked her, and why. Her own screens read these to tell
    * her what happened - a blocked seller who is simply shown an empty shop
    * has no idea whether the app is broken or she has been removed.
@@ -571,6 +579,8 @@ export interface Customer {
   updatedAt: string
   /** Reserved for admin moderation (Phase 3). Nothing reads it yet. */
   blocked?: boolean
+  /** Which version of the policies she accepted, and when. See Seller. */
+  acceptedPolicies?: PolicyAcceptance
 }
 
 export interface CartItem {

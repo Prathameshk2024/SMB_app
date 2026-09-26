@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { confirmProblem } from '@shared/accountClose.js'
+import { POLICY_REFUSED_MR, acceptNow, saidYes } from '@shared/legal.js'
 import { requireRole } from '../middleware/auth.js'
 import { getDb, save } from '../db/store.js'
 import { closeCustomer, openOrdersForCustomer } from '../db/accountClose.js'
@@ -7,6 +8,7 @@ import {
   addAddress,
   deleteAddress,
   ensureCustomer,
+  isRegisteredCustomer,
   updateAddress,
   type AddressInput,
 } from '../db/customers.js'
@@ -44,7 +46,24 @@ customersRouter.patch('/me', (req, res) => {
     return
   }
 
-  const customer = ensureCustomer(getDb(), auth.customerId!, auth.phone ?? '', name)
+  /**
+   * The first name she gives IS her registration, so that is when the terms
+   * and privacy policy are accepted - the checkbox under the name box. A name
+   * changed later from her profile is not a new agreement and asks nothing.
+   */
+  const db = getDb()
+  const firstTime = !isRegisteredCustomer(db, auth.customerId!)
+  if (firstTime && !saidYes(req.body)) {
+    res.status(400).json({
+      error: 'Policies not accepted',
+      messageMr: POLICY_REFUSED_MR,
+      fields: { acceptPolicies: POLICY_REFUSED_MR },
+    })
+    return
+  }
+
+  const customer = ensureCustomer(db, auth.customerId!, auth.phone ?? '', name)
+  if (firstTime) customer.acceptedPolicies = acceptNow()
   save()
   res.json({ customer })
 })

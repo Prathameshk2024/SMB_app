@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (350) + frontend (134) + admin (37) tests
+npm test               # backend (350) + frontend (136) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -631,7 +631,7 @@ How the container is built is not recorded in this repo: there is no Dockerfile 
 
 **Neither Vite config sets `base`, and neither should.** The default absolute `/assets/…` is the only path right at every route depth: a relative one under the SPA rewrite makes `/seller/orders` fetch `/seller/assets/index-xxx.js`, receive `index.html`, and render a blank page. A `--mode capacitor` build with `base: './'`, `cap:*` scripts, `capacitor.config.json` and the `offline.html` its `errorPath` named all existed for a Capacitor APK that never shipped, and were removed. Nothing in the repo is Capacitor now; do not add a file that only a Capacitor build would read. The last two came back once, in `e0801ab` ("Preserve Capacitor and offline support"), with nothing reading them, and were removed again on 21 September 2026 — a dropped connection is `components/OfflineScreen.tsx` once the site has loaded, and the wrapper's `renderError` before it has.
 
-**The Android APK is a React Native WebView, not a build of this repo.** It is an Expo project in its own repository, **`github.com/Prathameshk2024/Android_app`, branch `sub-main`**, where `app/index.tsx` is the whole app, and its one screen loads the production frontend, `https://shantai-mahila-bajar-app-frontend.vercel.app/`, over the network. `sub-main` is the only copy with both push and the navigation fixes; that repo's `main` and `ArpitaHanjagi/Android_App` are older and must not be built from. `docs/DEPLOY.md` §6 has the detail; what matters when changing code here:
+**The Android APK is a React Native WebView, not a build of this repo.** It is an Expo project in its own repository, **`github.com/Prathameshk2024/SMB_android`, branch `sub-main`**, where `app/index.tsx` is the whole app, and its one screen loads the production frontend, `https://shantai-mahila-bajar-app-frontend.vercel.app/`, over the network. `sub-main` is the only copy with both push and the navigation fixes; that repo's `main` and `ArpitaHanjagi/Android_App` are older and must not be built from. `docs/DEPLOY.md` §6 has the detail; what matters when changing code here:
 
 - **A Vercel deploy of `frontend/` is an APK update.** The APK is rebuilt only when the wrapper changes — or that URL does, because it is hard-coded there.
 - **It carries expo-notifications and google-services.json** for push; a change to either needs a rebuild, and phones on an older APK simply get no notifications.

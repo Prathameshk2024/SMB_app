@@ -14,6 +14,12 @@ export interface PushWindow {
   /** Present only inside the APK, and only because the wrapper sets onMessage. */
   ReactNativeWebView?: { postMessage(message: string): void }
   __smbPushToken?: (token: string) => void
+  /**
+   * The wrapper's answer to every `push:enable`, and again whenever she comes
+   * back from Android's settings having changed it. An APK older than this
+   * never calls it, which reads as "no news" - never as refused.
+   */
+  __smbPushStatus?: (granted: boolean) => void
 }
 
 export function wantsPush(session: Pick<Session, 'role'> | null): boolean {
@@ -30,8 +36,10 @@ export function startPushBridge(opts: {
   session: Session | null
   lang: LangCode
   register: (token: string, lang: LangCode) => Promise<unknown>
+  /** Whether Android lets notifications reach her. See PushWindow.__smbPushStatus. */
+  onStatus?: (granted: boolean) => void
 }): () => void {
-  const { w, session, lang, register } = opts
+  const { w, session, lang, register, onStatus } = opts
   const bridge = w.ReactNativeWebView
   if (!bridge || !wantsPush(session)) return () => {}
 
@@ -40,8 +48,18 @@ export function startPushBridge(opts: {
       // A notification is a courtesy. The bell list still works without it.
     })
   }
+  if (onStatus) w.__smbPushStatus = onStatus
   bridge.postMessage(JSON.stringify({ type: 'push:enable' }))
   return () => {
     delete w.__smbPushToken
+    delete w.__smbPushStatus
   }
+}
+
+/**
+ * After two refusals Android never shows its prompt again, so the only way
+ * back is the app's page in Android's settings. The wrapper opens it.
+ */
+export function openPushSettings(w: PushWindow): void {
+  w.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'push:settings' }))
 }

@@ -19,6 +19,7 @@ import { uploadsRouter } from './routes/uploads.routes.js'
 import { qrRouter } from './routes/qr.routes.js'
 import { customersRouter } from './routes/customers.routes.js'
 import { pushRouter } from './routes/push.routes.js'
+import { policiesRouter } from './routes/policies.routes.js'
 import {
   ALLOW_DEV_RESET, CORS_ORIGIN, describeConfig, PORT as CONFIG_PORT, usingFirestore,
 } from './config.js'
@@ -111,6 +112,7 @@ app.use('/api/orders', ordersRouter)
 app.use('/api/reports', reportsRouter)
 app.use('/api/complaints', complaintsRouter)
 app.use('/api/push', pushRouter)
+app.use('/api/policies', policiesRouter)
 app.use('/api/uploads', uploadsRouter)
 app.use('/api/qr', qrRouter)
 

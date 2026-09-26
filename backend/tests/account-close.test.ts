@@ -130,6 +130,10 @@ test('signing in inside the week puts everything back', () => {
   assert.equal(s.status, 'ACTIVE')
   assert.equal(s.closingAt, undefined)
   assert.equal(canSellNow(s, now), true, 'the shop is exactly as it was')
+  // canSellNow does not read the open/closed switch, but the catalogue does.
+  // Closing used to flip it off and restoring never flipped it back, so a
+  // woman who came back found her shop still missing from every buyer's list.
+  assert.equal(s.isOpen, true, 'her open/closed switch is untouched')
   assert.equal(sweepClosedAccounts(db, now + 30 * DAY, () => true), 0, 'and the sweep forgets her')
 })
 
@@ -182,6 +186,43 @@ test('every field that is HER is gone', () => {
       (field === 'digital' && Object.values(left as object).every((v) => v === false))
     assert.ok(emptied, `${field} survived the deletion: ${JSON.stringify(left)}`)
   }
+})
+
+test('no session outlives the erasing, and none keeps her number', () => {
+  const s = seller()
+  const db = dbWith(s)
+  const now = Date.now()
+  const session = (id: string, revokedAt?: string) => ({
+    id, role: 'seller' as const, userId: 's1', sellerId: 's1', phone: '9822011223',
+    pushToken: 'fcm-her-phone', createdAt: '', lastSeenAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 90 * DAY).toISOString(), revokedAt,
+  })
+  // One revoked when she asked; one from signing in during the week to look
+  // at the notice, never restored and never logged out of.
+  db.sessions.push(session('asked', new Date(now - 7 * DAY).toISOString()), session('peeked'))
+
+  scrubSeller(db, s, now, () => true)
+
+  for (const x of db.sessions) {
+    assert.ok(x.revokedAt, `session ${x.id} still signs somebody in as an erased shop`)
+    assert.equal(x.phone ?? '', '', `session ${x.id} kept her phone number`)
+    assert.equal(x.pushToken, undefined, `session ${x.id} would still buzz her phone`)
+  }
+})
+
+test('a closing buyer leaves no phone number on her sessions either', () => {
+  const db = emptyDb()
+  db.sessions.push({
+    id: 'b1', role: 'customer', userId: 'c-9876543210', customerId: 'c-9876543210',
+    phone: '9876543210', pushToken: 'fcm-buyer', createdAt: '', lastSeenAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 90 * DAY).toISOString(),
+  })
+
+  closeCustomer(db, 'c-9876543210', '9876543210')
+
+  assert.ok(db.sessions[0].revokedAt)
+  assert.equal(db.sessions[0].phone ?? '', '')
+  assert.equal(db.sessions[0].pushToken, undefined)
 })
 
 test('her phone number goes back into circulation', () => {

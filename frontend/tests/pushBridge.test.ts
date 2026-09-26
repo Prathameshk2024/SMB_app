@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Session } from '@shared/types.js'
-import { startPushBridge, type PushWindow } from '../src/lib/pushBridge.js'
+import { openPushSettings, startPushBridge, type PushWindow } from '../src/lib/pushBridge.js'
 
 /**
  * THE PAGE ONLY ASKS FOR NOTIFICATIONS WHEN THEY CAN BE FOR SOMEBODY.
@@ -49,4 +49,23 @@ test('a registration that fails is swallowed', async () => {
   startPushBridge({ w, session: seller, lang: 'mr', register: async () => { throw new Error('offline') } })
   w.__smbPushToken?.('fcm-token-x')
   await new Promise((r) => setTimeout(r, 0))
+})
+
+test('a refused permission reaches the page, and the settings button asks the wrapper', () => {
+  const { w, posted } = apk()
+  const seen: boolean[] = []
+  const stop = startPushBridge({ w, session: seller, lang: 'mr', register: async () => {}, onStatus: (g) => { seen.push(g) } })
+  w.__smbPushStatus?.(false)
+  w.__smbPushStatus?.(true)
+  assert.deepEqual(seen, [false, true])
+  openPushSettings(w)
+  assert.deepEqual(JSON.parse(posted.at(-1)!), { type: 'push:settings' })
+  stop()
+  assert.equal(w.__smbPushStatus, undefined)
+})
+
+test('signed out, no status is listened for', () => {
+  const { w } = apk()
+  startPushBridge({ w, session: null, lang: 'mr', register: async () => {}, onStatus: () => assert.fail('no status') })
+  assert.equal(w.__smbPushStatus, undefined)
 })

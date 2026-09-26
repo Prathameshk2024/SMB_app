@@ -823,6 +823,9 @@ const mr: Record<string, string> = {
   'help.faq3': 'ऑर्डर आल्यावर काय करायचे?',
   'help.pushTitle': 'फोनवर सूचना येत नसतील तर',
   'help.pushBody': 'फोनच्या सेटिंगमध्ये या ॲपसाठी सूचना चालू करा. Xiaomi, Oppo, Vivo किंवा Realme फोन असल्यास बॅटरी वापर "No restrictions" करा आणि Autostart चालू करा.',
+  'push.offTitle': 'फोनवर सूचना बंद आहेत',
+  'push.offBody': 'तुमच्या ऑर्डरबद्दल फोनवर सूचना येणार नाहीत. फोनच्या सेटिंगमध्ये या ॲपसाठी सूचना चालू करा.',
+  'push.openSettings': 'सेटिंग उघडा',
 
   /* These three were being asked for by name and had never been written, so
      the screens printed the key itself. Found by the i18n test, not by a user. */
@@ -1597,6 +1600,9 @@ const en: Record<string, string> = {
   'help.faq3': 'What do I do when an order arrives?',
   'help.pushTitle': 'Not getting notifications on your phone?',
   'help.pushBody': 'Turn notifications on for this app in your phone settings. On a Xiaomi, Oppo, Vivo or Realme phone, also set battery use to "No restrictions" and turn on Autostart.',
+  'push.offTitle': 'Notifications are off on this phone',
+  'push.offBody': 'Your phone will not tell you when something happens to your orders. Turn notifications on for this app in settings.',
+  'push.openSettings': 'Open settings',
 
   'reg.sellsFoodHint': 'Pickles, papad, masala, sweets, chutney - anything edible',
   'cus.ingredients': 'What is in it',
