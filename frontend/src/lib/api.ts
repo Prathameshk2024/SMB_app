@@ -462,6 +462,7 @@ export interface SellerRegistration {
   yearsInBusiness?: number
   monthlyCapacity?: number
   sellsFood: boolean
+  fssai?: string
   upiId: string
   upiQrUrl?: string
   upiQrPublicId?: string

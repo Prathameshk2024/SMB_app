@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import type { Seller } from '@shared/types.js'
-import { EDUCATION_LEVELS, isValidPincode, isValidUpi } from '@shared/seller.js'
+import { EDUCATION_LEVELS, FSSAI_DIGITS, fssaiProblem, isValidPincode, isValidUpi } from '@shared/seller.js'
 import { upiProblem } from '@shared/payment.js'
 import { VILLAGES, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
 import {
@@ -129,6 +129,9 @@ export default function SellerRegister() {
     if (which === 2) {
       if (!d.shopName.trim()) e.shopName = t('common.required')
       if (d.sellsFood === null) e.sellsFood = t('common.required')
+      // Blank is fine. Wrong is not - see fssaiProblem.
+      const fssai = d.sellsFood ? fssaiProblem(d.fssai) : null
+      if (fssai) e.fssai = fssai
     }
     if (which === 3 && answered < SELF_REPORTED_FACTORS.length) {
       e.digital = t('common.required')
@@ -190,6 +193,7 @@ export default function SellerRegister() {
         yearsInBusiness: d.yearsInBusiness ? Number(d.yearsInBusiness) : undefined,
         monthlyCapacity: d.monthlyCapacity ? Number(d.monthlyCapacity) : undefined,
         sellsFood: !!d.sellsFood,
+        fssai: d.sellsFood ? d.fssai || undefined : undefined,
         upiId: d.upiId.trim(),
         upiQrUrl: d.upiQrUrl || undefined,
         upiQrPublicId: d.upiQrPublicId || undefined,
@@ -500,6 +504,23 @@ export default function SellerRegister() {
               <YesNo value={d.sellsFood} onChange={(v) => set('sellsFood', v)} />
             </Field>
 
+            {/* Optional, but not labelled so: a field marked "optional" is one
+                nearly everybody skips, and a woman who holds a licence gains by
+                giving it. No required star either - blank still goes through. */}
+            {d.sellsFood && (
+              <Field label={t('reg.fssai')} hint={t('reg.fssaiHint')} error={errors.fssai} htmlFor="fssai">
+                <TextInput
+                  id="fssai"
+                  inputMode="numeric"
+                  value={d.fssai}
+                  error={!!errors.fssai}
+                  maxLength={FSSAI_DIGITS}
+                  onChange={(e) => set('fssai', e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="12345678901234"
+                />
+              </Field>
+            )}
+
           </>
         )}
 
@@ -623,6 +644,7 @@ export default function SellerRegister() {
                 {d.yearsInBusiness && <Row label={t('reg.years')} value={`${d.yearsInBusiness} ${t('reg.yearsUnit')}`} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />}
                 {d.monthlyCapacity && <Row label={t('reg.capacity')} value={d.monthlyCapacity} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />}
                 <Row label={t('reg.sellsFood')} value={d.sellsFood ? t('common.yes') : t('common.no')} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />
+                {d.sellsFood && d.fssai && <Row label={t('reg.fssai')} value={d.fssai} onEdit={() => goToStep(2)} editLabel={t('common.edit')} />}
                 <Row label={t('reg.upiLabel')} value={d.upiId} onEdit={() => goToStep(4)} editLabel={t('common.edit')} />
               </div>
             </Card>

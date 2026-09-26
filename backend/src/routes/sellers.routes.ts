@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import type { DigitalProfile, Seller, SubscriptionPayment } from '@shared/types.js'
 import {
-  defaultAbout, isValidPhone, isValidPincode,
+  defaultAbout, fssaiProblem, isValidPhone, isValidPincode, normalizeFssai,
   normalizePhone, PLAN, samePhone, slotInfo, validateSellerProfile,
 } from '@shared/seller.js'
 import { normalizeUtr, paidAtProblem, upiProblem, utrProblem } from '@shared/payment.js'
@@ -55,6 +55,7 @@ interface RegisterBody {
   yearsInBusiness?: number
   monthlyCapacity?: number
   sellsFood: boolean
+  fssai?: string
   upiId: string
   upiQrUrl?: string
   upiQrPublicId?: string
@@ -123,6 +124,8 @@ sellersRouter.post('/register', (req, res) => {
   if (!isValidPincode(b.pincode)) fields.pincode = '6 अंकी पिनकोड टाका'
   const upiFault = upiProblem(b.upiId)
   if (upiFault) fields.upiId = upiFault
+  const fssaiFault = fssaiProblem(b.fssai)
+  if (fssaiFault) fields.fssai = fssaiFault
   if (b.age != null && (b.age < 18 || b.age > 90)) fields.age = 'वय 18 ते 90 दरम्यान असावे'
 
   if (Object.keys(fields).length) {
@@ -184,6 +187,7 @@ sellersRouter.post('/register', (req, res) => {
     yearsInBusiness: b.yearsInBusiness,
     monthlyCapacity: b.monthlyCapacity,
     sellsFood: !!b.sellsFood,
+    fssai: b.sellsFood ? normalizeFssai(b.fssai) || undefined : undefined,
     upiId: b.upiId.trim(),
     upiVerified: false,
     // Her own bank's QR, if she photographed it during registration. It is

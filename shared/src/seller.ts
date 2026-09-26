@@ -155,6 +155,31 @@ export function editsAreLimited(status: ProductStatus): boolean {
  *
  * A draft is not a submission, so it lands where she left it.
  */
+/**
+ * A FOOD LICENCE NUMBER, IF SHE HAS ONE.
+ *
+ * Optional, and that is the whole design: a home kitchen under the FSSAI
+ * turnover threshold does not need a licence, and demanding one would close
+ * this market to most of the women it was built for. Blank is always fine.
+ *
+ * What is NOT fine is a wrong one. An FSSAI licence is exactly 14 digits, and
+ * a buyer who reads a number off a listing and checks it against the FSSAI
+ * register learns something only if the digits are real - so a number that
+ * cannot be one is refused rather than quietly published. Spaces come out,
+ * because that is how it is printed on a certificate.
+ */
+export const FSSAI_DIGITS = 14
+
+export function normalizeFssai(raw: unknown): string {
+  return String(raw ?? '').replace(/[\s-]/g, '')
+}
+
+export function fssaiProblem(raw: unknown): string | null {
+  const value = normalizeFssai(raw)
+  if (!value) return null
+  return /^\d{14}$/.test(value) ? null : `FSSAI क्रमांक ${FSSAI_DIGITS} अंकांचा असतो`
+}
+
 export function initialListingStatus(asDraft: boolean): ProductStatus {
   return asDraft ? 'DRAFT' : 'PENDING'
 }

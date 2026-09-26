@@ -260,6 +260,13 @@ export interface Seller {
   /** Units she can make per month. Drives what admin can realistically promise. */
   monthlyCapacity?: number
   sellsFood: boolean
+  /**
+   * Her FSSAI licence number, asked once at registration and only if she
+   * sells food. Optional (see fssaiProblem), though the form does not say
+   * so: labelled "optional", nearly everyone skips it, including the women
+   * who hold a licence and gain by showing it.
+   */
+  fssai?: string
 
   // money in. `upiId` is collected at registration because she cannot be paid
   // without it. The payment QR is a SEPARATE, later step: it is generated from
