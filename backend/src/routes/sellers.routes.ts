@@ -6,6 +6,7 @@ import {
 } from '@shared/seller.js'
 import { normalizeUtr, paidAtProblem, upiProblem, utrProblem } from '@shared/payment.js'
 import { closeReasonProblem, confirmProblem } from '@shared/accountClose.js'
+import { POLICY_REFUSED_MR, acceptNow, saidYes } from '@shared/legal.js'
 import { openOrdersForSeller, requestSellerClose, restoreSeller } from '../db/accountClose.js'
 import { screenshotProblem } from '../db/payments.js'
 import { makeShopSlug, makeWomenBizId, villageCode } from '@shared/womenbiz.js'
@@ -64,6 +65,8 @@ interface RegisterBody {
   minOrder?: number
   freeDeliveryAbove?: number
   dispatch?: Seller['dispatch']
+  /** Must be literally `true`: the review screen's checkbox. See `saidYes`. */
+  acceptPolicies?: boolean
 }
 
 /**
@@ -88,6 +91,22 @@ sellersRouter.post('/register', (req, res) => {
     res.status(429).json({
       error: 'Too many registrations',
       messageMr: 'खूप वेळा प्रयत्न झाले. थोड्या वेळाने पुन्हा प्रयत्न करा.',
+    })
+    return
+  }
+
+  /**
+   * THE SELLER AGREEMENT, ACCEPTED ON THE REVIEW SCREEN.
+   *
+   * Checked before the ticket is spent. The ticket is single-use, so refusing
+   * after consuming it would send her back to ask for another OTP - against a
+   * three-a-day ceiling - for a checkbox.
+   */
+  if (!saidYes(b)) {
+    res.status(400).json({
+      error: 'Policies not accepted',
+      messageMr: POLICY_REFUSED_MR,
+      fields: { acceptPolicies: POLICY_REFUSED_MR },
     })
     return
   }
@@ -206,6 +225,7 @@ sellersRouter.post('/register', (req, res) => {
     dispatch: b.dispatch ?? 'same',
     pincodes: [b.pincode.trim()],
     status: 'REGISTERED',
+    acceptedPolicies: acceptNow(),
     packsApproved: 0,
     rating: 0,
     ratingCount: 0,
