@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (350) + frontend (134) + admin (37) tests
+npm test               # backend (350) + frontend (136) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
