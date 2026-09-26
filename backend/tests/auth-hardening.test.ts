@@ -11,7 +11,7 @@ const {
 } = await import('../src/auth/admins.js')
 const { hashPassword, maskPhone, randomCode, timingEqual, verifyPassword } =
   await import('../src/auth/crypto.js')
-const { hit, LIMITS, resetAllLimits, sweep } = await import('../src/auth/rateLimit.js')
+const { hit, LIMITS, resetAllLimits, SEND_LIMIT_EXEMPT, sweep } = await import('../src/auth/rateLimit.js')
 
 /* ================================================================== */
 /* The verified-phone ticket                                           */
@@ -204,6 +204,17 @@ test('a number gets three codes a day, and the fourth is refused', () => {
 
   // And tomorrow she can, because a quota is not a ban.
   assert.equal(hit('otp:send:phone:9764455662', limit, now + limit.windowMs + 1).ok, true)
+})
+
+test('only the MSG91 demo number skips the send ceiling', () => {
+  /*
+   * Google Play's reviewers sign in with the demo number set in MSG91's
+   * widget, which is sent no SMS, so the ceiling's reason does not reach it.
+   * Everyone else keeps the three-a-day limit: a wider list would be a way to
+   * run up the SMS bill through a number nobody meant to exempt.
+   */
+  assert.deepEqual([...SEND_LIMIT_EXEMPT], ['9579642050'])
+  assert.equal(SEND_LIMIT_EXEMPT.has('9764455662'), false)
 })
 
 test('expired windows are swept, so the limiter is not a log of everyone who tried', () => {

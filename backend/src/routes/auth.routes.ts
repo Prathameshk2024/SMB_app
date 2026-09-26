@@ -11,7 +11,7 @@ import { authenticateAdmin, bootstrapAdmin, normalizeEmail } from '../auth/admin
 import { issueTicket } from '../auth/tickets.js'
 import { recordAuthEvent } from '../auth/events.js'
 import { hashIp, maskPhone } from '../auth/crypto.js'
-import { clear as clearLimit, hit, LIMITS, type Limit } from '../auth/rateLimit.js'
+import { clear as clearLimit, hit, LIMITS, SEND_LIMIT_EXEMPT, type Limit } from '../auth/rateLimit.js'
 import { sendOtp, verifyOtp } from '../services/otp.service.js'
 
 /**
@@ -106,7 +106,7 @@ authRouter.post('/otp/send', async (req, res) => {
     save()
     return
   }
-  if (over(res, `otp:send:phone:${phone}`, LIMITS.otpSendPerPhone)) {
+  if (!SEND_LIMIT_EXEMPT.has(phone) && over(res, `otp:send:phone:${phone}`, LIMITS.otpSendPerPhone)) {
     recordAuthEvent(getDb(), { type: 'otp.send.blocked', subject: maskPhone(phone), ip })
     save()
     return
