@@ -146,6 +146,18 @@ function Identity({ detail, onDone }: { detail: Detail; onDone: () => void }) {
         </div>
       )}
 
+      {/* Closing or closed: say when, and on whose word, before any button. */}
+      {seller.status === 'CLOSED' && (
+        <div style={{ marginTop: 12 }}>
+          <Notice tone="warn">
+            {seller.closingAt
+              ? t('ac.closingOn', { when: when(seller.closingAt) })
+              : t('ac.erasedOn', { when: when(seller.closedAt ?? '') })}
+            {seller.closeNote ? ` — ${seller.closeNote}` : ''}
+          </Notice>
+        </div>
+      )}
+
       <div style={{ marginTop: 12 }}>
         <SellerActions seller={seller} onDone={onDone} />
       </div>

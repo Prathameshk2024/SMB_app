@@ -420,7 +420,7 @@ sellersRouter.post('/me/close', requireRole('seller'), (req, res) => {
   requestSellerClose(db, seller, { reason, note })
   recordAuthEvent(db, {
     type: 'session.end', subject: maskPhone(seller.phone), role: 'seller',
-    ip: callerIp(req), detail: 'account.close',
+    ip: hashIp(callerIp(req)), detail: 'account.close',
   })
   save()
   res.json({ ok: true, closingAt: seller.closingAt })

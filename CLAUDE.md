@@ -26,7 +26,7 @@ npm run dev:api        # API only
 npm run dev:web        # seller app only
 npm run dev:admin      # admin console only
 
-npm test               # backend (382) + frontend (141) + admin (37) tests
+npm test               # backend (392) + frontend (141) + admin (37) tests
 npm run typecheck      # all three workspaces
 npm run build          # backend tsc + both Vite builds
 
@@ -115,6 +115,7 @@ Google Play requires that an app which lets people make an account lets them del
 - **An order in flight refuses the close** (409 with `openOrders`), on both sides. The sheet names the orders instead of printing an error: a buyer waiting on a delivery cannot be left holding an order whose seller has vanished, and she already has the buttons to finish or cancel one.
 - **A closing buyer leaves the orders she placed**: `customerName` becomes the `ग्राहक` placeholder, `customerPhone` and `address` are emptied, her reviews keep their stars and lose her name. The pincode stays — it is a delivery area, not a doorstep.
 - Her Cloudinary images go too: the seller's bank QR by its stored public id, each payment screenshot by one parsed out of its URL (`publicIdFromUrl`), since a payment stores only the URL and an image nobody can name is one nobody can ever delete.
+- **Staff can close an account for somebody who cannot sign in** — the lost phone, the OTP that never arrives — because `/delete-account` and the privacy policy promise it by phone, WhatsApp or email. `POST /admin/sellers/:id/close` (the red button beside Block on her page, undone by `/restore` inside the week) and `POST /admin/customers/close` by phone number (a card on the Complaints screen, since a buyer has no page); `npm run admin -- close-seller|close-customer` drives the same routes. `adminCloseProblem()` in `shared/src/accountClose.ts` is the rule: how the request arrived, a tick that staff **rang the registered number back** and she confirmed — anyone can email naming a rival's number — and, for a seller, her last four digits typed. The effect is exactly her own button's (seven days for a seller, none for a buyer, the same open-order refusal); the seller's `closeNote` records the channel and the staff member, and an auth event names them for a buyer, whose row is gone. `backend/tests/admin-close.test.ts` holds it.
 - The retention above (orders, the ₹50 ledger) is written down in the privacy policy — see *Policies and consent*. Change one, change the other.
 
 ### Policies and consent

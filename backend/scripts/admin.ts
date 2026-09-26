@@ -228,6 +228,53 @@ async function approveProduct(id: string): Promise<void> {
   console.log(c.green(`\n  ✓ Product ${id} is live.\n`))
 }
 
+/**
+ * Closing an account for somebody who asked by phone, WhatsApp or email and
+ * cannot sign in. `--called-back` is the promise that the registered number
+ * was rung and she confirmed; the server refuses without it. The console's
+ * last-four-digits guard is filled in from the record here - typing the
+ * whole command naming her is the deliberate act on this side.
+ */
+function flag(name: string): string | undefined {
+  const args = process.argv.slice(2)
+  const i = args.indexOf(name)
+  return i >= 0 ? args[i + 1] : undefined
+}
+
+async function closeSeller(target: string): Promise<void> {
+  const r = await call<{ sellers: { id: string; phone: string; name: string; womenBizId: string }[] }>(
+    '/api/admin/sellers',
+  )
+  const seller = r.sellers.find((s) => s.phone === target || s.womenBizId === target)
+  if (!seller) {
+    console.error(c.red(`\n  No seller with phone/ID "${target}".\n`))
+    process.exit(1)
+  }
+  await call(`/api/admin/sellers/${seller.id}/close`, {
+    method: 'POST',
+    body: JSON.stringify({
+      channel: flag('--via'),
+      verified: process.argv.includes('--called-back'),
+      confirm: seller.phone.replace(/\D/g, '').slice(-4),
+      note: flag('--note'),
+    }),
+  })
+  console.log(c.green(`\n  ✓ ${seller.name} (${seller.womenBizId}) is closing. Details are erased in 7 days.\n`))
+}
+
+async function closeCustomer(phone: string): Promise<void> {
+  const out = await call<{ ordersCleared: number }>('/api/admin/customers/close', {
+    method: 'POST',
+    body: JSON.stringify({
+      phone,
+      channel: flag('--via'),
+      verified: process.argv.includes('--called-back'),
+      note: flag('--note'),
+    }),
+  })
+  console.log(c.green(`\n  ✓ Buyer +91 ${phone} closed; removed from ${out.ordersCleared} order(s).\n`))
+}
+
 async function main(): Promise<void> {
   const [cmd = 'pending', a1, a2] = process.argv.slice(2)
   await login()
@@ -240,6 +287,8 @@ async function main(): Promise<void> {
     case 'sellers': await sellers(); break
     case 'products': await products(); break
     case 'approve-product': await approveProduct(a1!); break
+    case 'close-seller': await closeSeller(a1!); break
+    case 'close-customer': await closeCustomer(a1!); break
     default:
       console.log(`
   Commands:
@@ -251,6 +300,10 @@ async function main(): Promise<void> {
     sellers                     every seller with status and slot usage
     products                    products waiting for moderation
     approve-product <id>        publish a pending product
+    close-seller <phone|SMB-ID> --via phone|whatsapp|email --called-back [--note "..."]
+                                close a seller's account on her request (7 days to undo)
+    close-customer <phone> --via phone|whatsapp|email --called-back [--note "..."]
+                                close a buyer's account on her request (at once)
 `)
   }
 }

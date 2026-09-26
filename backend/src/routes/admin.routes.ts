@@ -12,8 +12,11 @@ import { getDb, save } from '../db/store.js'
 import { documentCount, startsWithinFreeReads } from '../db/firestore.js'
 import { sellerStatusAfterReject } from '../db/payments.js'
 import { appendNotice as notifySeller } from '../db/notices.js'
-import { requireRole } from '../middleware/auth.js'
+import { callerIp, requireRole } from '../middleware/auth.js'
 import { destroyImage } from './uploads.routes.js'
+import { adminCloseCustomer, adminCloseSeller, restoreSeller } from '../db/accountClose.js'
+import { recordAuthEvent } from '../auth/events.js'
+import { hashIp, maskPhone } from '../auth/crypto.js'
 
 /**
  * ADMIN API - BACKEND ONLY.
@@ -697,6 +700,80 @@ adminRouter.post('/sellers/:id/block', (req, res) => {
 
   save()
   res.json({ seller })
+})
+
+/* ------------------------------------------------------------------ */
+/* Closing an account for somebody who cannot sign in                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The deletion page and the privacy policy promise that an account can be
+ * closed on request by phone, WhatsApp or email when its owner cannot pass an
+ * OTP. These are the routes that keep that promise; `adminCloseProblem` in
+ * shared/src/accountClose.ts says what they insist on, and why.
+ *
+ * Each one leaves an auth event naming the staff member - for a buyer it is
+ * the only trace, since her row is gone.
+ */
+adminRouter.post('/sellers/:id/close', (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.id)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
+    return
+  }
+
+  const by = verifierName(db, req)
+  const subject = maskPhone(seller.phone)
+  const result = adminCloseSeller(db, seller, req.body ?? {}, by)
+  if (!result.ok) {
+    const { status, ...body } = result
+    res.status(status).json(body)
+    return
+  }
+
+  recordAuthEvent(db, {
+    type: 'session.revoked', subject, role: 'seller',
+    ip: hashIp(callerIp(req)), detail: `account.close.admin by ${by}`,
+  })
+  save()
+  res.json({ seller })
+})
+
+/** A staff close undone inside the week - the wrong shop, or she changed her mind. */
+adminRouter.post('/sellers/:id/restore', (req, res) => {
+  const db = getDb()
+  const seller = db.sellers.find((s) => s.id === req.params.id)
+  if (!seller) {
+    res.status(404).json({ error: 'Seller not found', messageMr: 'ही विक्रेती सापडली नाही' })
+    return
+  }
+  if (seller.status !== 'CLOSED' || !seller.closingAt) {
+    res.status(409).json({ error: 'This account is not closing', messageMr: 'हे खाते बंद होत नाही आहे.' })
+    return
+  }
+  restoreSeller(seller)
+  save()
+  res.json({ seller })
+})
+
+adminRouter.post('/customers/close', (req, res) => {
+  const db = getDb()
+  const phone = String(req.body?.phone ?? '')
+  const by = verifierName(db, req)
+  const result = adminCloseCustomer(db, phone, req.body ?? {})
+  if (!result.ok) {
+    const { status, ...body } = result
+    res.status(status).json(body)
+    return
+  }
+
+  recordAuthEvent(db, {
+    type: 'session.revoked', subject: maskPhone(phone), role: 'customer',
+    ip: hashIp(callerIp(req)), detail: `account.close.admin by ${by}`,
+  })
+  save()
+  res.json({ ok: true, ordersCleared: result.ordersCleared })
 })
 
 /**

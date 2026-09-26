@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { SellerStatus } from '@shared/types.js'
 import { PLAN } from '@shared/seller.js'
+import { UNDO_DAYS } from '@shared/accountClose.js'
 import { useT } from '../i18n/I18nProvider.js'
 import { api, type SellerRow } from '../lib/api.js'
 import { Confirm, PackPicker, useConfirm } from './Confirm.js'
 import { Button, Pill, useErrorText } from './ui.js'
+import { CloseFields, EMPTY_CLOSE, closeBody, openOrdersText, type CloseFieldsValue } from './CloseAccount.js'
 
 /**
  * The three things an admin may do to a woman's account, in one place.
@@ -15,7 +17,7 @@ import { Button, Pill, useErrorText } from './ui.js'
  * drift, and the copy that drifts is the one that stops saying "her products
  * will disappear from the app".
  */
-type Action = 'grant' | 'revoke' | 'block' | null
+type Action = 'grant' | 'revoke' | 'block' | 'close' | 'restore' | null
 
 export function SellerActions({
   seller, onDone,
@@ -30,8 +32,14 @@ export function SellerActions({
   const [action, setAction] = useState<Action>(null)
   const [packs, setPacks] = useState(1)
   const [blockReason, setBlockReason] = useState('')
+  const [closeFields, setCloseFields] = useState<CloseFieldsValue>(EMPTY_CLOSE)
+  const [digits, setDigits] = useState('')
 
   const blocked = seller.status === 'BLOCKED'
+  /** Inside the seven days: still undoable. */
+  const closing = seller.status === 'CLOSED' && !!seller.closingAt
+  /** Erased: nothing left to act on. */
+  const closedForGood = seller.status === 'CLOSED' && !seller.closingAt
   const used = seller.slots?.used ?? 0
   const slotsPerPack = PLAN.slotsPerPack
 
@@ -39,6 +47,8 @@ export function SellerActions({
     setAction(next)
     setPacks(1)
     setBlockReason('')
+    setCloseFields(EMPTY_CLOSE)
+    setDigits('')
     c.ask()
   }
 
@@ -57,7 +67,7 @@ export function SellerActions({
     } catch (e) {
       // Stays open on failure: the server refuses a revoke that would drop her
       // below the slots she is using, and that message is the whole point.
-      c.setError(errorText(e))
+      c.setError(openOrdersText(e, t) ?? errorText(e))
     } finally {
       c.setBusy(false)
     }
@@ -75,12 +85,68 @@ export function SellerActions({
         <Button
           variant={blocked ? 'ok' : 'danger'}
           small
-          disabled={c.open}
+          disabled={c.open || closedForGood}
           onClick={() => ask('block')}
         >
           {blocked ? t('se.unblock') : t('se.block')}
         </Button>
+        {/* Deleting on her behalf, for the woman who asked by phone or email
+            and cannot sign in. Once closing, the only action is to undo it. */}
+        {closing ? (
+          <Button variant="ok" small disabled={c.open} onClick={() => ask('restore')}>
+            {t('ac.restore')}
+          </Button>
+        ) : !closedForGood && (
+          <Button variant="danger" small disabled={c.open} onClick={() => ask('close')}>
+            {t('ac.sellerOpen')}
+          </Button>
+        )}
       </div>
+
+      {/* ---- close on her behalf ---- */}
+      <Confirm
+        open={c.open && action === 'close'}
+        title={t('ac.sellerConfirmTitle')}
+        description={t('ac.sellerConfirmDesc', { days: UNDO_DAYS })}
+        confirmLabel={t('ac.sellerConfirm')}
+        tone="danger"
+        busy={c.busy}
+        error={c.error}
+        onCancel={close}
+        onConfirm={() => {
+          const body = closeBody(closeFields)
+          if (!body || digits.length !== 4) {
+            c.setError(t('ac.incomplete'))
+            return
+          }
+          void run(() => api.closeSeller(seller.id, { ...body, confirm: digits }))
+        }}
+      >
+        <CloseFields value={closeFields} onChange={setCloseFields} />
+        <div style={{ marginTop: 10 }}>
+          <label className="field__l">{t('ac.digits')}</label>
+          <input
+            className="input mono"
+            inputMode="numeric"
+            maxLength={4}
+            style={{ maxWidth: 120 }}
+            value={digits}
+            onChange={(e) => setDigits(e.target.value.replace(/\D/g, ''))}
+          />
+        </div>
+      </Confirm>
+
+      {/* ---- undo inside the week ---- */}
+      <Confirm
+        open={c.open && action === 'restore'}
+        title={t('ac.restoreTitle')}
+        description={t('ac.restoreDesc')}
+        confirmLabel={t('ac.restore')}
+        busy={c.busy}
+        error={c.error}
+        onCancel={close}
+        onConfirm={() => void run(() => api.restoreSeller(seller.id))}
+      />
 
       {/* ---- grant ---- */}
       <Confirm

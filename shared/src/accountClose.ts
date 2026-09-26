@@ -159,3 +159,82 @@ export const PAYMENT_PII_FIELDS = ['phone', 'payerUpi', 'screenshotUrl'] as cons
 
 /** And for the buyer's copies carried on an order she placed. */
 export const ORDER_BUYER_PII_FIELDS = ['customerPhone', 'address'] as const
+
+/* ------------------------------------------------------------------ */
+/* Closing an account for somebody who cannot sign in                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * WHEN STAFF CLOSE IT FOR HER.
+ *
+ * The public deletion page and the privacy policy promise that a woman who
+ * has lost her phone, or whose OTP never arrives, can ask by phone, WhatsApp
+ * or email and have the account closed. Without her phone there is no OTP, so
+ * a person has to stand where the OTP would: staff ring back the REGISTERED
+ * number and hear her confirm it. Anyone can send an email naming somebody
+ * else's number, and closing a rival's shop must not be one message away.
+ *
+ * So the console asks for three things, and the server refuses without them:
+ * how the request arrived (kept on the record), a tick that the call-back
+ * happened, and - for a seller, whose page the admin already has open - the
+ * last four digits of her number typed, the same stray-click guard her own
+ * button uses. What happens next is exactly what her own button does: a
+ * seller gets the seven days, a buyer does not.
+ */
+export const ADMIN_CLOSE_CHANNELS = ['phone', 'whatsapp', 'email'] as const
+export type AdminCloseChannel = (typeof ADMIN_CLOSE_CHANNELS)[number]
+
+export interface AdminCloseInput {
+  channel?: unknown
+  /** Staff rang the registered number back and she confirmed. */
+  verified?: unknown
+  /** Last four digits of the account's number, typed. Seller only. */
+  confirm?: unknown
+  /** Anything worth keeping about the request. Optional. */
+  note?: unknown
+}
+
+export const ADMIN_CLOSE_NOTE_MAX = 120
+
+/** What is wrong with a staff close, or null. English first, then Marathi. */
+export function adminCloseProblem(
+  input: AdminCloseInput,
+  phone: string,
+  opts: { needsDigits: boolean },
+): { error: string; messageMr: string } | null {
+  if (typeof input.channel !== 'string' || !(ADMIN_CLOSE_CHANNELS as readonly string[]).includes(input.channel)) {
+    return { error: 'Say how the request arrived', messageMr: 'विनंती कशी आली ते निवडा' }
+  }
+  if (input.verified !== true) {
+    return {
+      error: 'Ring the registered number back and confirm it is her first',
+      messageMr: 'आधी नोंदणी केलेल्या नंबरवर फोन करून खात्री करा',
+    }
+  }
+  if (opts.needsDigits) {
+    const typed = typeof input.confirm === 'string' ? input.confirm.replace(/\D/g, '') : ''
+    if (typed.length !== 4 || typed !== confirmDigits(phone)) {
+      return {
+        error: 'The last 4 digits do not match this account\'s number',
+        messageMr: 'शेवटचे 4 अंक या खात्याच्या नंबरशी जुळत नाहीत',
+      }
+    }
+  }
+  if (typeof input.note === 'string' && input.note.trim().length > ADMIN_CLOSE_NOTE_MAX) {
+    return {
+      error: `Keep the note under ${ADMIN_CLOSE_NOTE_MAX} characters`,
+      messageMr: `टीप ${ADMIN_CLOSE_NOTE_MAX} अक्षरांपेक्षा लहान लिहा`,
+    }
+  }
+  return null
+}
+
+/**
+ * The line kept on a seller's record, in the `other` reason's note. It names
+ * the channel and the staff member, so "who closed this shop?" has an answer
+ * after the admin who did it has left, and it fits CLOSE_NOTE_MAX.
+ */
+export function adminCloseNote(channel: AdminCloseChannel, by: string, note?: string): string {
+  const extra = note?.trim() ? ` · ${note.trim()}` : ''
+  return `Closed by staff on request (${channel}) · ${by}${extra}`.slice(0, CLOSE_NOTE_MAX)
+}

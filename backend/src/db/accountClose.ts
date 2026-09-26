@@ -1,9 +1,11 @@
 import type { Order, Seller, SubscriptionPayment } from '@shared/types.js'
-import { openOrders, scrubDueAt } from '@shared/accountClose.js'
+import {
+  type AdminCloseChannel, type AdminCloseInput, adminCloseNote, adminCloseProblem, openOrders, scrubDueAt,
+} from '@shared/accountClose.js'
 import type { Db } from './seed.js'
 import { destroyImage } from '../routes/uploads.routes.js'
 import { revokeAllForUser } from '../auth/sessions.js'
-import { PLACEHOLDER_NAME } from './customers.js'
+import { PLACEHOLDER_NAME, customerIdFor } from './customers.js'
 
 /**
  * DELETING AN ACCOUNT, APPLIED.
@@ -250,4 +252,92 @@ export function sweepClosedAccounts(
   )
   for (const seller of due) scrubSeller(db, seller, now, destroy)
   return due.length
+}
+
+/* ------------------------------------------------------------------ */
+/* Staff closing an account on a request                               */
+/* ------------------------------------------------------------------ */
+
+export type AdminCloseResult =
+  | { ok: true }
+  | { ok: false; status: number; error: string; messageMr: string; openOrders?: { id: string; status: string }[] }
+
+const OPEN_ORDERS_REFUSAL = {
+  error: 'Open orders: they must be finished or cancelled first',
+  messageMr: 'सुरू असलेले ऑर्डर आधी पूर्ण किंवा रद्द व्हायला हवेत. त्यानंतर खाते बंद करता येईल.',
+}
+
+/**
+ * A seller asked by phone, WhatsApp or email and staff confirmed it was her.
+ *
+ * Exactly her own button's effect - the shop closes now, the erasing waits
+ * `UNDO_DAYS` - with the reason `other` and a note naming the channel and the
+ * staff member. The same open-order refusal applies: a buyer waiting on a
+ * delivery is no less stranded because an admin pressed the button.
+ */
+export function adminCloseSeller(
+  db: Db,
+  seller: Seller,
+  input: AdminCloseInput,
+  by: string,
+  now = Date.now(),
+): AdminCloseResult {
+  if (seller.status === 'CLOSED') {
+    return seller.closingAt
+      ? { ok: false, status: 409, error: 'Already closing', messageMr: 'हे खाते आधीच बंद होत आहे.' }
+      : { ok: false, status: 409, error: 'Already erased', messageMr: 'हे खाते आधीच पुसले गेले आहे.' }
+  }
+
+  const problem = adminCloseProblem(input, seller.phone, { needsDigits: true })
+  if (problem) return { ok: false, status: 400, ...problem }
+
+  const open = openOrdersForSeller(db, seller.id)
+  if (open.length) {
+    return { ok: false, status: 409, ...OPEN_ORDERS_REFUSAL, openOrders: open.map((o) => ({ id: o.id, status: o.status })) }
+  }
+
+  const note = typeof input.note === 'string' ? input.note : undefined
+  requestSellerClose(db, seller, {
+    reason: 'other',
+    note: adminCloseNote(input.channel as AdminCloseChannel, by, note),
+  }, now)
+  return { ok: true }
+}
+
+/**
+ * A buyer asked. Found by the phone number staff typed, because a buyer has
+ * no page in the console - she is her phone number. Refused as "not found"
+ * when that number has neither a record nor an order, so a typo does not
+ * report success for an account that never existed.
+ */
+export function adminCloseCustomer(
+  db: Db,
+  phone: string,
+  input: AdminCloseInput,
+  now = Date.now(),
+): AdminCloseResult & { ordersCleared?: number } {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length !== 10) {
+    return { ok: false, status: 400, error: 'Type the 10-digit number', messageMr: '10 अंकी मोबाईल नंबर टाका' }
+  }
+
+  const problem = adminCloseProblem(input, digits, { needsDigits: false })
+  if (problem) return { ok: false, status: 400, ...problem }
+
+  const customerId = customerIdFor(digits)
+  const hasRow = db.customers.some((c) => c.id === customerId)
+  const orders = db.orders.filter(
+    (o) => o.customerId === customerId || o.customerPhone.replace(/\D/g, '') === digits,
+  )
+  if (!hasRow && orders.length === 0) {
+    return { ok: false, status: 404, error: 'No buyer with this number', messageMr: 'या नंबरचा ग्राहक सापडला नाही.' }
+  }
+
+  const open = openOrdersForCustomer(db, customerId, digits)
+  if (open.length) {
+    return { ok: false, status: 409, ...OPEN_ORDERS_REFUSAL, openOrders: open.map((o) => ({ id: o.id, status: o.status })) }
+  }
+
+  closeCustomer(db, customerId, digits, now)
+  return { ok: true, ordersCleared: orders.length }
 }
