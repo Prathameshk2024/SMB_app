@@ -63,7 +63,9 @@ export function requestSellerClose(
   seller.closeReason = request.reason
   if (request.note) seller.closeNote = request.note
   else delete seller.closeNote
-  seller.isOpen = false
+  // `isOpen` is left alone on purpose. CLOSED already hides the shop, and
+  // flipping the switch too meant a restore brought her back with the shop
+  // still shut - the one thing restoring promises not to do.
 
   // Every phone signed in as her, not just this one. She asked for the
   // account to end; a second handset still holding a live token has not.
@@ -139,6 +141,7 @@ export function scrubSeller(
   for (const payment of db.payments.filter((p) => p.sellerId === seller.id)) {
     scrubPayment(payment, destroy)
   }
+  forgetSessions(db, seller.id, now)
   return seller
 }
 
@@ -206,7 +209,26 @@ export function closeCustomer(db: Db, customerId: string, phone: string, now = D
   const i = db.customers.findIndex((c) => c.id === customerId)
   if (i >= 0) db.customers.splice(i, 1)
 
-  revokeAllForUser(db, customerId, 'logout', now)
+  forgetSessions(db, customerId, now)
+}
+
+/**
+ * Sign her out everywhere and take her number and phone off the session rows.
+ *
+ * Revoked rows are kept a week for auditing (`pruneSessions`), and each one
+ * carried her full phone and FCM token all that week. Worse, a seller who
+ * signed in during her seven days to look at the notice, and neither restored
+ * nor logged out, held a LIVE session into an erased shop. Blanking rather
+ * than deleting the rows keeps this clear of `isBulkDelete`.
+ */
+function forgetSessions(db: Db, userId: string, now: number): void {
+  revokeAllForUser(db, userId, 'logout', now)
+  for (const session of db.sessions) {
+    if (session.userId !== userId) continue
+    session.phone = ''
+    delete session.pushToken
+    delete session.pushLang
+  }
 }
 
 /**
