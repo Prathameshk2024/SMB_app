@@ -12,7 +12,7 @@ import {
 } from '../components/ui.js'
 import { useToast } from '../store/ToastContext.js'
 
-type Filter = 'all' | 'low' | 'hidden'
+type Filter = 'all' | 'low' | 'hidden' | 'reported'
 
 /**
  * WHAT BUYERS SAID ABOUT EVERY PRODUCT.
@@ -30,7 +30,10 @@ export function Reviews() {
   const [filter, setFilter] = useState<Filter>('all')
   const [data, loading, error, reload] = useAsync(
     () => api.reviews(
-      filter === 'low' ? { maxRating: 2 } : filter === 'hidden' ? { hidden: true } : {},
+      filter === 'low' ? { maxRating: 2 }
+        : filter === 'hidden' ? { hidden: true }
+        : filter === 'reported' ? { reported: true }
+        : {},
     ),
     [filter],
   )
@@ -47,6 +50,11 @@ export function Reviews() {
             <option value="all">{t('rv.filterAll')}</option>
             <option value="low">{t('rv.filterLow')}</option>
             <option value="hidden">{t('rv.filterHidden')}</option>
+            {/* Buyers' flags on buyers' words. A report hides nothing by
+                itself - it puts the review in front of somebody who decides. */}
+            <option value="reported">
+              {t('rv.filterReported')}{data?.reportedCount ? ` (${data.reportedCount})` : ''}
+            </option>
           </select>
           {data && filter === 'all' && <SummaryText summary={data.summary} />}
         </div>
@@ -119,6 +127,7 @@ export function ReviewTable({
                 <th>{t('rv.stars')}</th>
                 <th>{t('rv.comment')}</th>
                 <th>{t('rv.buyer')}</th>
+                <th>{t('rv.reports')}</th>
                 <th>{t('se.status')}</th>
                 <th />
               </tr>
@@ -142,6 +151,16 @@ export function ReviewTable({
                     {r.customerName || t('rv.anon')}
                     <div className="mono dim">{r.orderId}</div>
                   </td>
+                  <td className="small">
+                    {(r as ReviewRow).reports?.length
+                      ? (r as ReviewRow).reports!.map((rep) => (
+                          <div key={rep.id} style={{ color: 'var(--danger)' }}>
+                            {t(`report.reason.${rep.reason}`)}
+                            {rep.note && <> — {rep.note}</>}
+                          </div>
+                        ))
+                      : <span className="dim">-</span>}
+                  </td>
                   <td>
                     {r.hidden ? (
                       <>
@@ -153,9 +172,20 @@ export function ReviewTable({
                     )}
                   </td>
                   <td>
-                    <Button variant="quiet" small onClick={() => setActing(r)}>
-                      {r.hidden ? t('rv.show') : t('rv.hide')}
-                    </Button>
+                    <div className="row" style={{ gap: 6 }}>
+                      <Button variant="quiet" small onClick={() => setActing(r)}>
+                        {r.hidden ? t('rv.show') : t('rv.hide')}
+                      </Button>
+                      {!!(r as ReviewRow).reports?.length && (
+                        <Button
+                          variant="quiet"
+                          small
+                          onClick={() => void api.clearReviewReports(r.id).then(onChanged)}
+                        >
+                          {t('rv.clearReports')}
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

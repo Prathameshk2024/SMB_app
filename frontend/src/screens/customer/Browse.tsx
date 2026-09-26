@@ -8,6 +8,7 @@ import ProductImage from '../../components/ProductImage.js'
 import { Avatar } from '../../components/Avatar.js'
 import { api } from '../../lib/api.js'
 import { sizeLabel } from '../../lib/productSize.js'
+import { ReportLink, ReportSheet } from '../../components/ReportSheet.js'
 import { categoryPhoto } from '../../lib/categoryPhoto.js'
 import {
   AppBar, Button, Card, EmptyState, Loading, Notice, Pill,
@@ -272,6 +273,8 @@ export function ProductDetail() {
   const { add, has, canAdd, sellerName: cartShop } = useCart()
 
   const [data, loading] = useAsync(() => api.product(productId!), [productId], `product:${productId}`)
+  /** Open while she is saying what is wrong with this listing. */
+  const [reporting, setReporting] = useState(false)
 
   /**
    * The rest of this shop's window. Fetched by seller rather than filtered
@@ -394,6 +397,22 @@ export function ProductDetail() {
             </div>
           </div>
         )}
+
+        {/* Anyone looking at a listing can say it should not be here: a
+            photo that is not hers, food that looks unsafe, a price that is a
+            trick. Quiet, at the foot of what it reports, and never beside
+            the button that adds it to a basket. Google Play asks any app
+            carrying what its users write to offer exactly this. */}
+        <div className="center" style={{ paddingTop: 'var(--s3)' }}>
+          <ReportLink onClick={() => setReporting(true)} />
+        </div>
+        <ReportSheet
+          targetType="product"
+          targetId={product.id}
+          title={product.name}
+          open={reporting}
+          onClose={() => setReporting(false)}
+        />
 
         {/* Three, then the door to the rest. One shop owns the cart now, so
             what else that shop sells is the most useful thing on this screen:

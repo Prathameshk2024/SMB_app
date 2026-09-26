@@ -729,3 +729,7 @@ textarea::placeholder {
   color: var(--placeholder);
   opacity: 1;
 }
+
+/* What the buyers said, under the listing they said it about. */
+.reportlist { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px; }
+.reportlist li::marker { color: var(--danger); }

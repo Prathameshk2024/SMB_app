@@ -238,7 +238,18 @@ export interface AdminNotice {
   kind: AdminNoticeKind
   /** Slots, where the sentence carries a number. Slots, not packs - a pack is our word. */
   n?: number
-  /** A reason, or the product's name. Shown to her as written, so keep it plain. */
+  /**
+   * WHAT the decision was about - the product's name. Kept apart from the
+   * reason so each side can be labelled in her own language: "dustbin" and
+   * "कारण: Invalid" read as two facts, where "dustbin - Invalid" reads as a
+   * product with a strange name.
+   */
+  subject?: string
+  /**
+   * WHY, in the admin's own words. Shown to her as written, so keep it plain.
+   * Older rows carry the subject and the reason joined in here; they are
+   * printed as they stand.
+   */
   note?: string
 }
 
@@ -658,4 +669,36 @@ export interface ApiError {
   /** Marathi message, safe to show a seller directly. */
   messageMr?: string
   fields?: Record<string, string>
+}
+
+/**
+ * A buyer saying a listing or a review should not be here.
+ *
+ * Stored rather than derived, because it is the only record that the report
+ * was ever made: nothing else on the product changes when somebody reports
+ * it. An admin reads the queue, and either takes the listing down - which
+ * deletes it and these rows with it - or closes the reports as looked at.
+ */
+export interface Report {
+  id: string
+  targetType: import('./report.js').ReportTarget
+  targetId: string
+  /** Whose listing or review, copied so the queue can be read without joins. */
+  sellerId?: string
+  /** What the row is about, copied for the same reason: a name in the queue. */
+  targetName?: string
+  reason: import('./report.js').ReportReason
+  /** Only 'other' carries words; every other reason is the code alone. */
+  note?: string
+  /**
+   * Who flagged it - a buyer, or the seller the review is about. She is the
+   * person an abusive review is aimed at, so she gets the same way out as
+   * anyone reading it.
+   */
+  byUserId: string
+  byRole: 'customer' | 'seller'
+  at: string
+  /** Closed by an admin who looked and left the listing up. */
+  reviewedAt?: string
+  reviewedBy?: string
 }

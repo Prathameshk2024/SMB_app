@@ -6,7 +6,7 @@ import {
 } from '@shared/seller.js'
 import { getDb, newId, save } from '../db/store.js'
 import { requireRole } from '../middleware/auth.js'
-import { purgeArchived, purgeExpiredRejections } from '../db/moderation.js'
+import { purgeArchived, purgeRejected } from '../db/moderation.js'
 import { isExpired, subscriptionView } from '@shared/subscription.js'
 import { destroyImage } from './uploads.routes.js'
 
@@ -47,7 +47,7 @@ productsRouter.get('/mine', requireRole('seller'), (req, res) => {
   // A rejection she has already had 48 hours to read is gone by now. Swept on
   // read as well as on the timer, so her list and the server never disagree.
   // `purgeArchived` clears tombstones from before deleting meant deleting.
-  if (purgeExpiredRejections(db.products) + purgeArchived(db.products)) save()
+  if (purgeRejected(db.products) + purgeArchived(db.products)) save()
   const sellerId = req.auth!.sellerId!
   const products = db.products.filter((p) => p.sellerId === sellerId)
   const seller = db.sellers.find((s) => s.id === sellerId)!

@@ -5,6 +5,7 @@ import type {
   SubscriptionPayment,
 } from '@shared/types.js'
 import type { SlotInfo } from '@shared/seller.js'
+import type { ReportReason, ReportTarget } from '@shared/report.js'
 import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
 import type { LangCode } from '../i18n/strings.js'
 
@@ -408,6 +409,16 @@ export const api = {
   sellerContact: (sellerId: string) =>
     get<{ phone: string; whatsapp: string }>(`/catalog/sellers/${sellerId}/contact`),
 
+  /**
+   * A buyer flagging a listing or a review. One report per person per thing;
+   * a second tap is answered as if it were the first.
+   */
+  report: (body: {
+    targetType: ReportTarget
+    targetId: string
+    reason: ReportReason
+    note?: string
+  }) => post<{ ok: true }>('/reports', body),
 
   /** The buyer paying, after the seller has accepted. */
   payOrder: (id: string, utr: string) =>

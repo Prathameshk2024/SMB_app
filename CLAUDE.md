@@ -449,7 +449,7 @@ Phone notifications (tray, sound, app closed) for the APK, sent by the API throu
 
 `shared/src/seller.ts`. ₹50 = one pack = 5 product slots, no payment gateway — the seller pays the admin's UPI and admin approves by hand. `SLOT_CONSUMING` deliberately excludes `DRAFT`, so a seller can experiment before paying. Validation functions here run on **both** sides: the client for a fast friendly message, the server because the client can lie.
 
-**One product, one slot — and only an admin gives one back.** `SLOT_CONSUMING` is `PENDING`, `LIVE`, `PAUSED`. A seller cannot delete a submitted listing: My Products has no Remove button on one, and `DELETE /products/:id` answers 403 unless `sellerMayDelete()` — a `DRAFT`, which holds no slot and nobody else has seen. Deleting used to free the slot, which made a pack of five a rotating shop of as many products as she liked. The slot comes back when an admin **rejects** a listing or **takes a live one down** (both land on `REJECTED`, which is not in the list), at that moment rather than when the row is swept 48 hours later — five slots, three sent in, the third refused, leaves three free. Her rejected notice says the slot is free again. A woman stuck with a listing she regrets asks an admin to take it down. `backend/tests/slots.test.ts` holds this; `revoke-slots` counts in-use slots by the same rule.
+**One product, one slot — and only an admin gives one back.** `SLOT_CONSUMING` is `PENDING`, `LIVE`, `PAUSED`. A seller cannot delete a submitted listing: My Products has no Remove button on one, and `DELETE /products/:id` answers 403 unless `sellerMayDelete()` — a `DRAFT`, which holds no slot and nobody else has seen. Deleting used to free the slot, which made a pack of five a rotating shop of as many products as she liked. The slot comes back when an admin **rejects** a listing or **takes a live one down** — and that rejection now **deletes the product on the spot**, so the slot and the row go together: five slots, three sent in, the third refused, leaves three free. The reason reaches her as a `PRODUCT_REJECTED` notice, which is where she reads every other admin decision. A woman stuck with a listing she regrets asks an admin to take it down. `backend/tests/slots.test.ts` holds this; `revoke-slots` counts in-use slots by the same rule.
 
 **The ₹50 lasts six months.** `shared/src/subscription.ts` is the rule, `backend/src/db/subscription.ts` applies approvals, `backend/tests/subscription.test.ts` holds both.
 
@@ -462,7 +462,9 @@ Phone notifications (tray, sound, app closed) for the APK, sent by the API throu
 - **Admin:** a subscription pill (with the date) on every selling seller in the register and on her page, a filter for ending-this-week and expired, the kind and resulting end date on each payment, and `subscriptionsExpiring` / `subscriptionsExpired` on the dashboard. `activeSellers` counts only shops a buyer can reach today. Granted slots start a term for a seller who has none, but never extend one — time is paid.
 - **Existing sellers** were given a term once at boot by `backfillSubscriptionTerms`: six months from their last approved payment (or from the deploy, for granted packs), and never fewer than seven days, so no shop closes the morning after the deploy without warning.
 
-**Deleting a draft deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). The 48-hour sweep of a rejected listing does the same: `purgeExpiredRejections()` destroys each swept row's photo, because the row was the only record of its public id and a photo left behind could never be named again — it used to remove the row alone. It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
+**A rejection is a removal, the moment it is made.** `POST /admin/products/:id/moderate` with `approve: false` splices the row, destroys its photo and deletes its reports. A rejected listing used to stay for 48 hours so she could read the reason on the row (`REJECT_GRACE_HOURS`, `shared/src/moderation.ts` — both gone). That made sense while a rejected listing still held her slot; since the slot frees at the decision, the grace period only left a dead listing beside the new one she had already put in its place. `purgeRejected()` in `db/moderation.ts` sweeps rows rejected under the old rule, at boot and hourly, and is a no-op afterwards. `backend/tests/moderation.test.ts` holds it.
+
+**Deleting a draft deletes the document.** `DELETE /products/:id` splices the row and destroys its Cloudinary image (best effort, not awaited — the record is already gone and the seller is waiting on a phone). It used to stamp `ARCHIVED` and keep the row, which nothing ever read again: forty product documents of which eight were visible is what that looks like from the Firebase console. `purgeArchived()` in `db/moderation.ts` clears the tombstones already written, at boot and on `GET /products/mine`, the same way expired rejections are swept.
 
 This is safe because **an order copies what it needs**: `OrderItem` carries the name, emoji, quantity and price from checkout, and nothing dereferences `productId` to draw an order. `backend/tests/product-delete.test.ts` holds that contract — normalising those fields away would quietly empty a year of order history the day listings become deletable again, by her or by an admin.
 
@@ -527,6 +529,34 @@ for the reason it always was. `sizeLabel()` in `frontend/src/lib/productSize.ts`
 prints it ("500 ग्रॅम", "1 सेट (6 नग)"); a listing from before the question
 existed has none, and its unit alone is still the honest answer.
 
+### Reporting a listing or a review
+
+`shared/src/report.ts` holds the reasons; `POST /reports` (customer only)
+stores one row per buyer per thing — a second tap is a woman making sure it
+went, not a second complaint, and is answered as if it were the first. This is
+the in-app reporting Google Play requires of an app carrying what its users
+write, and the only moderation signal that arrives *after* a listing is live.
+
+- **A report changes nothing on its own.** The listing stays LIVE: one annoyed
+  buyer must not be able to empty a woman's shop. It joins the admin console's
+  **Reported** tab (`GET /admin/products?status=REPORTED`), which replaced the
+  Rejected tab — that one can no longer hold anything now that rejecting
+  deletes. A reported REVIEW joins the console's Reviews screen under its
+  **Reported** filter (`?reported=true`), with `clear-reports` beside Hide.
+- **Either side may flag a review.** `POST /reports` takes `customer` or
+  `seller` (`byRole`), because the person an abusive review is written about
+  is the one nobody else is in a position to speak for. Products are reported
+  by buyers, who are the only ones looking at them.
+- **Two ways out, both deliberate.** Take the listing down (deletes it, and
+  its reports with it) or `POST /admin/products/:id/clear-reports`, which
+  closes them with who looked. Closed rather than deleted: "three people
+  complained and an admin disagreed" is a different fact from "nobody ever
+  complained".
+- **A reason is always required**, from the list, and only `other` carries
+  typed words — a queue where every row says "inappropriate" cannot be
+  triaged. Reports are anonymous to the seller.
+- `reports` is a Firestore collection, so it counts against the daily read
+  budget (docs/CAPACITY.md §4). `backend/tests/report.test.ts` holds the rules.
 
 ### Sorting the admin lists
 

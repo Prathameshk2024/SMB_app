@@ -7,6 +7,7 @@ import {
   RATING_MAX, REVIEW_COMMENT_MAX, canReview, orderProducts, ratingWordKey, ratingsProblem,
 } from '@shared/review.js'
 import { useT } from '../i18n/I18nProvider.js'
+import { ReportLink, ReportSheet } from './ReportSheet.js'
 import { api, ApiError } from '../lib/api.js'
 import { useAuth } from '../store/AuthContext.js'
 import { useToast } from '../store/ToastContext.js'
@@ -100,8 +101,26 @@ function shortDate(iso: string): string {
  * One review. `showProduct` names the product it is about - on her list and
  * on an order - and is left off on the product's own page, where it is obvious.
  */
-export function ReviewItem({ review, showProduct }: { review: PublicReview; showProduct?: boolean }) {
+export function ReviewItem({
+  review, showProduct, reportable,
+}: {
+  review: PublicReview
+  showProduct?: boolean
+  /**
+   * ONE REPORT LINK PER SCREEN, AND THIS IS NOT IT ON THE BUYER'S SIDE.
+   *
+   * A buyer's words are content other buyers read, so somebody has to be able
+   * to flag them - but a link under every review, above another one for the
+   * listing itself, turned the product screen into a column of "Report" and
+   * made the word meaningless. So the buyer reports the LISTING, at the foot
+   * of the product page, and this is on for the seller only: an abusive
+   * review is aimed at her, and My Reviews is the one screen where she reads
+   * them all. Not her order screen, which shows the same words again.
+   */
+  reportable?: boolean
+}) {
   const t = useT()
+  const [reporting, setReporting] = useState(false)
   return (
     <div className="review">
       {showProduct && <strong>{review.productName}</strong>}
@@ -118,15 +137,35 @@ export function ReviewItem({ review, showProduct }: { review: PublicReview; show
         </span>
       </div>
       {review.comment && <p className="body review__text">{review.comment}</p>}
+      {reportable && (
+        <>
+          <ReportLink onClick={() => setReporting(true)} />
+          <ReportSheet
+            targetType="review"
+            targetId={review.id}
+            title={review.comment || review.productName}
+            open={reporting}
+            onClose={() => setReporting(false)}
+          />
+        </>
+      )}
     </div>
   )
 }
 
-export function ReviewList({ reviews, showProduct }: { reviews: PublicReview[]; showProduct?: boolean }) {
+export function ReviewList({
+  reviews, showProduct, reportable,
+}: {
+  reviews: PublicReview[]
+  showProduct?: boolean
+  reportable?: boolean
+}) {
   return (
     <Card>
       <div className="review-list">
-        {reviews.map((r) => <ReviewItem key={r.id} review={r} showProduct={showProduct} />)}
+        {reviews.map((r) => (
+          <ReviewItem key={r.id} review={r} showProduct={showProduct} reportable={reportable} />
+        ))}
       </div>
     </Card>
   )

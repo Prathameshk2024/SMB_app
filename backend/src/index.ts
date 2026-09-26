@@ -11,6 +11,7 @@ import { sellersRouter } from './routes/sellers.routes.js'
 import { productsRouter } from './routes/products.routes.js'
 import { catalogRouter } from './routes/catalog.routes.js'
 import { ordersRouter } from './routes/orders.routes.js'
+import { reportsRouter } from './routes/reports.routes.js'
 import { adminRouter } from './routes/admin.routes.js'
 import { flush, getDb, initStore, resetDb, save } from './db/store.js'
 import { uploadsRouter } from './routes/uploads.routes.js'
@@ -21,7 +22,7 @@ import {
   ALLOW_DEV_RESET, CORS_ORIGIN, describeConfig, PORT as CONFIG_PORT, usingFirestore,
 } from './config.js'
 import { sellerWeek } from './db/analytics.js'
-import { purgeArchived, purgeExpiredRejections } from './db/moderation.js'
+import { purgeArchived, purgeRejected } from './db/moderation.js'
 import { sweepClosedAccounts } from './db/accountClose.js'
 import { backfillSubscriptionTerms } from './db/subscription.js'
 import { splitOrderReviews } from './db/reviews.js'
@@ -106,6 +107,7 @@ app.use('/api/products', productsRouter)
 app.use('/api/catalog', catalogRouter)
 app.use('/api/customers', customersRouter)
 app.use('/api/orders', ordersRouter)
+app.use('/api/reports', reportsRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/uploads', uploadsRouter)
 app.use('/api/qr', qrRouter)
@@ -183,10 +185,10 @@ function startHousekeeping(): void {
   const timer = setInterval(() => {
     sweepLimits()
     if (pruneSessions(getDb()) > 0) save()
-    // A rejected listing is removed 48 hours after the decision. A sweep, not
-    // a timer per product: timers do not survive the next deploy, and this is
-    // correct however long the process was down.
-    if (purgeExpiredRejections(getDb().products) > 0) save()
+    // Rejecting deletes the listing, so this only clears rows left by the
+    // old 48-hour rule. A sweep, not a timer per product: timers do not
+    // survive the next deploy.
+    if (purgeRejected(getDb().products) > 0) save()
     // A closed account is erased a week after she asked, and the same
     // reasoning applies: the week almost always contains a deploy.
     if (sweepClosedAccounts(getDb()) > 0) save()
@@ -204,12 +206,12 @@ async function main() {
   // none of them can forget to tell her. setImmediate runs it after the
   // handler has saved and replied.
   onNotice((seller, notice) => setImmediate(() => void notifyAdminNotice(getDb(), seller.id, notice)))
-  // Anything whose 48 hours ran out while the server was off goes now, before
-  // the first request can be served a listing that should not exist. The
-  // archived rows are tombstones from when deleting a product only stamped it:
+  // Listings rejected under the old 48-hour rule go now, before the first
+  // request can be served one that should not exist. The archived rows are
+  // tombstones from when deleting a product only stamped it:
   // nothing has read one since, and a collection that only grows is what makes
   // the database unreadable to the people who have to audit it.
-  if (purgeExpiredRejections(getDb().products) + purgeArchived(getDb().products) > 0) save()
+  if (purgeRejected(getDb().products) + purgeArchived(getDb().products) > 0) save()
   // Accounts whose seven days ran out while the server was off are erased
   // before the first request, for the same reason: the promise was a date,
   // not an uptime.

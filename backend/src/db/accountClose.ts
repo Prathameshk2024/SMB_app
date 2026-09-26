@@ -213,7 +213,7 @@ export function closeCustomer(db: Db, customerId: string, phone: string, now = D
  * The other half of the seven days: something has to do the erasing when they
  * are up.
  *
- * A sweep rather than a timer, for the reason `purgeExpiredRejections` is one:
+ * A sweep rather than a timer, for the reason `purgeRejected` is one:
  * timers do not survive the deploy that happens halfway through the week.
  * Called at boot and hourly, and correct however long the server was down.
  * Returns how many rows it emptied so the caller can decide to `save()`.

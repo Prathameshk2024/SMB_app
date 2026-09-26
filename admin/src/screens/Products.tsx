@@ -3,16 +3,23 @@ import { useT } from '../i18n/I18nProvider.js'
 import { SortSelect, useSort } from '../components/SortSelect.js'
 import { PRODUCT_SORTS, sortRows } from '../lib/sort.js'
 import { IconProducts } from '../components/icons.js'
-import { REJECT_GRACE_HOURS, hoursUntilRemoval } from '@shared/moderation.js'
 import { api, type ProductRow } from '../lib/api.js'
-import { rupees } from '../lib/format.js'
+import { rupees, when } from '../lib/format.js'
 import { TopBar } from '../components/Shell.js'
 import {
   Button, Card, EmptyState, ErrorNote, Field, Loading, Notice, Pill,
   useAsync, useErrorText,
 } from '../components/ui.js'
 
-type Tab = 'PENDING' | 'LIVE' | 'REJECTED'
+/**
+ * REPORTED is a queue, not a status.
+ *
+ * It replaced the REJECTED tab, which can no longer hold anything: rejecting
+ * now deletes the listing, so a tab of rejected products would be a tab that
+ * is always empty. What an admin needs instead is the listings BUYERS have
+ * flagged - the only moderation signal that arrives after a listing is live.
+ */
+type Tab = 'PENDING' | 'LIVE' | 'REPORTED'
 
 /**
  * Moderation is mostly looking, so the photo leads.
@@ -43,8 +50,9 @@ export function Products() {
           <Button small variant={tab === 'LIVE' ? 'primary' : 'quiet'} onClick={() => setTab('LIVE')}>
             {t('pr.liveTab')}
           </Button>
-          <Button small variant={tab === 'REJECTED' ? 'primary' : 'quiet'} onClick={() => setTab('REJECTED')}>
-            {t('pr.rejectedTab')}
+          <Button small variant={tab === 'REPORTED' ? 'primary' : 'quiet'} onClick={() => setTab('REPORTED')}>
+            {t('pr.reportedTab')}
+            {!!data?.reportedCount && <> ({data.reportedCount})</>}
           </Button>
           <SortSelect options={PRODUCT_SORTS} value={sort} onChange={setSort} />
         </div>
@@ -97,7 +105,6 @@ export function ProductCard({ product, onDone }: { product: ProductRow; onDone: 
    */
   const pending = product.status === 'PENDING'
   const live = product.status === 'LIVE'
-  const rejected = product.status === 'REJECTED'
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true)
@@ -140,25 +147,49 @@ export function ProductCard({ product, onDone }: { product: ProductRow; onDone: 
             {product.seller && <> · {t('pr.by')}: {product.seller.name}</>}
           </div>
 
-          {product.rejectReason && (
-            <div className="small" style={{ color: 'var(--danger)' }}>
-              {t('c.reason')}: {product.rejectReason}
+          {/* What the buyers actually said, each with its reason, because
+              "three reports" is a number and "two say the photo is not hers"
+              is a decision. Nobody's name: a report is anonymous to everyone
+              but the database. */}
+          {!!product.reports?.length && (
+            <div className="stack-sm" style={{ marginTop: 8 }}>
+              <div className="strong" style={{ color: 'var(--danger)' }}>
+                {t('pr.reportedCount', { n: product.reports.length })}
+              </div>
+              <ul className="reportlist">
+                {product.reports.map((r) => (
+                  <li key={r.id}>
+                    {t(`report.reason.${r.reason}`)}
+                    {r.note && <> — {r.note}</>}
+                    <span className="dim-2 small"> · {when(r.at)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {/* Rejecting does not delete. Saying when it does is what stops an
-              admin going looking for a delete button that no longer exists. */}
-          {product.status === 'REJECTED' && (
-            <div className="small dim-2">
-              {hoursUntilRemoval(product) == null
-                ? t('pr.removalWindow', { n: REJECT_GRACE_HOURS })
-                : t('pr.removalIn', { n: hoursUntilRemoval(product)! })}
+          {product.rejectReason && (
+            <div className="small" style={{ color: 'var(--danger)' }}>
+              {t('c.reason')}: {product.rejectReason}
             </div>
           )}
         </div>
 
         {(pending || live) && !rejecting && (
           <div className="row">
+            {/* Looked at, and it stays up. One annoyed buyer must not be able
+                to empty a woman's shop, so closing the reports is a decision
+                an admin makes as deliberately as taking the listing down. */}
+            {!!product.reports?.length && (
+              <Button
+                variant="quiet"
+                small
+                disabled={busy}
+                onClick={() => void run(() => api.clearReports(product.id))}
+              >
+                {t('pr.clearReports')}
+              </Button>
+            )}
             {pending && (
               <Button
                 variant="ok"
@@ -175,18 +206,6 @@ export function ProductCard({ product, onDone }: { product: ProductRow; onDone: 
           </div>
         )}
 
-        {/* Within the 48 hours a take-down can be undone - which is the other
-            reason rejection beats deletion: a mistake is recoverable. */}
-        {rejected && (
-          <Button
-            variant="ok"
-            small
-            disabled={busy}
-            onClick={() => void run(() => api.moderateProduct(product.id, true))}
-          >
-            {t('pr.restore')}
-          </Button>
-        )}
       </div>
 
 
@@ -202,7 +221,7 @@ export function ProductCard({ product, onDone }: { product: ProductRow; onDone: 
           </Field>
           <div className="small dim-2">{t('pr.rejectReasonHint')}</div>
           {/* The consequence, spelled out at the moment of the decision. */}
-          <div className="small dim-2">{t('pr.removalWindow', { n: REJECT_GRACE_HOURS })}</div>
+          <div className="small dim-2">{t('pr.rejectDeletes')}</div>
           <div className="row">
             <Button variant="danger" small disabled={busy} onClick={reject}>{t('pr.reject')}</Button>
             <Button variant="quiet" small disabled={busy} onClick={() => setRejecting(false)}>
