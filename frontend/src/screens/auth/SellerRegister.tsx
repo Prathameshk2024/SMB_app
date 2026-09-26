@@ -193,7 +193,6 @@ export default function SellerRegister() {
         upiId: d.upiId.trim(),
         upiQrUrl: d.upiQrUrl || undefined,
         upiQrPublicId: d.upiQrPublicId || undefined,
-        dispatch: d.dispatch,
         digital: {
           smartphone: !!d.digital.smartphone,
           internet: !!d.digital.internet,
@@ -592,14 +591,6 @@ export default function SellerRegister() {
                 }}
                 onCleared={() => { set('upiQrUrl', ''); set('upiQrPublicId', '') }}
               />
-            </Field>
-
-            <Field label={t('reg.dispatch')} required>
-              <div className="stack-sm">
-                <Choice selected={d.dispatch === 'same'} onSelect={() => set('dispatch', 'same')} title={t('reg.dispatchSame')} />
-                <Choice selected={d.dispatch === '1'} onSelect={() => set('dispatch', '1')} title={t('reg.dispatch1')} />
-                <Choice selected={d.dispatch === '23'} onSelect={() => set('dispatch', '23')} title={t('reg.dispatch23')} />
-              </div>
             </Field>
           </>
         )}
