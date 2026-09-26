@@ -7,6 +7,7 @@ import { useToast } from '../../store/ToastContext.js'
 import ProductImage from '../../components/ProductImage.js'
 import { Avatar } from '../../components/Avatar.js'
 import { api } from '../../lib/api.js'
+import { sizeLabel } from '../../lib/productSize.js'
 import { categoryPhoto } from '../../lib/categoryPhoto.js'
 import {
   AppBar, Button, Card, EmptyState, Loading, Notice, Pill,
@@ -43,6 +44,7 @@ function CategoryTileArt({ category }: { category: Category }) {
 type CardProduct = Product & { seller?: Partial<Seller>; rating?: number; ratingCount?: number }
 
 export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen: () => void }) {
+  const t = useT()
   return (
     <div className="pcard">
       {/* The card opens the product; the control below adds it. Two jobs, two
@@ -58,6 +60,8 @@ export function ProductCard({ product, onOpen }: { product: CardProduct; onOpen:
         <div className="pcard__body">
           <div className="pcard__name">{product.name}</div>
           <div className="pcard__price"><Rupees value={product.price} /></div>
+          {/* A price with no size cannot be compared with the shop next door. */}
+          <div className="pcard__size">{sizeLabel(product, t)}</div>
           {/* Its own stars, from buyers who received it. Nothing at all on a
               product nobody has rated - "no reviews" down a grid is noise. */}
           <RatingLine average={product.rating} count={product.ratingCount} hideEmpty />
@@ -326,7 +330,7 @@ export function ProductDetail() {
                 <Rupees value={product.mrp} />
               </span>
             )}
-            <span className="dim">/ {t(`unit.${product.unit}`)}</span>
+            <span className="dim">/ {sizeLabel(product, t)}</span>
           </div>
           <div className="wrap-row">
             {product.isFood && product.vegType && (

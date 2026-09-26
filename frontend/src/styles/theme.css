@@ -1867,3 +1867,6 @@ textarea::placeholder {
 /* A product line with no picture: a larger tile at the top of an order. */
 .lineicon--lg { width: 56px; height: 56px; border-radius: var(--r-sm); background: var(--gold-soft); font-size: 1.6rem; }
 .tile__img svg { font-size: 1.5rem; }
+
+/* The size the price is for, under it on a product card. */
+.pcard__size { font-size: var(--t-sm); color: var(--ink-3); line-height: 1.3; }

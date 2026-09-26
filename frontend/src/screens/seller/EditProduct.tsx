@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Category, Product, Unit } from '@shared/types.js'
-import { countsAsEdit, editsAreLimited, editsLeft } from '@shared/seller.js'
+import {
+  countsAsEdit, editsAreLimited, editsLeft, needsPieceCount,
+} from '@shared/seller.js'
 import { useI18n, useT } from '../../i18n/I18nProvider.js'
 import { api, ApiError } from '../../lib/api.js'
 import { useToast } from '../../store/ToastContext.js'
@@ -50,6 +52,8 @@ export default function EditProduct() {
     price: string
     mrp: string
     unit: Unit
+    packSize: string
+    piecesPerPack: string
     stock: string
     madeToOrder: boolean
   }
@@ -75,6 +79,8 @@ export default function EditProduct() {
       price: String(product.price),
       mrp: product.mrp ? String(product.mrp) : '',
       unit: product.unit,
+      packSize: product.packSize ? String(product.packSize) : '',
+      piecesPerPack: product.piecesPerPack ? String(product.piecesPerPack) : '',
       stock: String(product.stock),
       madeToOrder: !!product.madeToOrder,
     })
@@ -114,7 +120,15 @@ export default function EditProduct() {
   // screen, and the select opened blank.
   const visibleCats = categories.filter((c) => c.food === undefined || c.food === p.isFood)
 
-  function validate(): boolean {
+  /**
+   * `submitting` is the "send for checking" press, which is where the server
+   * checks a listing is complete. A plain save is held to the same standard
+   * for everything that was always asked for - and NOT for the size, which
+   * listings published before the question existed do not carry. Blocking a
+   * price correction until she fills in a field she has never seen would cost
+   * her the one thing this app never gets in the way of.
+   */
+  function validate(submitting = false): boolean {
     const e: Record<string, string> = {}
     if (!form.name.trim()) e.name = t('common.required')
     if (!form.categoryId) e.categoryId = t('common.required')
@@ -126,6 +140,12 @@ export default function EditProduct() {
       e.material = t('common.required')
     }
     if (!form.madeToOrder && form.stock === '') e.stock = t('common.required')
+    if (submitting) {
+      if (!form.packSize || Number(form.packSize) <= 0) e.packSize = t('common.required')
+      if (needsPieceCount(form.unit) && (!form.piecesPerPack || Number(form.piecesPerPack) <= 0)) {
+        e.piecesPerPack = t('common.required')
+      }
+    }
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -136,7 +156,7 @@ export default function EditProduct() {
    * it leaving her hands.
    */
   async function save(submit: boolean) {
-    if (!validate()) return
+    if (!validate(submit)) return
     setBusy(true)
     setServerError('')
     try {
@@ -151,6 +171,8 @@ export default function EditProduct() {
         price: Number(form.price),
         mrp: Number(form.mrp) || 0,
         unit: form.unit,
+        packSize: Number(form.packSize) || undefined,
+        piecesPerPack: needsPieceCount(form.unit) ? Number(form.piecesPerPack) || undefined : undefined,
         stock: form.madeToOrder ? 0 : Number(form.stock),
         madeToOrder: form.madeToOrder,
         ...(submit ? { status: 'LIVE' as const } : {}),
@@ -193,6 +215,8 @@ export default function EditProduct() {
     vegType: p.isFood && form.vegType ? form.vegType : undefined,
     material: p.isFood ? undefined : form.material,
     unit: form.unit,
+    packSize: Number(form.packSize) || undefined,
+    piecesPerPack: needsPieceCount(form.unit) ? Number(form.piecesPerPack) || undefined : undefined,
     mrp: Number(form.mrp) || 0,
     madeToOrder: form.madeToOrder,
   })
@@ -340,6 +364,49 @@ export default function EditProduct() {
             ))}
           </div>
         </Field>
+
+        {/* The size the price is for, beside the unit it counts in. Locked
+            with the rest of what the listing IS once her edits run out. */}
+        <Field
+          label={t('prod.packSize')}
+          hint={t('prod.packSizeHint')}
+          error={errors.packSize}
+          required
+          htmlFor="packSize"
+        >
+          <div className="row" style={{ gap: 'var(--s2)' }}>
+            <TextInput
+              id="packSize"
+              inputMode="numeric"
+              value={form.packSize}
+              error={!!errors.packSize}
+              disabled={locked}
+              onChange={(e) => set('packSize', e.target.value.replace(/[^0-9]/g, ''))}
+              placeholder="500"
+            />
+            <strong style={{ flex: 'none' }}>{t(`unit.${form.unit}`)}</strong>
+          </div>
+        </Field>
+
+        {needsPieceCount(form.unit) && (
+          <Field
+            label={t('prod.piecesPerPack')}
+            hint={t('prod.piecesPerPackHint')}
+            error={errors.piecesPerPack}
+            required
+            htmlFor="piecesPerPack"
+          >
+            <TextInput
+              id="piecesPerPack"
+              inputMode="numeric"
+              value={form.piecesPerPack}
+              error={!!errors.piecesPerPack}
+              disabled={locked}
+              onChange={(e) => set('piecesPerPack', e.target.value.replace(/[^0-9]/g, ''))}
+              placeholder="6"
+            />
+          </Field>
+        )}
 
         <Field label={t('prod.stock')} error={errors.stock} required htmlFor="stock">
           <TextInput

@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { Product } from '@shared/types.js'
 import {
   MAX_EDITS, countsAsEdit, editsAreLimited, editsLeft, initialListingStatus,
-  sellerMayDelete, slotInfo,
+  sellerMayDelete, sizeProblems, slotInfo,
 } from '@shared/seller.js'
 import { getDb, newId, save } from '../db/store.js'
 import { requireRole } from '../middleware/auth.js'
@@ -24,6 +24,9 @@ function listingProblems(b: Partial<Product>): Record<string, string> {
   if (!b.name?.trim()) fields.name = 'उत्पादनाचे नाव आवश्यक आहे'
   if (!b.categoryId) fields.categoryId = 'प्रकार निवडा'
   if (!b.price || Number(b.price) <= 0) fields.price = 'किंमत टाका'
+  // How much one of these IS. A price without it cannot be compared with the
+  // shop next door - see sizeProblems in shared/src/seller.ts.
+  Object.assign(fields, sizeProblems(b))
 
   if (b.isFood) {
     if (!b.ingredients?.trim()) fields.ingredients = 'यात काय आहे ते सांगा'
@@ -117,6 +120,8 @@ productsRouter.post('/', requireRole('seller'), (req, res) => {
     price: Number(b.price ?? 0),
     mrp: Number(b.mrp ?? 0),
     unit: b.unit ?? 'piece',
+    packSize: Number(b.packSize) > 0 ? Number(b.packSize) : undefined,
+    piecesPerPack: Number(b.piecesPerPack) > 0 ? Number(b.piecesPerPack) : undefined,
     stock: b.madeToOrder ? 0 : Number(b.stock ?? 0),
     madeToOrder: !!b.madeToOrder,
     // PENDING, never LIVE - see initialListingStatus. An admin publishes it.
@@ -142,6 +147,7 @@ productsRouter.patch('/:id', requireRole('seller'), (req, res) => {
 
   const allowed = [
     'name', 'nameEn', 'emoji', 'categoryId', 'price', 'mrp', 'unit', 'stock',
+    'packSize', 'piecesPerPack', 
     'madeToOrder', 'ingredients', 'vegType', 'material',
     'imageUrl', 'imagePublicId',
   ] as const

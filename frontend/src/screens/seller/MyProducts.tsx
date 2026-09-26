@@ -5,6 +5,7 @@ import { PRODUCT_STATUS_STYLE, sellerMayDelete } from '@shared/seller.js'
 import { REJECT_GRACE_HOURS, hoursUntilRemoval } from '@shared/moderation.js'
 import { useT } from '../../i18n/I18nProvider.js'
 import { api } from '../../lib/api.js'
+import { sizeLabel } from '../../lib/productSize.js'
 import { useToast } from '../../store/ToastContext.js'
 import ProductImage from '../../components/ProductImage.js'
 import { SubscriptionNotice } from '../../components/SubscriptionNotice.js'
@@ -99,7 +100,7 @@ export default function MyProducts() {
                       <div className="tile__title">{p.name}</div>
                       <div className="row" style={{ gap: 6 }}>
                         <strong><Rupees value={p.price} /></strong>
-                        <span className="small dim">/ {t(`unit.${p.unit}`)}</span>
+                        <span className="small dim">/ {sizeLabel(p, t)}</span>
                       </div>
                       <div className="wrap-row" style={{ marginTop: 4 }}>
                         {/* While the shop is paused a LIVE listing is not live

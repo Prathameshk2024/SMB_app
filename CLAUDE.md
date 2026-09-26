@@ -495,6 +495,21 @@ The tap after paying is Back, so `lib/useReturnFromApp.ts` is armed when she cop
 The admin queue shows the screenshot inline and opens it large beside the UTR, the stated time and the amount. **Approve stays disabled until three checks are ticked** — the UTR matches, the date and time match, the money is on the bank statement — and `POST /admin/payments/:id/approve` refuses any request whose `checks` lack one of `PAYMENT_CHECKS`, so the checklist is the rule and not decoration. The CLI takes `approve <id> --verified` and no longer offers `approve all`. Rejecting needs no checklist: refusing an unproven payment is always safe. `backend/tests/payment-proof.test.ts` holds all of it.
 
 Because approval is by hand, **how long she has been waiting is the number that makes somebody act on it**, and the console owns it: `waited()` in `admin/src/lib/format.ts` computes it from `submittedAt` — minutes under the hour, hours to two days, then days — and `Payments.tsx` re-reads the clock every 30 minutes so a console left open on a desk stops showing the age it had at page load. `/admin/payments` deliberately sends no `waitingHours`: a number computed on the server is frozen at the moment of the response, and two sources for one figure is how an admin stops trusting either.
+### What size is it
+
+`Product.packSize` counts in the listing's own `unit` (500 with `g`), and
+`piecesPerPack` answers the second question a **set** raises: a set of four
+ladoos and a set of twenty are the same word. `sizeProblems()` and
+`needsPieceCount()` in `shared/src/seller.ts` are the rule, enforced by the
+wizard, the edit screen and `listingProblems` on the server — a price with no
+size cannot be compared with the shop next door.
+
+Both are in `EDIT_COUNTED_FIELDS`: moving 500 g to 250 g at the same price is
+a different product, not a correction. The price itself stays free to change,
+for the reason it always was. `sizeLabel()` in `frontend/src/lib/productSize.ts`
+prints it ("500 ग्रॅम", "1 सेट (6 नग)"); a listing from before the question
+existed has none, and its unit alone is still the honest answer.
+
 
 ### Sorting the admin lists
 

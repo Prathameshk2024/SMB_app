@@ -745,6 +745,10 @@ const mr: Record<string, string> = {
   'grow.needMoreData': 'अजून माहिती कमी आहे',
   'grow.needMoreDataSub': 'पहिले ऑर्डर आल्यावर तुमचा आलेख इथे दिसेल',
 
+  'prod.packSize': 'एका नगात किती?',
+  'prod.packSizeHint': 'किंमत कशासाठी आहे ते सांगा. उदा. 500 ग्रॅम, 1 लिटर.',
+  'prod.piecesPerPack': 'एका सेटमध्ये किती नग?',
+  'prod.piecesPerPackHint': 'उदा. 6 लाडू असतील तर 6 लिहा.',
   'unit.kg': 'किलो', 'unit.g': 'ग्रॅम', 'unit.piece': 'नग', 'unit.dozen': 'डझन',
   'unit.litre': 'लिटर', 'unit.ml': 'मिली', 'unit.set': 'सेट',
 
@@ -1481,6 +1485,10 @@ const en: Record<string, string> = {
   'grow.needMoreData': 'Not enough information yet',
   'grow.needMoreDataSub': 'Your chart will appear here after your first order',
 
+  'prod.packSize': 'How much is one?',
+  'prod.packSizeHint': 'Say what the price is for. For example 500 g, or 1 litre.',
+  'prod.piecesPerPack': 'How many in one set?',
+  'prod.piecesPerPackHint': 'If a set is 6 ladoos, write 6.',
   'unit.kg': 'kg', 'unit.g': 'g', 'unit.piece': 'piece', 'unit.dozen': 'dozen',
   'unit.litre': 'litre', 'unit.ml': 'ml', 'unit.set': 'set',
 

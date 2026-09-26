@@ -399,6 +399,22 @@ export interface Product {
   price: number
   mrp: number
   unit: Unit
+  /**
+   * HOW MUCH ONE OF THESE IS, counted in `unit`: 500 with unit `g`, 1 with
+   * unit `set`. A price with no size is not a price - "₹80 for pickle" tells
+   * a buyer nothing until she knows whether that is a 200g jar or a kilo, and
+   * she cannot compare two sellers without it.
+   *
+   * Optional on the type because listings published before the question
+   * existed do not carry one; required by `listingProblems` on anything
+   * submitted since.
+   */
+  packSize?: number
+  /**
+   * For a `set`: how many items are inside one. "1 set" is not an amount -
+   * a set of four ladoos and a set of twenty are the same word.
+   */
+  piecesPerPack?: number
   stock: number
   madeToOrder?: boolean
 
