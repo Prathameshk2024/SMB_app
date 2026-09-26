@@ -400,6 +400,14 @@ export const api = {
     extra?: { otp?: string; reason?: string; deliveryEstimate?: string },
   ) =>
     post<{ order: Order }>(`/orders/${id}/advance`, { to, ...extra }),
+  /**
+   * Her number, so a buyer can ask what delivery costs before she commits to
+   * an order. Fetched on the tap, never carried in the catalogue - see the
+   * route's comment for why.
+   */
+  sellerContact: (sellerId: string) =>
+    get<{ phone: string; whatsapp: string }>(`/catalog/sellers/${sellerId}/contact`),
+
 
   /** The buyer paying, after the seller has accepted. */
   payOrder: (id: string, utr: string) =>
