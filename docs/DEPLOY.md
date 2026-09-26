@@ -395,14 +395,14 @@ the production deployment of Vercel project 1 over the network:
 https://shantai-mahila-bajar-app-frontend.vercel.app/
 ```
 
-**Build from `https://github.com/Prathameshk2024/Android_app`, branch
+**Build from `https://github.com/Prathameshk2024/SMB_android`, branch
 `sub-main`** (checked 26 September 2026). It is the only copy with both push
 notifications and the navigation fixes below. The other copies are older and
 must not be built from:
 
 | Copy | What it lacks |
 |---|---|
-| `Prathameshk2024/Android_app` `main` | Back via `window.history.back()`, reopening on the last page, the sideways-drift fix |
+| `Prathameshk2024/SMB_android` `main` | Back via `window.history.back()`, reopening on the last page, the sideways-drift fix |
 | `ArpitaHanjagi/Android_App` | Push notifications entirely |
 | a local `appgold-main` folder (named here before) | Superseded by the repos above |
 
