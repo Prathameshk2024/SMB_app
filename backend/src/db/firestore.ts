@@ -36,6 +36,7 @@ import type { Db } from './seed.js'
  */
 export const COLLECTIONS = [
   'sellers', 'products', 'orders', 'payments', 'customers', 'reviews', 'reports',
+  'complaints',
   // Auth state. `firestore.rules` already denies every client-SDK read, which
   // matters more for these three than for anything else in the list: `admins`
   // holds password hashes and `sessions` holds live credentials.

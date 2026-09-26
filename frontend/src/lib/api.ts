@@ -6,6 +6,7 @@ import type {
 } from '@shared/types.js'
 import type { SlotInfo } from '@shared/seller.js'
 import type { ReportReason, ReportTarget } from '@shared/report.js'
+import type { ComplaintSubject } from '@shared/complaint.js'
 import type { PaymentKind, SubscriptionView } from '@shared/subscription.js'
 import type { LangCode } from '../i18n/strings.js'
 
@@ -401,6 +402,14 @@ export const api = {
     extra?: { otp?: string; reason?: string; deliveryEstimate?: string },
   ) =>
     post<{ order: Order }>(`/orders/${id}/advance`, { to, ...extra }),
+
+  /**
+   * Something has gone wrong and she needs a person. Recorded against her
+   * account, so an admin can open it and answer - see complaints.routes.ts.
+   */
+  raiseComplaint: (body: { subject: ComplaintSubject; message: string }) =>
+    post<{ ok: true }>('/complaints', body),
+
   /**
    * Her number, so a buyer can ask what delivery costs before she commits to
    * an order. Fetched on the tap, never carried in the catalogue - see the

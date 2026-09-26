@@ -1,5 +1,5 @@
 import type {
-  AdminStats, Order, Product, RatingSummary, ReadinessBand, Report, Review, Seller,
+  AdminStats, Complaint, Order, Product, RatingSummary, ReadinessBand, Report, Review, Seller,
   SubscriptionPayment,
 } from '@shared/types.js'
 import type { SubscriptionView } from '@shared/subscription.js'
@@ -251,6 +251,15 @@ export const api = {
 
   moderateProduct: (id: string, approve: boolean, reason?: string) =>
     post<{ product: Product }>(`/admin/products/${id}/moderate`, { approve, reason }),
+
+  /** What sellers and buyers wrote from Help & Training. A queue to empty. */
+  complaints: (status = 'OPEN') =>
+    get<{ complaints: Complaint[]; openCount: number }>(
+      `/admin/complaints?status=${encodeURIComponent(status)}`,
+    ),
+
+  resolveComplaint: (id: string) =>
+    post<{ complaint: Complaint }>(`/admin/complaints/${id}/resolve`, {}),
 
   sellers: () => get<{ sellers: SellerRow[] }>('/admin/sellers'),
 

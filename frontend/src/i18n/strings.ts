@@ -719,6 +719,17 @@ const mr: Record<string, string> = {
   'help.title': 'मदत व प्रशिक्षण', 'help.faq': 'नेहमीचे प्रश्न',
   'help.contact': 'आमच्याशी बोला', 'help.whatsapp': 'व्हॉट्सॲपवर मदत',
   'help.call': 'फोन करा', 'help.complaint': 'तक्रार नोंदवा',
+  'help.complaintSub': 'काय अडचण आहे ते लिहा. प्रशासक तुमचे खाते पाहून उत्तर देतील.',
+  'help.complaintPlaceholder': 'काय झाले ते थोडक्यात लिहा',
+  'help.complaintSend': 'तक्रार पाठवा',
+  'help.complaintUrgent': 'लगेच हवे असेल तर व्हॉट्सॲप करा',
+  'help.complaintSent': 'तक्रार नोंदवली. प्रशासक बघतील.',
+  'help.complaintFailed': 'तक्रार पाठवता आली नाही. पुन्हा प्रयत्न करा.',
+  'help.subject.payment': 'पैसे किंवा भरणा',
+  'help.subject.order': 'ऑर्डरबद्दल',
+  'help.subject.product': 'उत्पादनाबद्दल',
+  'help.subject.account': 'माझे खाते',
+  'help.subject.other': 'इतर काही',
 
   /* ---- page walkthroughs ---------------------------------------------
      One per bottom tab. Written as instructions to the seller, not as a tour of
@@ -1488,6 +1499,17 @@ const en: Record<string, string> = {
   'help.title': 'Help & Training', 'help.faq': 'Common questions',
   'help.contact': 'Talk to us', 'help.whatsapp': 'Help on WhatsApp',
   'help.call': 'Call us', 'help.complaint': 'Raise a complaint',
+  'help.complaintSub': 'Write what went wrong. An admin will open your account and answer.',
+  'help.complaintPlaceholder': 'Say briefly what happened',
+  'help.complaintSend': 'Send complaint',
+  'help.complaintUrgent': 'Need it now? Message on WhatsApp',
+  'help.complaintSent': 'Complaint recorded. An admin will look at it.',
+  'help.complaintFailed': 'The complaint could not be sent. Please try again.',
+  'help.subject.payment': 'Money or payment',
+  'help.subject.order': 'About an order',
+  'help.subject.product': 'About a product',
+  'help.subject.account': 'My account',
+  'help.subject.other': 'Something else',
 
   /* ---- page walkthroughs ---------------------------------------- */
   'wt.title': 'How to use this app',

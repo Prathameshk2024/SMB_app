@@ -11,6 +11,7 @@ import { sellersRouter } from './routes/sellers.routes.js'
 import { productsRouter } from './routes/products.routes.js'
 import { catalogRouter } from './routes/catalog.routes.js'
 import { ordersRouter } from './routes/orders.routes.js'
+import { complaintsRouter } from './routes/complaints.routes.js'
 import { reportsRouter } from './routes/reports.routes.js'
 import { adminRouter } from './routes/admin.routes.js'
 import { flush, getDb, initStore, resetDb, save } from './db/store.js'
@@ -108,6 +109,7 @@ app.use('/api/catalog', catalogRouter)
 app.use('/api/customers', customersRouter)
 app.use('/api/orders', ordersRouter)
 app.use('/api/reports', reportsRouter)
+app.use('/api/complaints', complaintsRouter)
 app.use('/api/push', pushRouter)
 app.use('/api/uploads', uploadsRouter)
 app.use('/api/qr', qrRouter)

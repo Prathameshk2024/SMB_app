@@ -435,6 +435,40 @@ adminRouter.post('/products/:id/moderate', (req, res) => {
 })
 
 /* ------------------------------------------------------------------ */
+/* Complaints                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * What sellers and buyers have written from Help & Training, newest first.
+ * Open ones by default: this is a queue to work through, not an archive.
+ */
+adminRouter.get('/complaints', (req, res) => {
+  const db = getDb()
+  const status = (req.query.status as string) ?? 'OPEN'
+  const list = db.complaints
+    .filter((c) => (status === 'ALL' ? true : status === 'RESOLVED' ? !!c.resolvedAt : !c.resolvedAt))
+    .sort((a, b) => b.at.localeCompare(a.at))
+  res.json({ complaints: list, openCount: db.complaints.filter((c) => !c.resolvedAt).length })
+})
+
+/**
+ * Dealt with. Who did it is stored for the same reason it is on a payment:
+ * "who answered this woman?" has to be answerable months later.
+ */
+adminRouter.post('/complaints/:id/resolve', (req, res) => {
+  const db = getDb()
+  const complaint = db.complaints.find((c) => c.id === req.params.id)
+  if (!complaint) {
+    res.status(404).json({ error: 'Not found', messageMr: 'ही तक्रार सापडली नाही' })
+    return
+  }
+  complaint.resolvedAt = new Date().toISOString()
+  complaint.resolvedBy = verifierName(db, req)
+  save()
+  res.json({ complaint })
+})
+
+/* ------------------------------------------------------------------ */
 /* Monitoring                                                          */
 /* ------------------------------------------------------------------ */
 

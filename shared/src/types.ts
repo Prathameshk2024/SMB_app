@@ -702,3 +702,29 @@ export interface Report {
   reviewedAt?: string
   reviewedBy?: string
 }
+
+/**
+ * A complaint somebody raised from Help & Training.
+ *
+ * Stored with who wrote it, because that is the whole difference between
+ * this and a WhatsApp message: an admin can open her account, see the ₹50 she
+ * is asking about, and answer. Her name and number are copied in so the queue
+ * can be read and she can be rung back without a lookup per row.
+ */
+export interface Complaint {
+  id: string
+  byRole: 'seller' | 'customer'
+  byUserId: string
+  /** Copied at the time, so the queue reads without joins. */
+  name: string
+  phone: string
+  /** Sellers only - the id a field coordinator recognises. */
+  womenBizId?: string
+  subject: import('./complaint.js').ComplaintSubject
+  message: string
+  at: string
+  /** Dealt with. Who, so "who answered this?" has an answer months later. */
+  resolvedAt?: string
+  resolvedBy?: string
+}
+

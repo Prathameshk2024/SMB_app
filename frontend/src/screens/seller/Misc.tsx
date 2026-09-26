@@ -17,6 +17,7 @@ import {
 } from '../../components/icons.js'
 import { PageTour, TourMenu } from '../../components/Walkthrough.js'
 import { CloseAccountSheet } from '../../components/CloseAccount.js'
+import { ComplaintSheet } from '../../components/ComplaintSheet.js'
 
 /* ================================================================== */
 /* Profile                                                             */
@@ -222,8 +223,17 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 /* Help & Training                                                     */
 /* ================================================================== */
 
+/**
+ * The programme's own number, which both buttons use. Ten digits, no country
+ * code: `+91` is added where it is needed, because `tel:` and `wa.me` want it
+ * written differently and a number typed twice is a number that drifts.
+ */
+const SUPPORT_PHONE = '7057899018'
+
 export function SellerHelp() {
   const t = useT()
+  /** Open while she is writing what went wrong. */
+  const [complaining, setComplaining] = useState(false)
 
   return (
     <>
@@ -239,14 +249,24 @@ export function SellerHelp() {
           <TourMenu role="seller" />
         </div>
 
+        <ComplaintSheet
+          open={complaining}
+          onClose={() => setComplaining(false)}
+          whatsappHref={`https://wa.me/91${SUPPORT_PHONE}`}
+        />
+
         <Card data-wt="help-contact">
           <SectionTitle>{t('help.contact')}</SectionTitle>
           <div className="stack-sm">
-            <a className="btn btn--ghost" href="https://wa.me/919000000000" target="_blank" rel="noreferrer">
+            <a className="btn btn--ghost" href={`https://wa.me/91${SUPPORT_PHONE}`} target="_blank" rel="noreferrer">
               <IconWhatsapp aria-hidden="true" /> {t('help.whatsapp')}
             </a>
-            <a className="btn btn--ghost" href="tel:+919000000000"><IconCall aria-hidden="true" /> {t('help.call')}</a>
-            <Button variant="quiet"><IconEdit aria-hidden="true" /> {t('help.complaint')}</Button>
+            <a className="btn btn--ghost" href={`tel:+91${SUPPORT_PHONE}`}>
+              <IconCall aria-hidden="true" /> {t('help.call')}
+            </a>
+            <Button variant="quiet" onClick={() => setComplaining(true)}>
+              <IconEdit aria-hidden="true" /> {t('help.complaint')}
+            </Button>
           </div>
         </Card>
 
